@@ -71,7 +71,7 @@ export const api = {
   note: (noteId: string) => request<Note>(`${vaultPath}/notes/${noteId}`),
   trashNote: (noteId:string,expectedRevision:number) => request<void>(`${vaultPath}/notes/${noteId}`,{method:"DELETE",body:JSON.stringify({expectedRevision})}),
   restoreTrashedNote: (noteId:string,expectedRevision:number) => request<Note>(`${vaultPath}/notes/${noteId}/restore`,{method:"POST",body:JSON.stringify({expectedRevision})}),
-  noteDocument: (noteId: string, format: "editor_json" | "markdown" | "text" = "text") => request<{ format: typeof format; content: string | EditorDocument; revisionId: string; sourceMap: unknown[] }>(`${vaultPath}/notes/${noteId}/document?format=${format}`),
+  noteDocument: (noteId: string, format: "editor_json" | "markdown" | "text" | "yjs_update" = "text") => request<{ format: typeof format; content: string | EditorDocument; revisionId: string; sourceMap: unknown[] }>(`${vaultPath}/notes/${noteId}/document?format=${format}`),
   editNote: (note: Note, text: string) => request<NoteRevision>(`${vaultPath}/notes/${note.id}/edits`, {
     method: "POST",
     body: JSON.stringify({ expectedRevision: note.revision, edit: { kind: "replace_document", text } })

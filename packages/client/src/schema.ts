@@ -5315,7 +5315,7 @@ export interface components {
         };
         DocumentRepresentation: {
             /** @enum {string} */
-            format: "editor_json" | "markdown" | "text";
+            format: "editor_json" | "markdown" | "text" | "yjs_update";
             content: string | {
                 /** @enum {string} */
                 type: "doc";

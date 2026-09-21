@@ -24369,7 +24369,8 @@
             "enum": [
               "editor_json",
               "markdown",
-              "text"
+              "text",
+              "yjs_update"
             ]
           },
           "content": {

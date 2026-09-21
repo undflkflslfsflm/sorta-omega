@@ -1373,9 +1373,9 @@ app.post("/api/v1/vaults/:vaultId/notes/:noteId/restore",async(request,reply)=>{
 
 app.get("/api/v1/vaults/:vaultId/notes/:noteId/document", async (request, reply) => {
   const { vaultId, noteId } = request.params as { vaultId: string; noteId: string };
-  const { format = "text" } = request.query as { format?: "editor_json" | "markdown" | "text" };
+  const { format = "text" } = request.query as { format?: "editor_json" | "markdown" | "text" | "yjs_update" };
   idSchema.parse(vaultId); idSchema.parse(noteId);
-  if (!["editor_json", "markdown", "text"].includes(format)) return reply.code(400).send({ error: "unsupported_format" });
+  if (!["editor_json", "markdown", "text", "yjs_update"].includes(format)) return reply.code(400).send({ error: "unsupported_format" });
   const result = await query(
     `SELECT n.*, r.id AS revision_id FROM notes n
      JOIN note_revisions r ON r.note_id = n.id AND r.revision = n.revision
@@ -1386,9 +1386,10 @@ app.get("/api/v1/vaults/:vaultId/notes/:noteId/document", async (request, reply)
   if (!note) return reply.code(404).send({ error: "note_not_found" });
   const text = readDocumentText(note.yjs_state, note.body);
   const editorDocument = readEditorDocument(note.yjs_state, note.body);
+  if (format === "yjs_update" && !note.yjs_state?.length) return reply.code(409).send({ error: "canonical_snapshot_missing" });
   return documentRepresentationSchema.parse({
     format,
-    content: format === "editor_json" ? editorDocument : format === "markdown" ? editorDocumentToMarkdown(editorDocument) : text,
+    content: format === "yjs_update" ? Buffer.from(note.yjs_state ?? []).toString("base64") : format === "editor_json" ? editorDocument : format === "markdown" ? editorDocumentToMarkdown(editorDocument) : text,
     revisionId: note.revision_id,
     sourceMap: [{ start: 0, end: text.length, sourceId: note.source_id }]
   });

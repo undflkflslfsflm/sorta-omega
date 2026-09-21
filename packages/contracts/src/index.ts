@@ -215,7 +215,7 @@ export const noteRevisionSchema = z.object({
 });
 
 export const documentRepresentationSchema = z.object({
-  format: z.enum(["editor_json", "markdown", "text"]),
+  format: z.enum(["editor_json", "markdown", "text", "yjs_update"]),
   content: z.union([z.string(), editorDocumentSchema]),
   revisionId: idSchema,
   sourceMap: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().nonnegative(), sourceId: idSchema.nullable() }))
