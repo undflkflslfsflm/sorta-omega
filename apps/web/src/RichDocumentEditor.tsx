@@ -11,14 +11,28 @@ import { Callout, type CalloutKind } from "./Callout";
 
 export default function RichDocumentEditor({ initialDocument, disabled, onSave }: { initialDocument: EditorDocument; disabled: boolean; onSave: (document: EditorDocument) => Promise<void> }) {
   const [editVersion, setEditVersion] = useState(0);
+  const receivedDocument = useRef(initialDocument);
+  const revisionConflict = useRef(false);
   const [dirty,setDirty]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState<string|null>(null);const changeVersion=useRef(0);const savedSignature=useRef(JSON.stringify(initialDocument));const savingRef=useRef(false);
   const editor=useEditor({extensions:[StarterKit.configure({underline:false,link:{openOnClick:false,autolink:true,linkOnPaste:true,protocols:["http","https","mailto"]}}),TaskList,TaskItem.configure({nested:true}),TableKit.configure({table:{resizable:true}}),Callout,Placeholder.configure({placeholder:"Write something worth finding again…"})],content:initialDocument,editorProps:{attributes:{class:"tiptap-document","aria-label":"Rich note editor"}},onUpdate:()=>{changeVersion.current+=1;setDirty(true);setError(null);}});
 
-  async function save(){if(!editor||savingRef.current)return;const parsed=editorDocumentSchema.safeParse(editor.getJSON());if(!parsed.success){setError("This document contains an unsupported block or attribute.");return;}const signature=JSON.stringify(parsed.data);if(signature===savedSignature.current){setDirty(false);return;}const version=changeVersion.current;savingRef.current=true;setSaving(true);setError(null);try{await onSave(parsed.data);savedSignature.current=signature;if(changeVersion.current===version)setDirty(false);}catch(caught){setError(caught instanceof ApiError&&caught.code==="stale_revision"?"This note changed elsewhere. Copy any unsaved text, then reopen the latest revision.":"Autosave failed. Your changes remain in this editor.");}finally{savingRef.current=false;setSaving(false);}}
+  async function save(){if(!editor||savingRef.current||disabled)return;if(revisionConflict.current){setError("A different revision was loaded. Copy your unsaved text and reopen the note before saving.");return;}const parsed=editorDocumentSchema.safeParse(editor.getJSON());if(!parsed.success){setError("This document contains an unsupported block or attribute.");return;}const signature=JSON.stringify(parsed.data);if(signature===savedSignature.current){setDirty(false);return;}const version=changeVersion.current;savingRef.current=true;setSaving(true);setError(null);try{await onSave(parsed.data);savedSignature.current=signature;if(changeVersion.current===version)setDirty(false);}catch(caught){setError(caught instanceof ApiError&&caught.code==="stale_revision"?"This note changed elsewhere. Copy any unsaved text, then reopen the latest revision.":"Autosave failed. Your changes remain in this editor.");}finally{savingRef.current=false;setSaving(false);}}
   useEffect(() => {
     if (!editor) return;
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+  useEffect(() => {
+    if (!editor || receivedDocument.current === initialDocument) return;
+    receivedDocument.current = initialDocument;
+    if (dirty || savingRef.current) {
+      revisionConflict.current = true;
+      setError("A different revision was loaded. Your unsaved text is preserved here; copy it before reopening the note.");
+      return;
+    }
+    editor.commands.setContent(initialDocument, { emitUpdate: false });
+    savedSignature.current = JSON.stringify(initialDocument);
+    setError(null);
+  }, [editor, initialDocument, dirty]);
   useEffect(() => {
     if (!editor) return;
     const changed = () => setEditVersion(version => version + 1);

@@ -603,7 +603,22 @@ function NoteEditor({ note, onClose, onSaved,onTrashed }: { note: Note; onClose:
   useEffect(()=>{expectedRevision.current=Math.max(expectedRevision.current,note.revision);},[note.revision]);
   useEffect(() => { void Promise.all([api.labels(), api.noteLabels(note.id), api.notes(), api.relatedNotes(note.id),api.noteDocument(note.id,"editor_json"),api.noteRevisions(note.id)]).then(([available, organization, allNotes, related,representation,history]) => { setLabels(available.items); setAssignedLabelIds(organization.labels.map(label => label.id)); setLockedLabelIds(organization.labels.filter(label => label.locked).map(label => label.id)); setOtherNotes(allNotes.items.filter(candidate => candidate.id !== note.id)); setRelationships(related.explicitLinks); setRelatedSuggestions(related.suggestedLinks); setDocument(editorDocumentSchema.parse(representation.content));setRevisions(history.items); }).catch(() => setError("Could not load the canonical note document, history, and organization.")); }, [note.id]);
   useEffect(()=>{if(!note.sourceId){setAttachments([]);return;}void api.captureDetails(note.sourceId).then(value=>setAttachments(value.blobs)).catch(()=>setAttachments([]));},[note.sourceId]);
-  async function saveDocument(next:EditorDocument){setBusy(true);setError(null);try{const revision=await api.editNoteDocument(note.id,expectedRevision.current,next);expectedRevision.current=revision.revision;setRevisions((await api.noteRevisions(note.id)).items);await onSaved();}finally{setBusy(false);}}
+  async function saveDocument(next: EditorDocument) {
+    setBusy(true);
+    setError(null);
+    try {
+      const revision = await api.editNoteDocument(note.id, expectedRevision.current, next);
+      expectedRevision.current = revision.revision;
+      try {
+        setRevisions((await api.noteRevisions(note.id)).items);
+        await onSaved();
+      } catch {
+        setError("Your note was saved, but refreshing its history or the note list failed. Reopen it to refresh.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
   function currentNote(){return {...note,revision:expectedRevision.current};}
   async function correctClassification() { setBusy(true); setError(null); try { await api.correctNoteClassification(currentNote(), classification, lockClassification); await onSaved(); } catch { setError("The classification correction was not saved."); } finally { setBusy(false); } }
   async function saveLabels() { setBusy(true); setError(null); try { await api.setNoteLabels(currentNote(), assignedLabelIds, lockedLabelIds.filter(id => assignedLabelIds.includes(id))); await onSaved(); } catch { setError("The label changes were not saved."); } finally { setBusy(false); } }
