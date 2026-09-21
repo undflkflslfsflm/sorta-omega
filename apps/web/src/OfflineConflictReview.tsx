@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
-import { syncConflicts, type StoredSyncConflict } from "./offline-queue";
+import { dismissSyncConflict, syncConflicts, type StoredSyncConflict } from "./offline-queue";
 
 export function OfflineConflictReview() {
   const [items, setItems] = useState<StoredSyncConflict[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  async function dismiss(item: StoredSyncConflict) {
+    if (!window.confirm("Remove this saved conflict and its original change from this browser? Download it first if you need a copy. This does not apply the change to the server.")) return;
+    setRemoving(item.id);
+    try {
+      await dismissSyncConflict(item.id);
+      setItems(current => current.filter(value => value.id !== item.id));
+      setError(null);
+    } catch { setError("The conflict could not be removed. Its saved copy remains available."); }
+    finally { setRemoving(null); }
+  }
   async function refresh() {
     try { setItems(await syncConflicts()); setError(null); }
     catch { setError("Could not read this browser's saved conflicts."); }
@@ -28,6 +39,7 @@ export function OfflineConflictReview() {
       <p>{item.code.replaceAll("_", " ")} · {item.tombstoned ? "Record was deleted" : `Current revision: ${item.currentRevision ?? "unavailable"}`}</p>
       {item.operation ? <details><summary>Review original change</summary><pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{JSON.stringify(item.operation, null, 2)}</pre></details> : <p>This older conflict has no retained original payload.</p>}
       <button type="button" className="text-button" onClick={() => download(item)}>Download conflict</button>
+      <button type="button" className="text-button danger" disabled={removing !== null} onClick={() => void dismiss(item)}>{removing === item.id ? "Removing…" : "Dismiss reviewed conflict"}</button>
     </article>)}
   </section>;
 }

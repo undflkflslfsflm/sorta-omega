@@ -72,6 +72,7 @@ export async function queueSyncOperation(operation:SyncOperation){
 }
 export async function pendingSyncOperations(){return (await getAll<PendingSyncOperation>(SYNC_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
 export async function syncConflicts(){return (await getAll<StoredSyncConflict>(CONFLICT_STORE)).sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));}
+export async function dismissSyncConflict(id:string){await remove(CONFLICT_STORE,id);}
 export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);}
 async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   const batchIds=new Set(batch.map(item=>item.id));

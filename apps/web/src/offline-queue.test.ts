@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import { dismissSyncConflict } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
@@ -66,5 +67,9 @@ describe("trusted browser replica",()=>{
     const result=await flushSyncOperations(async(operations,cursor)=>{expect(cursor).toBe("cursor-1");expect(operations.map(item=>item.operationId)).toEqual([first,second]);return{acceptedOperationIds:[first],cursor:"cursor-2",conflicts:[{operationId:second,code:"stale_revision",currentRevision:2,tombstoned:false}]};});
     expect(result).toEqual({sent:1,remaining:0,conflicts:1});expect(await syncCursor()).toBe("cursor-2");expect(await pendingSyncOperations()).toEqual([]);expect((await syncConflicts())[0]?.operationId).toBe(second);
     expect((await syncConflicts())[0]?.operation).toMatchObject({operationId:second,command:{title:"Two"}});
+    await queueSyncOperation({type:"task_create",operationId:first,taskId:"00000000-0000-4000-8000-000000000121",command:{title:"Still pending",priority:3,allowSplit:true}});
+    await dismissSyncConflict(second);
+    expect(await syncConflicts()).toEqual([]);
+    expect((await pendingSyncOperations()).map(item=>item.id)).toEqual([first]);
   });
 });
