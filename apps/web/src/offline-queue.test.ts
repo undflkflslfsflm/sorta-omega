@@ -28,6 +28,23 @@ describe("trusted browser replica",()=>{
     expect((await cachedCoreRecords())?.notes).toEqual([]);
   });
 
+  it("rolls back queue deletion and cursor advancement when storing a conflict fails",async()=>{
+    const id="00000000-0000-4000-8000-000000000211";
+    await setSyncCursor("before");
+    await queueSyncOperation({type:"task_create",operationId:id,taskId:"00000000-0000-4000-8000-000000000212",command:{title:"Keep my change",priority:3,allowSplit:true}});
+    const original=IDBObjectStore.prototype.put;
+    const spy=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementation(function(this:IDBObjectStore,value:unknown,key?:IDBValidKey){
+      if(this.name==="sync-conflicts")throw new Error("Simulated disk failure");
+      return original.call(this,value,key);
+    });
+    try {
+      await expect(flushSyncOperations(async()=>({acceptedOperationIds:[],cursor:"after",conflicts:[{operationId:id,code:"stale_revision",currentRevision:2,tombstoned:false}]}))).rejects.toThrow();
+    } finally { spy.mockRestore(); }
+    expect(await syncCursor()).toBe("before");
+    expect((await pendingSyncOperations()).map(item=>item.id)).toEqual([id]);
+    expect(await syncConflicts()).toEqual([]);
+  });
+
   it("flushes ordered operations once, advances the cursor, and retains conflicts for review",async()=>{
     const first="00000000-0000-4000-8000-000000000111",second="00000000-0000-4000-8000-000000000112";
     await setReplicaDeviceId("00000000-0000-4000-8000-000000000100");await setSyncCursor("cursor-1");

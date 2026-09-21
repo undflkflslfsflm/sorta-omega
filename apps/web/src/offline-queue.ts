@@ -57,9 +57,26 @@ export async function queueSyncOperation(operation:SyncOperation){await put(SYNC
 export async function pendingSyncOperations(){return (await getAll<PendingSyncOperation>(SYNC_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
 export async function syncConflicts(){return (await getAll<StoredSyncConflict>(CONFLICT_STORE)).sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));}
 export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);}
+async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
+  const batchIds=new Set(batch.map(item=>item.id));
+  const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);
+  if([...completed].some(id=>!batchIds.has(id)))throw new Error("Sync acknowledgement contains an unknown operation");
+  const db=await database();
+  await new Promise<void>((resolve,reject)=>{
+    const tx=db.transaction([META_STORE,SYNC_STORE,CONFLICT_STORE],"readwrite");
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onabort=()=>{db.close();reject(tx.error??new Error("Sync acknowledgement transaction aborted"));};
+    try {
+      tx.objectStore(META_STORE).put({id:"cursor",value:ack.cursor});
+      for(const id of completed)tx.objectStore(SYNC_STORE).delete(id);
+      for(const conflict of ack.conflicts)tx.objectStore(CONFLICT_STORE).put({...conflict,id:conflict.operationId,recordedAt:new Date().toISOString()});
+    } catch(error){tx.abort();reject(error);}
+  });
+  return completed.size;
+}
 export async function flushSyncOperations(send:(operations:SyncOperation[],cursor:string)=>Promise<SyncAck>){
   const cursor=await syncCursor();if(!cursor)return {sent:0,remaining:(await pendingSyncOperations()).length,conflicts:0};
   let sent=0,conflictCount=0,currentCursor=cursor;
-  for(;;){const batch=(await pendingSyncOperations()).slice(0,100);if(!batch.length)break;const ack=await send(batch.map(item=>item.operation),currentCursor);currentCursor=ack.cursor;await setSyncCursor(currentCursor);const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);for(const item of batch)if(completed.has(item.id))await remove(SYNC_STORE,item.id);for(const conflict of ack.conflicts){await put(CONFLICT_STORE,{...conflict,id:conflict.operationId,recordedAt:new Date().toISOString()});conflictCount++;}sent+=ack.acceptedOperationIds.length;if(completed.size===0)break;}
+  for(;;){const batch=(await pendingSyncOperations()).slice(0,100);if(!batch.length)break;const ack=await send(batch.map(item=>item.operation),currentCursor);const completed=await persistSyncAck(ack,batch);currentCursor=ack.cursor;conflictCount+=ack.conflicts.length;sent+=ack.acceptedOperationIds.length;if(completed===0)break;}
   return {sent,remaining:(await pendingSyncOperations()).length,conflicts:conflictCount};
 }
