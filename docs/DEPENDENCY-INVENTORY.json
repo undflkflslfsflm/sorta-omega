@@ -4,13 +4,13 @@
     "packageManager": "pnpm@10.15.1",
     "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
-    "pnpmLockfileSha256": "12b15959635c42411aab6efb9c4097dee9346bd7cf99d4947d2752fc34ab38cf",
+    "pnpmLockfileSha256": "064db8057e6cb7940a96aab2c4867cc055687aef2e8037211c8316967abf7e6d",
     "javascriptLicenseCommand": "pnpm licenses list --json"
   },
   "summary": {
     "workspaceManifests": 9,
-    "installedJavascriptPackages": 315,
-    "installedJavascriptPackageVersions": 327,
+    "installedJavascriptPackages": 317,
+    "installedJavascriptPackageVersions": 329,
     "javascriptLicenseExpressions": 11
   },
   "directJavascriptDependencies": [
@@ -99,6 +99,11 @@
           "name": "vitest",
           "requested": "^3.2.4",
           "section": "devDependencies"
+        },
+        {
+          "name": "y-prosemirror",
+          "requested": "1.3.7",
+          "section": "dependencies"
         },
         {
           "name": "yjs",
@@ -510,8 +515,8 @@
       },
       {
         "license": "MIT",
-        "packages": 272,
-        "versions": 281
+        "packages": 274,
+        "versions": 283
       },
       {
         "license": "Python-2.0",
@@ -3507,6 +3512,26 @@
         "author": "Raynos",
         "homepage": "https://github.com/Raynos/xtend",
         "description": "extend like a boss"
+      },
+      {
+        "name": "y-prosemirror",
+        "versions": [
+          "1.3.7"
+        ],
+        "license": "MIT",
+        "author": "Kevin Jahns",
+        "homepage": "https://github.com/yjs/y-prosemirror#readme",
+        "description": "Prosemirror bindings for Yjs"
+      },
+      {
+        "name": "y-protocols",
+        "versions": [
+          "1.0.7"
+        ],
+        "license": "MIT",
+        "author": "Kevin Jahns",
+        "homepage": "https://github.com/yjs/y-protocols#readme",
+        "description": "Yjs encoding protocols"
       },
       {
         "name": "yallist",
