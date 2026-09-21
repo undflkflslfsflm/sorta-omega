@@ -3,6 +3,46 @@ import * as Y from "yjs";
 import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
 
 describe("canonical note documents", () => {
+  function offlineUpdate(state: Uint8Array, edit: (document: Y.Doc) => void) {
+    const client = new Y.Doc();
+    Y.applyUpdate(client, state);
+    const vector = Y.encodeStateVector(client);
+    edit(client);
+    const update = Buffer.from(Y.encodeStateAsUpdate(client, vector)).toString("base64");
+    client.destroy();
+    return update;
+  }
+
+  it("converges concurrent text insertions in either delivery order", () => {
+    const baseline = createDocumentState("Meeting");
+    const alice = offlineUpdate(baseline, doc => doc.getText("content").insert(7, " with Alice"));
+    const bob = offlineUpdate(baseline, doc => doc.getText("content").insert(7, " with Bob"));
+    const aliceThenBob = mergeDocumentUpdate(mergeDocumentUpdate(baseline, alice).state, bob);
+    const bobThenAlice = mergeDocumentUpdate(mergeDocumentUpdate(baseline, bob).state, alice);
+    expect(aliceThenBob.text).toBe(bobThenAlice.text);
+    expect(aliceThenBob.document).toEqual(bobThenAlice.document);
+    expect(aliceThenBob.text).toContain("with Alice");
+    expect(aliceThenBob.text).toContain("with Bob");
+    const replay = mergeDocumentUpdate(aliceThenBob.state, alice);
+    expect(replay.text).toBe(aliceThenBob.text);
+    expect(replay.document).toEqual(aliceThenBob.document);
+    expect(replay.state).toEqual(aliceThenBob.state);
+  });
+
+  it("keeps an offline clear empty across replay and reload with a stale fallback", () => {
+    const baseline = createDocumentState("Remove this text");
+    const update = offlineUpdate(baseline, doc => {
+      const text = doc.getText("content");
+      text.delete(0, text.length);
+    });
+    const cleared = mergeDocumentUpdate(baseline, update, "Remove this text");
+    const replay = mergeDocumentUpdate(cleared.state, update, "Remove this text");
+    expect(replay.text).toBe("");
+    expect(readDocumentText(replay.state, "Remove this text")).toBe("");
+    expect(readEditorDocument(replay.state, "Remove this text")).toEqual(toEditorJson(""));
+    expect(replay.state).toEqual(cleared.state);
+  });
+
   it("keeps an explicitly cleared document empty even with an old text fallback", () => {
     const cleared = replaceDocumentText(createDocumentState("Old private text"), "");
     expect(readDocumentText(cleared, "Old private text")).toBe("");
