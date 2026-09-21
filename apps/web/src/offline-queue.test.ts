@@ -1,5 +1,5 @@
 import "fake-indexeddb/auto";
-import { beforeEach,describe,expect,it } from "vitest";
+import { beforeEach,describe,expect,it,vi } from "vitest";
 import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
 const storage=new Map<string,string>();
@@ -7,6 +7,20 @@ Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>st
 
 describe("trusted browser replica",()=>{
   beforeEach(async()=>{storage.clear();await clearPendingCaptures();await clearOfflineReplica();});
+
+  it("rejects a write that succeeds at request level but aborts before commit",async()=>{
+    const original=IDBObjectStore.prototype.put;
+    const spy=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementation(function(this:IDBObjectStore,value:unknown,key?:IDBValidKey){
+      const request=original.call(this,value,key);
+      const transaction=this.transaction;
+      request.addEventListener("success",()=>transaction.abort());
+      return request;
+    });
+    try {
+      await expect(setSyncCursor("uncommitted-cursor")).rejects.toBeDefined();
+    } finally { spy.mockRestore(); }
+    expect(await syncCursor()).toBeNull();
+  });
 
   it("keeps trust explicit and caches only the selected core projection",async()=>{
     expect(offlineCaptureEnabled()).toBe(false);setOfflineCaptureEnabled(true);expect(offlineCaptureEnabled()).toBe(true);

@@ -19,7 +19,22 @@ export function setOfflineCaptureEnabled(enabled:boolean){ localStorage.setItem(
 function database():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{const request=indexedDB.open(DATABASE,2);request.onupgradeneeded=()=>{for(const name of [CAPTURE_STORE,META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name,{keyPath:"id"});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
 }
-async function withStore<T>(storeName:string,mode:IDBTransactionMode,action:(store:IDBObjectStore,done:(value:T)=>void,fail:(reason:unknown)=>void)=>void):Promise<T>{const db=await database();return new Promise((resolve,reject)=>{const transaction=db.transaction(storeName,mode);action(transaction.objectStore(storeName),resolve,reject);transaction.oncomplete=()=>db.close();transaction.onerror=()=>reject(transaction.error);});}
+async function withStore<T>(storeName:string,mode:IDBTransactionMode,action:(store:IDBObjectStore,done:(value:T)=>void,fail:(reason:unknown)=>void)=>void):Promise<T>{
+  const db=await database();
+  return new Promise((resolve,reject)=>{
+    let transaction: IDBTransaction;
+    try { transaction=db.transaction(storeName,mode); }
+    catch(error){db.close();reject(error);return;}
+    let result:T;
+    let failure:unknown;
+    transaction.oncomplete=()=>{db.close();resolve(result);};
+    transaction.onabort=()=>{db.close();reject(failure??transaction.error??new Error("Offline transaction aborted"));};
+    transaction.onerror=()=>{failure??=transaction.error;};
+    const fail=(reason:unknown)=>{failure=reason;try{transaction.abort();}catch{db.close();reject(reason);}};
+    try { action(transaction.objectStore(storeName),value=>{result=value;},fail); }
+    catch(error){fail(error);}
+  });
+}
 async function put<T extends {id:string}>(storeName:string,item:T){await withStore<void>(storeName,"readwrite",(store,done,fail)=>{const request=store.put(item);request.onsuccess=()=>done();request.onerror=()=>fail(request.error);});}
 async function get<T>(storeName:string,id:string){return withStore<T|undefined>(storeName,"readonly",(store,done,fail)=>{const request=store.get(id);request.onsuccess=()=>done(request.result as T|undefined);request.onerror=()=>fail(request.error);});}
 async function getAll<T>(storeName:string){return withStore<T[]>(storeName,"readonly",(store,done,fail)=>{const request=store.getAll();request.onsuccess=()=>done(request.result as T[]);request.onerror=()=>fail(request.error);});}
