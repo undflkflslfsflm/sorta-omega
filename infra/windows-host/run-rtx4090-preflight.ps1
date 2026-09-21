@@ -169,7 +169,7 @@ if (Test-CommandAvailable 'node') {
   $nodeVersionText = (& node --version 2>&1 | Select-Object -First 1).ToString().Trim().TrimStart('v')
   $nodeVersion = $null
   $validNode = [version]::TryParse($nodeVersionText, [ref]$nodeVersion) -and $nodeVersion.Major -eq 22
-  Add-Check -Name 'Node.js 22.x' -Passed $validNode -Required $true -Detail "$nodeVersionText; Node 24 is rejected because its Windows Vitest worker can crash after completing API assertions"
+  Add-Check -Name 'Node.js 22.x' -Passed $validNode -Required $true -Detail "$nodeVersionText; pinned release baseline. Parallel API worker crashes were reported on both Node 22 and 24; use the default single-worker API test command."
 } else {
   Add-Check -Name 'Node.js 22.x' -Passed $false -Required $true -Detail 'node is not installed or is not on PATH'
 }
