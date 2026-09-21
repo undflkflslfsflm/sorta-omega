@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
-import { readRichDocument, richDocumentFragmentName } from "./rich-document.js";
+import { initializeRichDocument, readRichDocument, richDocumentFragmentName } from "./rich-document.js";
 
 describe("shared rich-text representation", () => {
+  it("initializes formatted blocks once and preserves adjacent marked text order", () => {
+    const document = new Y.Doc();
+    const input = { type:"doc", content:[
+      {type:"heading",attrs:{level:2},content:[{type:"text",text:"First",marks:[{type:"bold",attrs:{}}]},{type:"text",text:" second",marks:[{type:"italic",attrs:{}}]}]},
+      {type:"callout",attrs:{kind:"warning"},content:[{type:"paragraph",content:[{type:"text",text:"Keep this"}]}]},
+      {type:"taskList",content:[{type:"taskItem",attrs:{checked:true},content:[{type:"paragraph",content:[{type:"text",text:"Done"}]}]}]}
+    ]};
+    expect(initializeRichDocument(document,input)).toBe(true);
+    expect(readRichDocument(document)).toEqual(input);
+    const before=Y.encodeStateAsUpdate(document);
+    expect(initializeRichDocument(document,{type:"doc",content:[{type:"paragraph"}]})).toBe(false);
+    expect(Y.encodeStateAsUpdate(document)).toEqual(before);
+    const restored=new Y.Doc();Y.applyUpdate(restored,before);
+    expect(readRichDocument(restored)).toEqual(input);
+    document.destroy();restored.destroy();
+  });
   it("merges concurrent formatted text without dropping marks", () => {
     const base = new Y.Doc();
     const paragraph = new Y.XmlElement("paragraph");
