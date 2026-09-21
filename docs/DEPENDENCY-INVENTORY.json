@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "sources": {
     "packageManager": "pnpm@10.15.1",
-    "nodeEngine": ">=22",
+    "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
     "pnpmLockfileSha256": "12b15959635c42411aab6efb9c4097dee9346bd7cf99d4947d2752fc34ab38cf",
     "javascriptLicenseCommand": "pnpm licenses list --json"
