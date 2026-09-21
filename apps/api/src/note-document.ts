@@ -110,7 +110,7 @@ export function createDocumentState(text: string): Buffer {
 export function readDocumentText(state: Uint8Array | Buffer | null, fallback = ""): string {
   if (!state?.length) return fallback;
   const document = loadDocument(state);
-  return document.getText(textName).toString() || fallback;
+  return document.getText(textName).toString();
 }
 
 export function readEditorDocument(state: Uint8Array | Buffer | null, fallback = ""): EditorDocument {
@@ -123,7 +123,7 @@ export function readEditorDocument(state: Uint8Array | Buffer | null, fallback =
       if (parsed.success) return parsed.data;
     } catch { /* fall through to the legacy text projection */ }
   }
-  return toEditorJson(document.getText(textName).toString() || fallback);
+  return toEditorJson(document.getText(textName).toString());
 }
 
 export function replaceEditorDocument(state: Uint8Array | Buffer | null, input: unknown, fallback = ""): { state: Buffer; text: string; document: EditorDocument } {

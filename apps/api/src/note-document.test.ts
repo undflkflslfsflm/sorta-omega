@@ -3,6 +3,28 @@ import * as Y from "yjs";
 import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
 
 describe("canonical note documents", () => {
+  it("keeps an explicitly cleared document empty even with an old text fallback", () => {
+    const cleared = replaceDocumentText(createDocumentState("Old private text"), "");
+    expect(readDocumentText(cleared, "Old private text")).toBe("");
+    expect(readEditorDocument(cleared, "Old private text")).toEqual(toEditorJson(""));
+    const appended = appendDocumentText(cleared, "New text", "Old private text");
+    expect(appended.text.trim()).toBe("New text");
+  });
+
+  it("keeps a cleared legacy Yjs document empty after reload", () => {
+    const legacy = new Y.Doc();
+    legacy.getText("content").insert(0, "Deleted text");
+    legacy.getText("content").delete(0, 12);
+    const state = Buffer.from(Y.encodeStateAsUpdate(legacy));
+    expect(readDocumentText(state, "Deleted text")).toBe("");
+    expect(readEditorDocument(state, "Deleted text")).toEqual(toEditorJson(""));
+  });
+
+  it("uses fallback text only when no canonical snapshot exists", () => {
+    expect(readDocumentText(null, "Legacy body")).toBe("Legacy body");
+    expect(readEditorDocument(null, "Legacy body")).toEqual(toEditorJson("Legacy body"));
+  });
+
   it("round-trips text through a Yjs update", () => {
     const state = createDocumentState("Original promise");
     expect(readDocumentText(state)).toBe("Original promise");
