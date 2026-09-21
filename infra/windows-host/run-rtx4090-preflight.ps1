@@ -65,12 +65,23 @@ function Invoke-NativeCheck {
 }
 
 function Test-SafeStoragePath {
-  param([Parameter(Mandatory)][string]$PathValue)
+  param([AllowEmptyString()][string]$PathValue)
 
+  if ([string]::IsNullOrWhiteSpace($PathValue)) { return $false }
   if (-not [System.IO.Path]::IsPathFullyQualified($PathValue)) { return $false }
   $fullPath = [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\')
   $root = [System.IO.Path]::GetPathRoot($fullPath).TrimEnd('\')
   return $fullPath -ne $root
+}
+
+function Test-LoopbackEndpoint([string]$Value) {
+  $endpoint = $null
+  return [Uri]::TryCreate($Value, [UriKind]::Absolute, [ref]$endpoint) -and
+    $endpoint.Scheme -eq 'http' -and
+    $endpoint.Host -in @('127.0.0.1', '[::1]', '::1') -and
+    [string]::IsNullOrEmpty($endpoint.UserInfo) -and
+    [string]::IsNullOrEmpty($endpoint.Query) -and
+    [string]::IsNullOrEmpty($endpoint.Fragment)
 }
 
 function Set-OwnerOnlyAcl {
@@ -147,7 +158,7 @@ foreach ($storage in @(
     New-Item -ItemType Directory -Path $storage.path -Force | Out-Null
     Set-OwnerOnlyAcl -PathValue $storage.path
   }
-  $exists = Test-Path -LiteralPath $storage.path -PathType Container
+  $exists = $safePath -and (Test-Path -LiteralPath $storage.path -PathType Container)
   Add-Check -Name $storage.name -Passed ($safePath -and $exists) -Required $true -Detail "$($storage.path); use -PrepareStorage to create the reviewed path"
 }
 
@@ -197,7 +208,9 @@ if (Test-Path -LiteralPath $vswhere) {
   Add-Check -Name 'MSVC and Windows SDK' -Passed $false -Required $true -Detail 'Visual Studio Installer vswhere.exe not found'
 }
 
-if (-not $SkipRepositoryGates) {
+if ($SkipRepositoryGates) {
+  Add-Check -Name 'Repository gates' -Passed $false -Required $true -Detail 'Not run: -SkipRepositoryGates was supplied; this report cannot establish readiness'
+} elseif (-not ($checks | Where-Object { $_.name -in @('Node.js 22.x', 'pnpm 10.15.1') -and -not $_.passed })) {
   Push-Location $repoRoot
   try {
     $gateCommands = @(
@@ -215,6 +228,8 @@ if (-not $SkipRepositoryGates) {
   } finally {
     Pop-Location
   }
+} else {
+  Add-Check -Name 'Repository gates' -Passed $false -Required $true -Detail 'Not run: required Node/pnpm versions are unavailable'
 }
 
 $requiredModel = 'Qwen/Qwen3.8-Flash-Next'
@@ -226,28 +241,31 @@ Add-Check -Name 'Generation model immutable digest' -Passed (-not [string]::IsNu
 $chatBaseUrl = [Environment]::GetEnvironmentVariable('OPENAI_COMPATIBLE_BASE_URL')
 if ([string]::IsNullOrWhiteSpace($chatBaseUrl)) {
   Add-Check -Name 'Generation runtime model listing' -Passed $false -Required $true -Detail 'OPENAI_COMPATIBLE_BASE_URL is unset'
+} elseif (-not (Test-LoopbackEndpoint $chatBaseUrl)) {
+  Add-Check -Name 'Generation runtime model listing' -Passed $false -Required $true -Detail 'Endpoint must use HTTP with a numeric loopback address and no credentials, query or fragment'
 } else {
   try {
     $headers = @{}
     $chatApiKey = [Environment]::GetEnvironmentVariable('OPENAI_COMPATIBLE_API_KEY')
     if (-not [string]::IsNullOrWhiteSpace($chatApiKey)) { $headers.Authorization = "Bearer $chatApiKey" }
     $modelsUri = "$($chatBaseUrl.TrimEnd('/'))/models"
-    $models = Invoke-RestMethod -Method Get -Uri $modelsUri -Headers $headers -TimeoutSec 10
+    $models = Invoke-RestMethod -Method Get -Uri $modelsUri -Headers $headers -TimeoutSec 10 -MaximumRedirection 0
     $modelIds = @($models.data | ForEach-Object { $_.id })
     Add-Check -Name 'Generation runtime model listing' -Passed ($requiredModel -in $modelIds) -Required $true -Detail "endpoint=$modelsUri required-model-present=$($requiredModel -in $modelIds)"
   } catch {
-    Add-Check -Name 'Generation runtime model listing' -Passed $false -Required $true -Detail "model endpoint unavailable: $($_.Exception.Message)"
+    Add-Check -Name 'Generation runtime model listing' -Passed $false -Required $true -Detail 'Model listing failed; response content omitted from evidence'
   }
 }
 
 $ollamaBaseUrl = [Environment]::GetEnvironmentVariable('OLLAMA_BASE_URL')
 if ([string]::IsNullOrWhiteSpace($ollamaBaseUrl)) { $ollamaBaseUrl = 'http://127.0.0.1:11434' }
 try {
-  $ollamaTags = Invoke-RestMethod -Method Get -Uri "$($ollamaBaseUrl.TrimEnd('/'))/api/tags" -TimeoutSec 10
+  if (-not (Test-LoopbackEndpoint $ollamaBaseUrl)) { throw 'Invalid loopback endpoint' }
+  $ollamaTags = Invoke-RestMethod -Method Get -Uri "$($ollamaBaseUrl.TrimEnd('/'))/api/tags" -TimeoutSec 10 -MaximumRedirection 0
   $embeddingNames = @($ollamaTags.models | ForEach-Object { $_.name })
   Add-Check -Name 'Qwen embedding model installed' -Passed ('qwen3-embedding:0.6b' -in $embeddingNames) -Required $true -Detail "endpoint=$ollamaBaseUrl model=qwen3-embedding:0.6b"
 } catch {
-  Add-Check -Name 'Qwen embedding model installed' -Passed $false -Required $true -Detail "Ollama API unavailable: $($_.Exception.Message)"
+  Add-Check -Name 'Qwen embedding model installed' -Passed $false -Required $true -Detail 'Ollama listing failed or endpoint is not numeric HTTP loopback; response content omitted'
 }
 
 $report = [ordered]@{
