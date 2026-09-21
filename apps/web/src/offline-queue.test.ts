@@ -29,6 +29,24 @@ describe("trusted browser replica",()=>{
     expect((await cachedCoreRecords())?.notes).toEqual([]);
   });
 
+  it("shares overlapping flushes and permits retry after a failed send",async()=>{
+    await setSyncCursor("cursor");
+    const id="00000000-0000-4000-8000-000000000321";
+    await queueSyncOperation({type:"task_create",operationId:id,taskId:"00000000-0000-4000-8000-000000000322",command:{title:"Only once",priority:3,allowSplit:true}});
+    const failing=vi.fn().mockRejectedValue(new Error("offline"));
+    const first=flushSyncOperations(failing);
+    const second=flushSyncOperations(failing);
+    expect(first).toBe(second);
+    const failures=await Promise.allSettled([first,second]);
+    expect(failures.map(result=>result.status)).toEqual(["rejected","rejected"]);
+    expect(failing).toHaveBeenCalledTimes(1);
+    const succeeding=vi.fn().mockResolvedValue({acceptedOperationIds:[id],cursor:"cursor",conflicts:[]});
+    const retry=flushSyncOperations(succeeding);
+    expect(flushSyncOperations(succeeding)).toBe(retry);
+    expect(await retry).toEqual({sent:1,remaining:0,conflicts:0});
+    expect(succeeding).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves enqueue order within one millisecond and refuses changed operation IDs",async()=>{
     const time=vi.spyOn(Date,"now").mockReturnValue(1700000000000);
     const first={type:"task_create" as const,operationId:"00000000-0000-4000-8000-000000000999",taskId:"00000000-0000-4000-8000-000000000123",command:{title:"First",priority:3,allowSplit:true}};

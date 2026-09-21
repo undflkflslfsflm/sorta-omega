@@ -91,7 +91,13 @@ async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   });
   return completed.size;
 }
-export async function flushSyncOperations(send:(operations:SyncOperation[],cursor:string)=>Promise<SyncAck>){
+let activeSyncFlush: Promise<{sent:number;remaining:number;conflicts:number}> | null = null;
+export function flushSyncOperations(send:(operations:SyncOperation[],cursor:string)=>Promise<SyncAck>){
+  if(activeSyncFlush)return activeSyncFlush;
+  activeSyncFlush=runSyncFlush(send).finally(()=>{activeSyncFlush=null;});
+  return activeSyncFlush;
+}
+async function runSyncFlush(send:(operations:SyncOperation[],cursor:string)=>Promise<SyncAck>){
   const cursor=await syncCursor();if(!cursor)return {sent:0,remaining:(await pendingSyncOperations()).length,conflicts:0};
   let sent=0,conflictCount=0,currentCursor=cursor;
   for(;;){const batch=(await pendingSyncOperations()).slice(0,100);if(!batch.length)break;const ack=await send(batch.map(item=>item.operation),currentCursor);const completed=await persistSyncAck(ack,batch);currentCursor=ack.cursor;conflictCount+=ack.conflicts.length;sent+=ack.acceptedOperationIds.length;if(completed===0)break;}
