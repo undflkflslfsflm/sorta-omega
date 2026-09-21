@@ -96,13 +96,33 @@ function Set-OwnerOnlyAcl {
     [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18'),
     [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')
   )
-  $acl = Get-Acl -LiteralPath $PathValue
+  $acl = [System.Security.AccessControl.DirectorySecurity]::new()
+  $acl.SetOwner($identities[0])
   $acl.SetAccessRuleProtection($true, $false)
   foreach ($identity in $identities) {
     $rule = [System.Security.AccessControl.FileSystemAccessRule]::new($identity, $fullControl, $inheritance, $propagation, $allow)
     [void]$acl.AddAccessRule($rule)
   }
   Set-Acl -LiteralPath $PathValue -AclObject $acl
+}
+
+function Get-StorageDiskIdentity([string]$PathValue) {
+  $item = Get-Item -LiteralPath $PathValue -ErrorAction Stop
+  while ($null -ne $item) {
+    if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+      throw 'Storage path contains a reparse point; physical destination needs separate verification'
+    }
+    $item = $item.Parent
+  }
+  $volume = Get-Volume -FilePath $PathValue -ErrorAction Stop
+  $partitions = @($volume | Get-Partition -ErrorAction Stop)
+  if ($partitions.Count -ne 1) { throw 'Storage volume does not resolve to one partition' }
+  $disk = $partitions[0] | Get-Disk -ErrorAction Stop
+  if ([string]::IsNullOrWhiteSpace($disk.UniqueId)) { throw 'Disk identity unavailable' }
+  if ($disk.BusType -in @('Virtual', 'File Backed Virtual', 'Spaces')) {
+    throw 'Virtual storage backing requires separate physical independence verification'
+  }
+  return $disk.UniqueId
 }
 
 New-Item -ItemType Directory -Path $evidenceRoot -Force | Out-Null
@@ -155,19 +175,43 @@ foreach ($storage in @(
 )) {
   $safePath = Test-SafeStoragePath -PathValue $storage.path
   if ($PrepareStorage -and $safePath) {
-    New-Item -ItemType Directory -Path $storage.path -Force | Out-Null
-    Set-OwnerOnlyAcl -PathValue $storage.path
+    if (Test-Path -LiteralPath $storage.path) {
+      Add-Check -Name "$($storage.name) preparation" -Passed $false -Required $true -Detail 'Directory already exists; existing permissions were preserved. Rerun without PrepareStorage after reviewing ACLs.'
+    } else {
+      try {
+        New-Item -ItemType Directory -Path $storage.path -Force | Out-Null
+        Set-OwnerOnlyAcl -PathValue $storage.path
+      } catch {
+        Add-Check -Name "$($storage.name) preparation" -Passed $false -Required $true -Detail 'Directory creation or owner-only ACL setup failed'
+      }
+    }
   }
   $exists = $safePath -and (Test-Path -LiteralPath $storage.path -PathType Container)
   Add-Check -Name $storage.name -Passed ($safePath -and $exists) -Required $true -Detail "$($storage.path); use -PrepareStorage to create the reviewed path"
+  if ($exists) {
+    try {
+      $allowedSids = @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value, 'S-1-5-18', 'S-1-5-32-544')
+      $storageAcl = Get-Acl -LiteralPath $storage.path
+      $unexpectedRules = @($storageAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | Where-Object {
+        $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -notin $allowedSids
+      })
+      Add-Check -Name "$($storage.name) root ACL" -Passed ($unexpectedRules.Count -eq 0 -and $storageAcl.AreAccessRulesProtected) -Required $true -Detail 'Root must disable inheritance and allow only current owner, SYSTEM and Administrators; descendant ACLs require separate audit'
+    } catch {
+      Add-Check -Name "$($storage.name) root ACL" -Passed $false -Required $true -Detail 'Root ACL could not be verified'
+    }
+  }
 }
 
 if ((Test-SafeStoragePath -PathValue $BlobRoot) -and (Test-SafeStoragePath -PathValue $BackupRoot)) {
   $blobFull = [System.IO.Path]::GetFullPath($BlobRoot).TrimEnd('\')
   $backupFull = [System.IO.Path]::GetFullPath($BackupRoot).TrimEnd('\')
-  $blobVolume = [System.IO.Path]::GetPathRoot($blobFull)
-  $backupVolume = [System.IO.Path]::GetPathRoot($backupFull)
-  Add-Check -Name 'Independent live and backup volumes' -Passed ($blobVolume -ne $backupVolume) -Required $true -Detail "live=$blobFull backup=$backupFull; a differently named folder on the same disk is not an independent backup"
+  try {
+    $blobDisk = Get-StorageDiskIdentity $blobFull
+    $backupDisk = Get-StorageDiskIdentity $backupFull
+    Add-Check -Name 'Independent live and backup disks' -Passed ($blobDisk -ne $backupDisk) -Required $true -Detail 'Resolved physical disk identities compared; separate drive letters alone are insufficient'
+  } catch {
+    Add-Check -Name 'Independent live and backup disks' -Passed $false -Required $true -Detail 'Physical disk independence could not be verified; check existing local paths and storage topology'
+  }
 }
 
 Invoke-NativeCheck -Name 'Docker daemon' -File 'docker' -Arguments @('info', '--format', '{{.ServerVersion}}')
