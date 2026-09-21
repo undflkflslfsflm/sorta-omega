@@ -82,6 +82,8 @@ If generated artifacts change unexpectedly, stop and inspect the diff; do not ac
 
 ## Phase 3 — required Qwen generation runtime and embeddings
 
+Identity verification is recorded in `docs/evidence/QWEN-MODEL-IDENTITY.md`. The official artifact exists and contains roughly 180B parameters. Full four-bit weights exceed 24 GiB VRAM; deployment requires a verified offload/quantization path and measurements. A model listing or configured digest alone does not prove this requirement passes.
+
 The application worker already supports a loopback OpenAI-compatible chat endpoint and a separate loopback Ollama embedding endpoint.
 
 1. Verify from official model/runtime sources that the exact model ID `Qwen/Qwen3.8-Flash-Next` exists, which revision is being used, its license, architecture, context requirements and a 4090-compatible serving path. Record the immutable model revision and SHA-256/digest. If it cannot fit or cannot produce strict JSON-schema responses on 24 GB VRAM, report the exact failure; do not substitute or claim success.
