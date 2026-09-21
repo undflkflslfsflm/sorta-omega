@@ -28,6 +28,19 @@ describe("trusted browser replica",()=>{
     expect((await cachedCoreRecords())?.notes).toEqual([]);
   });
 
+  it("preserves enqueue order within one millisecond and refuses changed operation IDs",async()=>{
+    const time=vi.spyOn(Date,"now").mockReturnValue(1700000000000);
+    const first={type:"task_create" as const,operationId:"00000000-0000-4000-8000-000000000999",taskId:"00000000-0000-4000-8000-000000000123",command:{title:"First",priority:3,allowSplit:true}};
+    const second={...first,operationId:"00000000-0000-4000-8000-000000000001",command:{...first.command,title:"Second"}};
+    try {
+      await Promise.all([queueSyncOperation(first),queueSyncOperation(second)]);
+      await queueSyncOperation(first);
+      await expect(queueSyncOperation({...first,command:{...first.command,title:"Replacement"}})).rejects.toThrow("cannot be reused");
+    } finally {time.mockRestore();}
+    const queued=await pendingSyncOperations();
+    expect(queued.map(item=>item.operation)).toEqual([first,second]);
+  });
+
   it("rolls back queue deletion and cursor advancement when storing a conflict fails",async()=>{
     const id="00000000-0000-4000-8000-000000000211";
     await setSyncCursor("before");

@@ -53,7 +53,23 @@ export async function setSyncCursor(cursor:string){await put(META_STORE,{id:"cur
 export async function syncCursor(){return (await get<{id:string;value:string}>(META_STORE,"cursor"))?.value??null;}
 export async function cacheCoreRecords(records:Omit<CachedCoreRecords,"id"|"cachedAt">){await put(CORE_STORE,{id:"core",...records,cachedAt:new Date().toISOString()});}
 export async function cachedCoreRecords(){return (await get<CachedCoreRecords>(CORE_STORE,"core"))??null;}
-export async function queueSyncOperation(operation:SyncOperation){await put(SYNC_STORE,{id:operation.operationId,operation,createdAt:new Date().toISOString()});}
+export async function queueSyncOperation(operation:SyncOperation){
+  await withStore<void>(SYNC_STORE,"readwrite",(store,done,fail)=>{
+    const existing=store.getAll();
+    existing.onerror=()=>fail(existing.error);
+    existing.onsuccess=()=>{
+      const rows=existing.result as PendingSyncOperation[];
+      const prior=rows.find(item=>item.id===operation.operationId);
+      if(prior){
+        if(JSON.stringify(prior.operation)!==JSON.stringify(operation)){fail(new Error("Queued operation ID cannot be reused for different content"));return;}
+        done();return;
+      }
+      const last=rows.reduce((latest,item)=>Math.max(latest,Date.parse(item.createdAt)||0),0);
+      const request=store.add({id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()});
+      request.onsuccess=()=>done();request.onerror=()=>fail(request.error);
+    };
+  });
+}
 export async function pendingSyncOperations(){return (await getAll<PendingSyncOperation>(SYNC_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
 export async function syncConflicts(){return (await getAll<StoredSyncConflict>(CONFLICT_STORE)).sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));}
 export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);}
