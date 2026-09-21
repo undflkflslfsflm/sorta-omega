@@ -10,11 +10,31 @@ import { ApiError } from "./api";
 import { Callout, type CalloutKind } from "./Callout";
 
 export default function RichDocumentEditor({ initialDocument, disabled, onSave }: { initialDocument: EditorDocument; disabled: boolean; onSave: (document: EditorDocument) => Promise<void> }) {
+  const [editVersion, setEditVersion] = useState(0);
   const [dirty,setDirty]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState<string|null>(null);const changeVersion=useRef(0);const savedSignature=useRef(JSON.stringify(initialDocument));const savingRef=useRef(false);
   const editor=useEditor({extensions:[StarterKit.configure({underline:false,link:{openOnClick:false,autolink:true,linkOnPaste:true,protocols:["http","https","mailto"]}}),TaskList,TaskItem.configure({nested:true}),TableKit.configure({table:{resizable:true}}),Callout,Placeholder.configure({placeholder:"Write something worth finding again…"})],content:initialDocument,editorProps:{attributes:{class:"tiptap-document","aria-label":"Rich note editor"}},onUpdate:()=>{changeVersion.current+=1;setDirty(true);setError(null);}});
 
   async function save(){if(!editor||savingRef.current)return;const parsed=editorDocumentSchema.safeParse(editor.getJSON());if(!parsed.success){setError("This document contains an unsupported block or attribute.");return;}const signature=JSON.stringify(parsed.data);if(signature===savedSignature.current){setDirty(false);return;}const version=changeVersion.current;savingRef.current=true;setSaving(true);setError(null);try{await onSave(parsed.data);savedSignature.current=signature;if(changeVersion.current===version)setDirty(false);}catch(caught){setError(caught instanceof ApiError&&caught.code==="stale_revision"?"This note changed elsewhere. Copy any unsaved text, then reopen the latest revision.":"Autosave failed. Your changes remain in this editor.");}finally{savingRef.current=false;setSaving(false);}}
-  useEffect(()=>{if(!dirty||saving||disabled)return;const timer=window.setTimeout(()=>void save(),1_500);return()=>window.clearTimeout(timer);},[dirty,saving,disabled,editor]);
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [editor, disabled]);
+  useEffect(() => {
+    if (!editor) return;
+    const changed = () => setEditVersion(version => version + 1);
+    editor.on("update", changed);
+    return () => { editor.off("update", changed); };
+  }, [editor]);
+  useEffect(()=>{if(!dirty||saving||disabled||error)return;const timer=window.setTimeout(()=>void save(),1_500);return()=>window.clearTimeout(timer);},[dirty,saving,disabled,error,editor,editVersion]);
+  useEffect(() => {
+    if (!dirty && !saving) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [dirty, saving]);
   if(!editor)return <div className="editor-loading">Opening rich document…</div>;
 
   function setLink(){const current=String(editor!.getAttributes("link").href??"");const href=window.prompt("Link URL (https://, http://, mailto:, or /internal-path)",current);if(href===null)return;if(!href){editor!.chain().focus().extendMarkRange("link").unsetLink().run();return;}if(!/^(https?:\/\/|mailto:|\/(?!\/))/i.test(href)){setError("Only HTTP(S), mailto, and root-relative links are allowed.");return;}editor!.chain().focus().extendMarkRange("link").setLink({href}).run();}

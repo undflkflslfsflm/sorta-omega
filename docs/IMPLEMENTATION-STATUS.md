@@ -6,6 +6,7 @@ This file records verified implementation state. Planned routes in the specifica
 
 ## Implemented
 
+- Rich-note editing now applies the disabled state to the editor itself, restarts the autosave delay on every edit, pauses automatic retries after a save failure, and registers a browser unload warning while changes are unsaved or saving. These safeguards do not provide durable offline storage or guard in-app navigation; those remain separate work.
 - React/TypeScript/Vite responsive application shell with Inbox, Today, Calendar, Tasks and Brain routes as in-app workspaces.
 - Fastify API bound to loopback by default.
 - Revisioned owner preferences now keep locale, timezone, notification channels, focus defaults, personal-data sync policy, profile inference, expanded data egress and sensitive school categories inside a closed declarative schema. Empty patches, invalid locale/timezone values, duplicate choices, executable settings and unknown categories are rejected. Settings exposes each consent separately. A live owner-only status surface reports database size/vault count, sync devices and event bounds, worker enrollment/heartbeats, exact versions and an explicit `not_configured` backup state without returning credentials or pretending missing infrastructure is healthy.
