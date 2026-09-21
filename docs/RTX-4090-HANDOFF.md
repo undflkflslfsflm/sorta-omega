@@ -66,7 +66,7 @@ If generated artifacts change unexpectedly, stop and inspect the diff; do not ac
 ## Phase 1 — host prerequisites and private storage
 
 1. Preserve the current checkout before moving it. This repository may have no baseline commit and many untracked implementation files; do not use reset/clean/checkout commands that could erase them.
-2. Install/verify Docker Desktop with WSL2 support, Git, Node 22+, Corepack/pnpm 10.15.1, current NVIDIA driver, Rust through rustup, Visual Studio Build Tools with the MSVC C++ workload and Windows SDK, and WebView2.
+2. Install/verify Docker Desktop with WSL2 support, Git, **Node 22.x (not Node 24)**, Corepack/pnpm 10.15.1, current NVIDIA driver, Rust through rustup, Visual Studio Build Tools with the MSVC C++ workload and Windows SDK, and WebView2. Node 24 completed all 181 API assertions on the 4090 host but then intermittently crashed the Vitest worker with `ERR_IPC_CHANNEL_CLOSED` / a Windows certificate-store assertion, so it is not an accepted release runtime.
 3. Choose absolute owner-only paths for live blobs, model artifacts, evidence and encrypted backups. Verify ACLs and available capacity.
 4. Create `.env` from `.env.example`. Generate new independent high-entropy values for `POSTGRES_PASSWORD`, `BOOTSTRAP_SECRET`, `OAUTH_CREDENTIAL_KEY_HEX` and `BACKUP_ENCRYPTION_KEY_HEX`. Do not paste them into chat, logs, screenshots, git, the model prompt, or backup bundles.
 5. Choose one canonical origin before passkey bootstrap. For local-only validation use the loopback origin. For two-PC use, prefer the reviewed Tailscale Serve HTTPS name and keep it stable. OAuth redirects, cookies, WebAuthn RP ID, PWA caches and Tauri capability URLs must agree with that origin.
