@@ -1,0 +1,59 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: infra/compose/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://sorta:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/sorta_omega
+      API_HOST: 0.0.0.0
+      API_PORT: 3210
+      APP_ORIGIN: ${APP_ORIGIN:?Set APP_ORIGIN to the canonical HTTPS origin}
+      BLOB_STORAGE_DIR: /var/lib/sorta/blob-storage
+      BOOTSTRAP_SECRET: ${BOOTSTRAP_SECRET:?Set BOOTSTRAP_SECRET for first owner setup}
+      LOCAL_CHAT_BACKEND: ${LOCAL_CHAT_BACKEND:-ollama}
+      OLLAMA_CHAT_MODEL: ${OLLAMA_CHAT_MODEL:-qwen3.5:4b}
+      OLLAMA_EMBEDDING_MODEL: ${OLLAMA_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
+      OPENAI_COMPATIBLE_CHAT_MODEL: ${OPENAI_COMPATIBLE_CHAT_MODEL:-Qwen/Qwen3.8-Flash-Next}
+      OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-http://127.0.0.1:8000/v1/}
+      OPENAI_COMPATIBLE_CHAT_MODEL_DIGEST: ${OPENAI_COMPATIBLE_CHAT_MODEL_DIGEST:-}
+      OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
+      OAUTH_CREDENTIAL_KEY_HEX: ${OAUTH_CREDENTIAL_KEY_HEX:-}
+      MICROSOFT_CLIENT_ID: ${MICROSOFT_CLIENT_ID:-}
+      MICROSOFT_TENANT_ID: ${MICROSOFT_TENANT_ID:-}
+      MICROSOFT_CLIENT_SECRET: ${MICROSOFT_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      PUBLIC_PROVIDER_CALLBACKS_ENABLED: ${PUBLIC_PROVIDER_CALLBACKS_ENABLED:-false}
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3210:3210"
+    volumes:
+      - sorta-blobs:/var/lib/sorta/blob-storage
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3210/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sorta_omega
+      POSTGRES_USER: sorta
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - sorta-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sorta -d sorta_omega"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  sorta-postgres:
+  sorta-blobs:

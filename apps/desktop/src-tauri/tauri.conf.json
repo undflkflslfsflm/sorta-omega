@@ -1,0 +1,26 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Sorta Omega",
+  "version": "0.1.0",
+  "identifier": "app.sorta.omega",
+  "build": {
+    "beforeDevCommand": "pnpm --dir ../web dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "pnpm --dir ../web build",
+    "frontendDist": "../../web/dist"
+  },
+  "app": {
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:3210; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    },
+    "windows": [
+      { "label": "main", "title": "Sorta Omega", "url": "http://127.0.0.1:3210/", "width": 1240, "height": 820, "minWidth": 840, "minHeight": 600, "resizable": true },
+      { "label": "quick-capture", "title": "Quick capture — Sorta", "url": "http://127.0.0.1:3210/?view=inbox&desktop=quick", "width": 620, "height": 520, "minWidth": 460, "minHeight": 400, "visible": false, "alwaysOnTop": true, "center": true }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi"],
+    "windows": { "webviewInstallMode": { "type": "downloadBootstrapper", "silent": true } }
+  }
+}

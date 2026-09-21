@@ -1,0 +1,12 @@
+{
+  "name": "Sorta Omega",
+  "short_name": "Sorta",
+  "description": "Local-first personal command center",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f4",
+  "theme_color": "#101820",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

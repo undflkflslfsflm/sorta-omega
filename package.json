@@ -1,0 +1,23 @@
+{
+  "name": "sorta-omega",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.15.1",
+  "scripts": {
+    "predev": "pnpm --filter @sorta/contracts build",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "pretest": "pnpm --filter @sorta/contracts build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:migrate": "pnpm --filter @sorta/api db:migrate",
+    "contracts:generate": "pnpm --filter @sorta/contracts generate:openapi",
+    "client:generate": "pnpm contracts:generate && pnpm --filter @sorta/client generate",
+    "contracts:check": "pnpm --filter @sorta/contracts check:openapi && pnpm --filter @sorta/client check:generated",
+    "deps:inventory": "node scripts/generate-dependency-inventory.mjs",
+    "deps:check": "node scripts/generate-dependency-inventory.mjs --check"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

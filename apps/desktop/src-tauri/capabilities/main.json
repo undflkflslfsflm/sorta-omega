@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "The primary owner interface can call only the declared Sorta native commands.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://127.0.0.1:3210/*"] },
+  "permissions": ["core:default", "allow-app-open-workspace", "allow-capture-open", "allow-desktop-status", "allow-file-import-pick", "allow-set-start-at-login", "allow-native-pairing-begin", "allow-native-pairing-poll", "allow-native-auth-status", "allow-native-api-request", "allow-native-unpair"]
+}

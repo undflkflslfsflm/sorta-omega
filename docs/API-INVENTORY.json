@@ -1,0 +1,4221 @@
+{
+  "generatedFrom": "packages/contracts/src/http-operations.ts",
+  "operationCount": 420,
+  "operations": [
+    {
+      "operationId": "listIntegrationProviders",
+      "method": "GET",
+      "path": "/api/v1/integration-providers",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IntegrationProviderDescriptorList"
+    },
+    {
+      "operationId": "providerOAuthCallback",
+      "method": "GET",
+      "path": "/api/v1/oauth/{providerId}/callback",
+      "tag": "Integrations",
+      "authentication": "public",
+      "success": 302,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "microsoftOAuthCallback",
+      "method": "GET",
+      "path": "/api/v1/oauth/microsoft/callback",
+      "tag": "Integrations",
+      "authentication": "public",
+      "success": 303,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "microsoftChangeNotifications",
+      "method": "POST",
+      "path": "/api/v1/integrations/microsoft/notifications",
+      "tag": "Integrations",
+      "authentication": "public",
+      "success": [
+        200,
+        202
+      ],
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "googleCalendarChangeNotification",
+      "method": "POST",
+      "path": "/api/v1/integrations/google/notifications",
+      "tag": "Integrations",
+      "authentication": "public",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listPeople",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/people",
+      "tag": "People",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonSummaryList"
+    },
+    {
+      "operationId": "getPersonContext",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/people/{personId}",
+      "tag": "People",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonContext"
+    },
+    {
+      "operationId": "proposeSocialTime",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/people/{personId}/availability-proposals",
+      "tag": "People",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ProposeSocialTime",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "healthLive",
+      "method": "GET",
+      "path": "/health/live",
+      "tag": "Health",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Health"
+    },
+    {
+      "operationId": "healthReady",
+      "method": "GET",
+      "path": "/health/ready",
+      "tag": "Health",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Health"
+    },
+    {
+      "operationId": "getMeta",
+      "method": "GET",
+      "path": "/api/v1/meta",
+      "tag": "Installation",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Meta"
+    },
+    {
+      "operationId": "getPreferences",
+      "method": "GET",
+      "path": "/api/v1/preferences",
+      "tag": "Installation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Preferences"
+    },
+    {
+      "operationId": "updatePreferences",
+      "method": "PATCH",
+      "path": "/api/v1/preferences",
+      "tag": "Installation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdatePreferences",
+      "responseSchema": "Preferences"
+    },
+    {
+      "operationId": "getStatus",
+      "method": "GET",
+      "path": "/api/v1/status",
+      "tag": "Installation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SystemStatus"
+    },
+    {
+      "operationId": "listSystemJobs",
+      "method": "GET",
+      "path": "/api/v1/system-jobs",
+      "tag": "Installation jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SystemJobList"
+    },
+    {
+      "operationId": "getSystemJob",
+      "method": "GET",
+      "path": "/api/v1/system-jobs/{jobId}",
+      "tag": "Installation jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SystemJob"
+    },
+    {
+      "operationId": "cancelSystemJob",
+      "method": "POST",
+      "path": "/api/v1/system-jobs/{jobId}/cancel",
+      "tag": "Installation jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SystemJob"
+    },
+    {
+      "operationId": "retrySystemJob",
+      "method": "POST",
+      "path": "/api/v1/system-jobs/{jobId}/retry",
+      "tag": "Installation jobs",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "streamSystemJobEvents",
+      "method": "GET",
+      "path": "/api/v1/system-jobs/{jobId}/events",
+      "tag": "Installation jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "JobEvent"
+    },
+    {
+      "operationId": "listBackups",
+      "method": "GET",
+      "path": "/api/v1/backups",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "BackupList"
+    },
+    {
+      "operationId": "createBackup",
+      "method": "POST",
+      "path": "/api/v1/backups",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateBackup",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "getBackupManifest",
+      "method": "GET",
+      "path": "/api/v1/backups/{backupId}",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "BackupManifest"
+    },
+    {
+      "operationId": "downloadBackup",
+      "method": "GET",
+      "path": "/api/v1/backups/{backupId}/download",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "verifyBackup",
+      "method": "POST",
+      "path": "/api/v1/backups/{backupId}/verify",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "createRestorePlan",
+      "method": "POST",
+      "path": "/api/v1/restore-plans",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateRestorePlan",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "applyRestore",
+      "method": "POST",
+      "path": "/api/v1/restore-plans/{restorePlanId}/apply",
+      "tag": "Backup and restore",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ApplyRestore",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "getHostResources",
+      "method": "GET",
+      "path": "/api/v1/host/resources",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "HostResourceReport"
+    },
+    {
+      "operationId": "getDeploymentProfile",
+      "method": "GET",
+      "path": "/api/v1/deployment",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "DeploymentProfile"
+    },
+    {
+      "operationId": "checkDeployment",
+      "method": "POST",
+      "path": "/api/v1/deployment/checks",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CheckDeployment",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "previewRemoteAccessSetup",
+      "method": "POST",
+      "path": "/api/v1/deployment/access-preview",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PreviewRemoteAccessSetup",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "getHostResourcePolicy",
+      "method": "GET",
+      "path": "/api/v1/resource-policy",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ResourcePolicy"
+    },
+    {
+      "operationId": "setHostResourcePolicy",
+      "method": "PUT",
+      "path": "/api/v1/resource-policy",
+      "tag": "Deployment",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetHostResourcePolicy",
+      "responseSchema": "ResourcePolicy"
+    },
+    {
+      "operationId": "listVaults",
+      "method": "GET",
+      "path": "/api/v1/vaults",
+      "tag": "Vaults",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "VaultList"
+    },
+    {
+      "operationId": "createVault",
+      "method": "POST",
+      "path": "/api/v1/vaults",
+      "tag": "Vaults",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateVault",
+      "responseSchema": "Vault"
+    },
+    {
+      "operationId": "getVault",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}",
+      "tag": "Vaults",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Vault"
+    },
+    {
+      "operationId": "updateVault",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}",
+      "tag": "Vaults",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateVault",
+      "responseSchema": "Vault"
+    },
+    {
+      "operationId": "purgeVault",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/purge",
+      "tag": "Vaults",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PurgeRequest",
+      "responseSchema": "SystemJobHandle"
+    },
+    {
+      "operationId": "createUpload",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/uploads",
+      "tag": "Files",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateUpload",
+      "responseSchema": "UploadSession"
+    },
+    {
+      "operationId": "putUploadPart",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/uploads/{uploadId}/parts/{partNumber}",
+      "tag": "Files",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "completeUpload",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/uploads/{uploadId}/complete",
+      "tag": "Files",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CompleteUpload",
+      "responseSchema": "BlobSummary"
+    },
+    {
+      "operationId": "cancelUpload",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/uploads/{uploadId}",
+      "tag": "Files",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getBlobMetadata",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/blobs/{blobId}",
+      "tag": "Files",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "BlobSummary"
+    },
+    {
+      "operationId": "getBlobContent",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/blobs/{blobId}/content",
+      "tag": "Files",
+      "authentication": "required",
+      "success": [
+        200,
+        206
+      ],
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "createExport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/exports",
+      "tag": "Exports",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateExport",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "planImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/imports",
+      "tag": "Imports",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PlanImport",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getImport",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/imports/{importId}",
+      "tag": "Imports",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ImportManifest"
+    },
+    {
+      "operationId": "applyImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/imports/{importId}/apply",
+      "tag": "Imports",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ApplyImport",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getExport",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/exports/{exportId}",
+      "tag": "Exports",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ExportManifest"
+    },
+    {
+      "operationId": "downloadExport",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/exports/{exportId}/download",
+      "tag": "Exports",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "bootstrapOptions",
+      "method": "POST",
+      "path": "/api/v1/auth/bootstrap/options",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": "BootstrapOptionsInput",
+      "responseSchema": "WebAuthnOptions"
+    },
+    {
+      "operationId": "bootstrapVerify",
+      "method": "POST",
+      "path": "/api/v1/auth/bootstrap/verify",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 201,
+      "requestSchema": "WebAuthnVerifyInput",
+      "responseSchema": "BootstrapResult"
+    },
+    {
+      "operationId": "loginOptions",
+      "method": "POST",
+      "path": "/api/v1/auth/login/options",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "WebAuthnOptions"
+    },
+    {
+      "operationId": "loginVerify",
+      "method": "POST",
+      "path": "/api/v1/auth/login/verify",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": "WebAuthnVerifyInput",
+      "responseSchema": "Session"
+    },
+    {
+      "operationId": "getSession",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Session"
+    },
+    {
+      "operationId": "logout",
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "recoverAccount",
+      "method": "POST",
+      "path": "/api/v1/auth/recovery",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": "RecoveryRequest",
+      "responseSchema": "RecoverySession"
+    },
+    {
+      "operationId": "listPasskeys",
+      "method": "GET",
+      "path": "/api/v1/auth/passkeys",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PasskeyList"
+    },
+    {
+      "operationId": "passkeyOptions",
+      "method": "POST",
+      "path": "/api/v1/auth/passkeys/options",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "PasskeyOptionsRequest",
+      "responseSchema": "WebAuthnOptions"
+    },
+    {
+      "operationId": "passkeyVerify",
+      "method": "POST",
+      "path": "/api/v1/auth/passkeys/verify",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "WebAuthnVerifyInput",
+      "responseSchema": "PasskeySummary"
+    },
+    {
+      "operationId": "deletePasskey",
+      "method": "DELETE",
+      "path": "/api/v1/auth/passkeys/{passkeyId}",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "rotateRecoveryCodes",
+      "method": "POST",
+      "path": "/api/v1/auth/recovery-codes/rotate",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "RecoveryCodes"
+    },
+    {
+      "operationId": "listSessions",
+      "method": "GET",
+      "path": "/api/v1/auth/sessions",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SessionSummaryList"
+    },
+    {
+      "operationId": "revokeSession",
+      "method": "DELETE",
+      "path": "/api/v1/auth/sessions/{sessionId}",
+      "tag": "Authentication",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "refreshNativeToken",
+      "method": "POST",
+      "path": "/api/v1/auth/token/refresh",
+      "tag": "Authentication",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": "RefreshNativeToken",
+      "responseSchema": "TokenPair"
+    },
+    {
+      "operationId": "createPairing",
+      "method": "POST",
+      "path": "/api/v1/device-pairings",
+      "tag": "Devices",
+      "authentication": "public",
+      "success": 201,
+      "requestSchema": "CreateDevicePairing",
+      "responseSchema": "DevicePairingChallenge"
+    },
+    {
+      "operationId": "approvePairing",
+      "method": "POST",
+      "path": "/api/v1/device-pairings/{pairingId}/approve",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ApproveDevicePairing",
+      "responseSchema": "DevicePairingApproval"
+    },
+    {
+      "operationId": "exchangePairing",
+      "method": "POST",
+      "path": "/api/v1/device-pairings/{pairingId}/exchange",
+      "tag": "Devices",
+      "authentication": "public",
+      "success": [
+        200,
+        202
+      ],
+      "requestSchema": "ExchangeDevicePairing",
+      "responseSchema": "PairingExchangeResult"
+    },
+    {
+      "operationId": "listDevices",
+      "method": "GET",
+      "path": "/api/v1/devices",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "DeviceList"
+    },
+    {
+      "operationId": "revokeDevice",
+      "method": "DELETE",
+      "path": "/api/v1/devices/{deviceId}",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getDeviceCachePolicy",
+      "method": "GET",
+      "path": "/api/v1/devices/{deviceId}/cache-policy",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "DeviceCachePolicy"
+    },
+    {
+      "operationId": "setDeviceCachePolicy",
+      "method": "PUT",
+      "path": "/api/v1/devices/{deviceId}/cache-policy",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetDeviceCachePolicy",
+      "responseSchema": "DeviceCachePolicy"
+    },
+    {
+      "operationId": "requestDeviceCachePurge",
+      "method": "POST",
+      "path": "/api/v1/devices/{deviceId}/cache-purge",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RequestDeviceCachePurge",
+      "responseSchema": "CachePurgeRequest"
+    },
+    {
+      "operationId": "listApiTokens",
+      "method": "GET",
+      "path": "/api/v1/tokens",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ApiTokenList"
+    },
+    {
+      "operationId": "createApiToken",
+      "method": "POST",
+      "path": "/api/v1/tokens",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateApiToken",
+      "responseSchema": "ApiTokenCreated"
+    },
+    {
+      "operationId": "revokeApiToken",
+      "method": "DELETE",
+      "path": "/api/v1/tokens/{tokenId}",
+      "tag": "Devices",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listNotes",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NoteList"
+    },
+    {
+      "operationId": "createNote",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateNote",
+      "responseSchema": "Note"
+    },
+    {
+      "operationId": "getNote",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Note"
+    },
+    {
+      "operationId": "updateNoteMetadata",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateNoteMetadata",
+      "responseSchema": "Note"
+    },
+    {
+      "operationId": "trashNote",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": "ExpectedNoteRevision",
+      "responseSchema": null
+    },
+    {
+      "operationId": "purgeNote",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/purge",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PurgeRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "restoreTrashedNote",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/restore",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ExpectedNoteRevision",
+      "responseSchema": "Note"
+    },
+    {
+      "operationId": "getNoteDocument",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/document",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "DocumentRepresentation"
+    },
+    {
+      "operationId": "editNote",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/edits",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "EditNote",
+      "responseSchema": "NoteRevision"
+    },
+    {
+      "operationId": "reprocessNote",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/reprocess",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ReprocessNote",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listNoteRevisions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/revisions",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NoteRevisionList"
+    },
+    {
+      "operationId": "getNoteRevision",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/revisions/{revisionId}",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NoteRevision"
+    },
+    {
+      "operationId": "restoreNoteRevision",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/revisions/{revisionId}/restore",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "RestoreNoteRevision",
+      "responseSchema": "NoteRevision"
+    },
+    {
+      "operationId": "correctOrganization",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/corrections",
+      "tag": "Notes",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CorrectNoteClassification",
+      "responseSchema": "CorrectionReceipt"
+    },
+    {
+      "operationId": "listLabels",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/labels",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "LabelList"
+    },
+    {
+      "operationId": "createLabel",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/labels",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateLabel",
+      "responseSchema": "Label"
+    },
+    {
+      "operationId": "updateLabel",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/labels/{labelId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateLabel",
+      "responseSchema": "Label"
+    },
+    {
+      "operationId": "deleteLabel",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/labels/{labelId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getNoteLabels",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/labels",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NoteOrganization"
+    },
+    {
+      "operationId": "setNoteLabels",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/labels",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetNoteLabels",
+      "responseSchema": "NoteOrganization"
+    },
+    {
+      "operationId": "listCollections",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/collections",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CollectionList"
+    },
+    {
+      "operationId": "createCollection",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/collections",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCollection",
+      "responseSchema": "Collection"
+    },
+    {
+      "operationId": "updateCollection",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/collections/{collectionId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateCollection",
+      "responseSchema": "Collection"
+    },
+    {
+      "operationId": "deleteCollection",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/collections/{collectionId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getCollectionItems",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/collections/{collectionId}/items",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CollectionItems"
+    },
+    {
+      "operationId": "listRoutingRules",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/rules",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "RoutingRuleList"
+    },
+    {
+      "operationId": "createRoutingRule",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/rules",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateRoutingRule",
+      "responseSchema": "RoutingRule"
+    },
+    {
+      "operationId": "updateRoutingRule",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/rules/{ruleId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateRoutingRule",
+      "responseSchema": "RoutingRule"
+    },
+    {
+      "operationId": "deleteRoutingRule",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/rules/{ruleId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "previewRoutingRule",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/rules/preview",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "RoutingRulePreview",
+      "responseSchema": "RulePreviewResult"
+    },
+    {
+      "operationId": "listRelationships",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/relationships",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "RelationshipList"
+    },
+    {
+      "operationId": "createRelationship",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/relationships",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateRelationship",
+      "responseSchema": "Relationship"
+    },
+    {
+      "operationId": "deleteRelationship",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/relationships/{relationshipId}",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getRelatedNotes",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/related",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "RelatedResult"
+    },
+    {
+      "operationId": "resurfacingFeedback",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/resurfacing/feedback",
+      "tag": "Organization",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "ResurfacingFeedbackInput",
+      "responseSchema": "ResurfacingFeedback"
+    },
+    {
+      "operationId": "createCapture",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/captures",
+      "tag": "Capture",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCapture",
+      "responseSchema": "Note"
+    },
+    {
+      "operationId": "createUrlCapture",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/url-captures",
+      "tag": "Capture",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateUrlCapture",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "generateArtifact",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/generations",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "GenerateArtifact",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getCapture",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/captures/{captureId}",
+      "tag": "Capture",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Capture"
+    },
+    {
+      "operationId": "listConnections",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IntegrationConnectionList"
+    },
+    {
+      "operationId": "createConnection",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateIntegrationConnection",
+      "responseSchema": "IntegrationConnection"
+    },
+    {
+      "operationId": "getConnection",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IntegrationConnection"
+    },
+    {
+      "operationId": "beginProviderAuthorization",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/authorize",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "AuthorizationRequest",
+      "responseSchema": "AuthorizationStart"
+    },
+    {
+      "operationId": "reauthorizeProvider",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/reauthorize",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ReauthorizationRequest",
+      "responseSchema": "AuthorizationStart"
+    },
+    {
+      "operationId": "getConnectionCapabilities",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/capabilities",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IntegrationCapabilityList"
+    },
+    {
+      "operationId": "probeConnection",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/probe",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getConnectionMapping",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/mapping",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ConnectionMapping"
+    },
+    {
+      "operationId": "setConnectionMapping",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/mapping",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetConnectionMapping",
+      "responseSchema": "ConnectionMapping"
+    },
+    {
+      "operationId": "listConnectionResources",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/resources",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ConnectorResourceList"
+    },
+    {
+      "operationId": "selectConnectionResources",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/selection",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ResourceSelectionInput",
+      "responseSchema": "ResourceSelection"
+    },
+    {
+      "operationId": "syncConnection",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/sync",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getConnectionSyncStatus",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/sync-status",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ConnectorSyncStatus"
+    },
+    {
+      "operationId": "setConnectionSchedule",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/schedule",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ConnectorSchedule",
+      "responseSchema": "ConnectorSchedule"
+    },
+    {
+      "operationId": "previewConnectionDisconnect",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/disconnect-preview",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "PreviewConnectionDisconnect",
+      "responseSchema": "ConnectionDisconnectPreview"
+    },
+    {
+      "operationId": "listSourceObjects",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/source-objects",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SourceObjectList"
+    },
+    {
+      "operationId": "getSourceObject",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/source-objects/{sourceId}",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SourceObjectDetail"
+    },
+    {
+      "operationId": "refreshSourceObject",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/source-objects/{sourceId}/refresh",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RefreshSourceObject",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "excludeSourceObject",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/source-objects/{sourceId}/exclusion",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SourceExclusionInput",
+      "responseSchema": "SourceExclusion"
+    },
+    {
+      "operationId": "listTranscripts",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/transcripts",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "TranscriptList"
+    },
+    {
+      "operationId": "getTranscript",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Transcript"
+    },
+    {
+      "operationId": "correctTranscript",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "CorrectTranscript",
+      "responseSchema": "Transcript"
+    },
+    {
+      "operationId": "associateTranscriptWithLesson",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}/lesson-association",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "AssociateTranscript",
+      "responseSchema": "TranscriptAssociation"
+    },
+    {
+      "operationId": "analyzeTranscript",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}/analysis",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "AnalyzeTranscript",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "disconnectConnection",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/disconnect",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "DisconnectIntegration",
+      "responseSchema": "IntegrationConnection"
+    },
+    {
+      "operationId": "listInsights",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/insights",
+      "tag": "Insights",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "InsightList"
+    },
+    {
+      "operationId": "generateInsight",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/insights",
+      "tag": "Insights",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "GenerateInsight",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getInsight",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/insights/{insightId}",
+      "tag": "Insights",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Insight"
+    },
+    {
+      "operationId": "updateInsightFeedback",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/insights/{insightId}",
+      "tag": "Insights",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateInsight",
+      "responseSchema": "Insight"
+    },
+    {
+      "operationId": "archiveInsight",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/insights/{insightId}",
+      "tag": "Insights",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listPersonalDataItems",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/items",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonalDataItemList"
+    },
+    {
+      "operationId": "syncSelectedPersonalData",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/sync",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "SyncSelectedPersonalData",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getPersonalDataPolicies",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/policies",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonalDataPolicies"
+    },
+    {
+      "operationId": "setPersonalDataPolicies",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/policies",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetPersonalDataPolicies",
+      "responseSchema": "PersonalDataPolicies"
+    },
+    {
+      "operationId": "getPersonalDataItem",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/items/{itemId}",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonalDataItem"
+    },
+    {
+      "operationId": "previewPersonalDataImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/import-preview",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "PreviewPersonalDataImport",
+      "responseSchema": "PersonalDataImportPreview"
+    },
+    {
+      "operationId": "getPersonalDataImportPreview",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/import-previews/{previewId}",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonalDataImportPreview"
+    },
+    {
+      "operationId": "applyPersonalDataImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/import-previews/{previewId}/apply",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ApplyPersonalDataImport",
+      "responseSchema": "PersonalDataImportReceipt"
+    },
+    {
+      "operationId": "deletePersonalDataItem",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/personal-data/items/{itemId}",
+      "tag": "Personal Data",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listInterests",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/interests",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "InterestList"
+    },
+    {
+      "operationId": "getInterest",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/interests/{interestId}",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Interest"
+    },
+    {
+      "operationId": "updateInterest",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/interests/{interestId}",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateInterest",
+      "responseSchema": "Interest"
+    },
+    {
+      "operationId": "refreshPersonalProfile",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile/refresh",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RefreshPersonalProfile",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "rebuildPersonalProfile",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile/rebuild",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RebuildPersonalProfile",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listInterestClaims",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile/interests",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "InterestList"
+    },
+    {
+      "operationId": "getInterestEvidence",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile/interests/{interestId}/evidence",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "InterestEvidenceList"
+    },
+    {
+      "operationId": "decideInterestClaim",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile/interests/{interestId}/decision",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "DecideInterestClaim",
+      "responseSchema": "Interest"
+    },
+    {
+      "operationId": "listTasks",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/tasks",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "TaskList"
+    },
+    {
+      "operationId": "listProjects",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/projects",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ProjectList"
+    },
+    {
+      "operationId": "createProject",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/projects",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateProject",
+      "responseSchema": "Project"
+    },
+    {
+      "operationId": "getProject",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/projects/{projectId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Project"
+    },
+    {
+      "operationId": "updateProject",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/projects/{projectId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateProject",
+      "responseSchema": "Project"
+    },
+    {
+      "operationId": "archiveProject",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/projects/{projectId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Project"
+    },
+    {
+      "operationId": "listIdeas",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ideas",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IdeaList"
+    },
+    {
+      "operationId": "createIdea",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ideas",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateIdea",
+      "responseSchema": "Idea"
+    },
+    {
+      "operationId": "getIdea",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ideas/{ideaId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Idea"
+    },
+    {
+      "operationId": "updateIdea",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/ideas/{ideaId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateIdea",
+      "responseSchema": "Idea"
+    },
+    {
+      "operationId": "archiveIdea",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/ideas/{ideaId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Idea"
+    },
+    {
+      "operationId": "listGoals",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/goals",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "GoalList"
+    },
+    {
+      "operationId": "createGoal",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/goals",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateGoal",
+      "responseSchema": "Goal"
+    },
+    {
+      "operationId": "getGoal",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/goals/{goalId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Goal"
+    },
+    {
+      "operationId": "updateGoal",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/goals/{goalId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateGoal",
+      "responseSchema": "Goal"
+    },
+    {
+      "operationId": "archiveGoal",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/goals/{goalId}",
+      "tag": "Projects",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Goal"
+    },
+    {
+      "operationId": "listMemories",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/memories",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "MemoryList"
+    },
+    {
+      "operationId": "createMemory",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/memories",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateMemory",
+      "responseSchema": "Memory"
+    },
+    {
+      "operationId": "getMemory",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/memories/{memoryId}",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Memory"
+    },
+    {
+      "operationId": "updateMemory",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/memories/{memoryId}",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateMemory",
+      "responseSchema": "Memory"
+    },
+    {
+      "operationId": "archiveMemory",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/memories/{memoryId}",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Memory"
+    },
+    {
+      "operationId": "getPersonalProfile",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/personal-profile",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PersonalProfile"
+    },
+    {
+      "operationId": "createTask",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/tasks",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateTask",
+      "responseSchema": "Task"
+    },
+    {
+      "operationId": "getTask",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/tasks/{taskId}",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Task"
+    },
+    {
+      "operationId": "updateTask",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/tasks/{taskId}",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateTask",
+      "responseSchema": "Task"
+    },
+    {
+      "operationId": "deleteTask",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/tasks/{taskId}",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": "ExpectedTaskRevision",
+      "responseSchema": null
+    },
+    {
+      "operationId": "getTaskExecutionHistory",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/tasks/{taskId}/execution-history",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "TaskExecutionHistory"
+    },
+    {
+      "operationId": "listReminders",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/reminders",
+      "tag": "Reminders",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ReminderList"
+    },
+    {
+      "operationId": "createReminder",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/reminders",
+      "tag": "Reminders",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateReminder",
+      "responseSchema": "Reminder"
+    },
+    {
+      "operationId": "updateReminder",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/reminders/{reminderId}",
+      "tag": "Reminders",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateReminder",
+      "responseSchema": "Reminder"
+    },
+    {
+      "operationId": "deleteReminder",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/reminders/{reminderId}",
+      "tag": "Reminders",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": "ExpectedNoteRevision",
+      "responseSchema": null
+    },
+    {
+      "operationId": "listNotifications",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/notifications",
+      "tag": "Notifications",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NotificationList"
+    },
+    {
+      "operationId": "updateNotification",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/notifications/{notificationId}",
+      "tag": "Notifications",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateNotification",
+      "responseSchema": "Notification"
+    },
+    {
+      "operationId": "listCalendarEntities",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEntityList"
+    },
+    {
+      "operationId": "createCalendarEntity",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCalendarEntity",
+      "responseSchema": "CalendarEntity"
+    },
+    {
+      "operationId": "getCalendarEntity",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/{entityId}",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEntity"
+    },
+    {
+      "operationId": "updateCalendarEntity",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/{entityId}",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateCalendarEntity",
+      "responseSchema": "CalendarEntity"
+    },
+    {
+      "operationId": "archiveCalendarEntity",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/{entityId}",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "addEntityAlias",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/{entityId}/aliases",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "AddEntityAlias",
+      "responseSchema": "EntityAlias"
+    },
+    {
+      "operationId": "removeEntityAlias",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/{entityId}/aliases/{aliasId}",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "previewEntityMerge",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-entities/merge-preview",
+      "tag": "Identity",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "PreviewEntityMerge",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "getCalendarPolicies",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-policies",
+      "tag": "Calendar automation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarPolicySet"
+    },
+    {
+      "operationId": "setCalendarPolicies",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/calendar-policies",
+      "tag": "Calendar automation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "CalendarPolicySetInput",
+      "responseSchema": "CalendarPolicySet"
+    },
+    {
+      "operationId": "dryRunCalendarPolicy",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-policies/dry-run",
+      "tag": "Calendar automation",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PolicyDryRunInput",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listCalendarDecisions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-decisions",
+      "tag": "Calendar automation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AutomationDecisionList"
+    },
+    {
+      "operationId": "undoCalendarDecision",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-decisions/{decisionId}/undo",
+      "tag": "Calendar automation",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UndoCalendarDecision",
+      "responseSchema": "CalendarDecisionUndoResult"
+    },
+    {
+      "operationId": "listCommitments",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/commitments",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CommitmentList"
+    },
+    {
+      "operationId": "createCommitment",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/commitments",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCommitment",
+      "responseSchema": "Commitment"
+    },
+    {
+      "operationId": "getCommitment",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/commitments/{commitmentId}",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CommitmentDetail"
+    },
+    {
+      "operationId": "updateCommitment",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/commitments/{commitmentId}",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateCommitment",
+      "responseSchema": "Commitment"
+    },
+    {
+      "operationId": "archiveCommitment",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/commitments/{commitmentId}",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "rematchCommitment",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/commitments/{commitmentId}/match",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RematchCommitment",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listCalendars",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendars",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarList"
+    },
+    {
+      "operationId": "createCalendar",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendars",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCalendar",
+      "responseSchema": "Calendar"
+    },
+    {
+      "operationId": "getCalendar",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendars/{calendarId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Calendar"
+    },
+    {
+      "operationId": "updateCalendar",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/calendars/{calendarId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateCalendar",
+      "responseSchema": "Calendar"
+    },
+    {
+      "operationId": "archiveCalendar",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendars/{calendarId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listCalendarEvents",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEventList"
+    },
+    {
+      "operationId": "getCalendarView",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-view",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarView"
+    },
+    {
+      "operationId": "getCalendarBrief",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar/brief",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarBrief"
+    },
+    {
+      "operationId": "refreshCalendarBrief",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar/brief-refresh",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CalendarBriefQuery",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "createCalendarEvent",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateCalendarEvent",
+      "responseSchema": "CalendarEvent"
+    },
+    {
+      "operationId": "getCalendarEvent",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEvent"
+    },
+    {
+      "operationId": "updateCalendarEvent",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateCalendarEvent",
+      "responseSchema": "CalendarEvent"
+    },
+    {
+      "operationId": "trashCalendarEvent",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "restoreCalendarEvent",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/restore",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEvent"
+    },
+    {
+      "operationId": "listCalendarEventRevisions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/revisions",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarEventRevisionList"
+    },
+    {
+      "operationId": "listEventOccurrences",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/occurrences",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "EventOccurrenceList"
+    },
+    {
+      "operationId": "createEventException",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/exceptions",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "OccurrenceExceptionInput",
+      "responseSchema": "OccurrenceException"
+    },
+    {
+      "operationId": "updateEventException",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/exceptions/{exceptionId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateOccurrenceException",
+      "responseSchema": "OccurrenceException"
+    },
+    {
+      "operationId": "removeEventException",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/exceptions/{exceptionId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "calendarFreeBusy",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar/free-busy",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "FreeBusyQuery",
+      "responseSchema": "FreeBusyResult"
+    },
+    {
+      "operationId": "listCalendarConflicts",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar/conflicts",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CalendarConflictList"
+    },
+    {
+      "operationId": "previewPreparationPlan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar/preparation-plan",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PreparationPlanInput",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "exportCalendar",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-export",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CalendarExportInput",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "previewCalendarImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-import-preview",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CalendarImportInput",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getPrivateEventContext",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/private-context",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PrivateEventContext"
+    },
+    {
+      "operationId": "refreshPrivateEventContext",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/context-refresh",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RefreshPrivateEventContext",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "setEventReminderPlan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/reminder-plan",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetEventReminderPlan",
+      "responseSchema": "EventReminderPlan"
+    },
+    {
+      "operationId": "getEventReminderPlan",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/reminder-plan",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "EventReminderPlan"
+    },
+    {
+      "operationId": "createPrepItem",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/prep-items",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreatePrepItem",
+      "responseSchema": "PrepItem"
+    },
+    {
+      "operationId": "updatePrepItem",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/prep-items/{prepId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdatePrepItem",
+      "responseSchema": "PrepItem"
+    },
+    {
+      "operationId": "removePrepItem",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/prep-items/{prepId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "previewProviderCalendarAction",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-events/{eventId}/provider-action-preview",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "PreviewProviderCalendarAction",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "listProviderCalendarActions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-provider-actions",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ProviderCalendarActionList"
+    },
+    {
+      "operationId": "getProviderCalendarAction",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/calendar-provider-actions/{actionId}",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ProviderCalendarAction"
+    },
+    {
+      "operationId": "reconcileProviderCalendarAction",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-provider-actions/{actionId}/reconcile",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "cancelPendingProviderCalendarAction",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/calendar-provider-actions/{actionId}/cancel",
+      "tag": "Calendar",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ProviderCalendarAction"
+    },
+    {
+      "operationId": "searchNotes",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/search",
+      "tag": "Search",
+      "authentication": "required",
+      "success": [
+        200,
+        202
+      ],
+      "requestSchema": "SearchRequest",
+      "responseSchema": "SearchResponse"
+    },
+    {
+      "operationId": "listChats",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/chats",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ChatList"
+    },
+    {
+      "operationId": "createChat",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/chats",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateChat",
+      "responseSchema": "Chat"
+    },
+    {
+      "operationId": "getChat",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/chats/{chatId}",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Chat"
+    },
+    {
+      "operationId": "deleteChat",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/chats/{chatId}",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listMessages",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/chats/{chatId}/messages",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ChatMessageList"
+    },
+    {
+      "operationId": "askNotes",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/chats/{chatId}/messages",
+      "tag": "Chats",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateChatMessage",
+      "responseSchema": "AskHandle"
+    },
+    {
+      "operationId": "suggestSearch",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/search/suggestions",
+      "tag": "Search",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SearchSuggestions"
+    },
+    {
+      "operationId": "resolveCitation",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/citations/{citationId}",
+      "tag": "Search",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ResolvedCitation"
+    },
+    {
+      "operationId": "listJobs",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/jobs",
+      "tag": "Jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "JobList"
+    },
+    {
+      "operationId": "getJob",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/jobs/{jobId}",
+      "tag": "Jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Job"
+    },
+    {
+      "operationId": "cancelJob",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/jobs/{jobId}/cancel",
+      "tag": "Jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Job"
+    },
+    {
+      "operationId": "retryJob",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/jobs/{jobId}/retry",
+      "tag": "Jobs",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": null,
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "streamJobEvents",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/jobs/{jobId}/events",
+      "tag": "Jobs",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "JobEvent"
+    },
+    {
+      "operationId": "getAiStatus",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ai/status",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AiStatus"
+    },
+    {
+      "operationId": "getVaultAiPolicy",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ai/policy",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "VaultAiPolicy"
+    },
+    {
+      "operationId": "previewAiDisclosure",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ai/disclosure-preview",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "AiDisclosurePreviewInput",
+      "responseSchema": "AiDisclosurePreview"
+    },
+    {
+      "operationId": "setVaultAiPolicy",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/ai/policy",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetVaultAiPolicy",
+      "responseSchema": "VaultAiPolicy"
+    },
+    {
+      "operationId": "listAgentTools",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/agent-tools",
+      "tag": "Agent tools",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ToolDescriptorList"
+    },
+    {
+      "operationId": "runDomainTool",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/tool-runs",
+      "tag": "Agent tools",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RunDomainTool",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getToolPolicies",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/tool-policies",
+      "tag": "Agent tools",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ToolPolicySet"
+    },
+    {
+      "operationId": "setToolPolicies",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/tool-policies",
+      "tag": "Agent tools",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetToolPolicies",
+      "responseSchema": "ToolPolicySet"
+    },
+    {
+      "operationId": "executeNaturalLanguageCommand",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/commands",
+      "tag": "Agent tools",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ExecuteNaturalLanguageCommand",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listModelProfiles",
+      "method": "GET",
+      "path": "/api/v1/ai/models",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ModelProfileList"
+    },
+    {
+      "operationId": "testAiSetup",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ai/tests",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "AiTestRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listAiOperations",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ai-operations",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AiOperationList"
+    },
+    {
+      "operationId": "getAiOperation",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/ai-operations/{operationId}",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AiOperation"
+    },
+    {
+      "operationId": "undoAiOperation",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ai-operations/{operationId}/undo",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UndoAiOperation",
+      "responseSchema": "UndoReceipt"
+    },
+    {
+      "operationId": "getActivity",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/activity",
+      "tag": "AI",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ActivityEventList"
+    },
+    {
+      "operationId": "listSubjects",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/subjects",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolSubjectList"
+    },
+    {
+      "operationId": "createSubject",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/subjects",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateSchoolSubject",
+      "responseSchema": "SchoolSubject"
+    },
+    {
+      "operationId": "getSubject",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/subjects/{subjectId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolSubject"
+    },
+    {
+      "operationId": "updateSubject",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/subjects/{subjectId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateSchoolSubject",
+      "responseSchema": "SchoolSubject"
+    },
+    {
+      "operationId": "archiveSubject",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/subjects/{subjectId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listCourses",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/courses",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolCourseList"
+    },
+    {
+      "operationId": "createCourse",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/courses",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateSchoolCourse",
+      "responseSchema": "SchoolCourse"
+    },
+    {
+      "operationId": "getCourse",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolCourse"
+    },
+    {
+      "operationId": "updateCourse",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateSchoolCourse",
+      "responseSchema": "SchoolCourse"
+    },
+    {
+      "operationId": "archiveCourse",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listCourseMaterials",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}/materials",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "CourseMaterialLinkList"
+    },
+    {
+      "operationId": "linkCourseMaterial",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}/materials",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "LinkCourseMaterial",
+      "responseSchema": "CourseMaterialLink"
+    },
+    {
+      "operationId": "unlinkCourseMaterial",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/courses/{courseId}/materials/{materialLinkId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listSchoolTeachers",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/teachers",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "TeacherViewList"
+    },
+    {
+      "operationId": "getSchoolOverview",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/overview",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolOverview"
+    },
+    {
+      "operationId": "previewSchoolImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/import-preview",
+      "tag": "School",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PreviewSchoolImport",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getSchoolConnectionReadiness",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/connections/{connectionId}/readiness",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolReadinessReport"
+    },
+    {
+      "operationId": "listSchoolAssignments",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolAssignmentList"
+    },
+    {
+      "operationId": "getSchoolAssignment",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolAssignment"
+    },
+    {
+      "operationId": "createManualSchoolAssignment",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateSchoolAssignment",
+      "responseSchema": "SchoolAssignment"
+    },
+    {
+      "operationId": "updateSchoolAssignmentOverlay",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateSchoolAssignment",
+      "responseSchema": "SchoolAssignment"
+    },
+    {
+      "operationId": "archiveSchoolAssignment",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "archiveSchoolAssignmentOverlay",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/archive",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ArchiveSchoolAssignmentOverlay",
+      "responseSchema": "SchoolAssignment"
+    },
+    {
+      "operationId": "listSchoolLessons",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/lessons",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolLessonList"
+    },
+    {
+      "operationId": "createSchoolLesson",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/lessons",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateSchoolLesson",
+      "responseSchema": "SchoolLesson"
+    },
+    {
+      "operationId": "getSchoolLesson",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/lessons/{schoolLessonId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolLesson"
+    },
+    {
+      "operationId": "updateSchoolLesson",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/lessons/{schoolLessonId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateSchoolLesson",
+      "responseSchema": "SchoolLesson"
+    },
+    {
+      "operationId": "archiveSchoolLesson",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/lessons/{schoolLessonId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "createCatchUpPlan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/catch-up-plans",
+      "tag": "School",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateCatchUpPlan",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listAssessments",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/assessments",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolAssessmentList"
+    },
+    {
+      "operationId": "createAssessment",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/assessments",
+      "tag": "School",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateSchoolAssessment",
+      "responseSchema": "SchoolAssessment"
+    },
+    {
+      "operationId": "getAssessment",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/assessments/{assessmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolAssessment"
+    },
+    {
+      "operationId": "updateAssessment",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/assessments/{assessmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateSchoolAssessment",
+      "responseSchema": "SchoolAssessment"
+    },
+    {
+      "operationId": "archiveAssessment",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/assessments/{assessmentId}",
+      "tag": "School",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listAttendanceRecords",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/attendance/records",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AttendanceRecordList"
+    },
+    {
+      "operationId": "createAttendanceRecord",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/attendance/records",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateAttendanceRecord",
+      "responseSchema": "AttendanceRecord"
+    },
+    {
+      "operationId": "getAttendanceRecord",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/attendance/records/{attendanceRecordId}",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AttendanceRecord"
+    },
+    {
+      "operationId": "updateAttendanceRecord",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/attendance/records/{attendanceRecordId}",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateAttendanceRecord",
+      "responseSchema": "AttendanceRecord"
+    },
+    {
+      "operationId": "archiveAttendanceRecord",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/attendance/records/{attendanceRecordId}",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getAttendanceSummary",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/attendance/summary",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "AttendanceSummary"
+    },
+    {
+      "operationId": "previewAttendanceCatchUp",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/attendance/catch-up-preview",
+      "tag": "Attendance",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "PreviewAttendanceCatchUp",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listGrades",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/performance/grades",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PerformanceGradeList"
+    },
+    {
+      "operationId": "createGrade",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/performance/grades",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreatePerformanceGrade",
+      "responseSchema": "PerformanceGrade"
+    },
+    {
+      "operationId": "getGrade",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/performance/grades/{gradeId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PerformanceGrade"
+    },
+    {
+      "operationId": "updateGrade",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/performance/grades/{gradeId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdatePerformanceGrade",
+      "responseSchema": "PerformanceGrade"
+    },
+    {
+      "operationId": "archiveGrade",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/performance/grades/{gradeId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listGradeRecords",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/grades",
+      "tag": "School grades",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "GradeRecordList"
+    },
+    {
+      "operationId": "createGradeRecord",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/grades",
+      "tag": "School grades",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateGradeRecord",
+      "responseSchema": "GradeRecord"
+    },
+    {
+      "operationId": "getGradeRecord",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/grades/{gradeRecordId}",
+      "tag": "School grades",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "GradeRecord"
+    },
+    {
+      "operationId": "updateGradeRecord",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/school/grades/{gradeRecordId}",
+      "tag": "School grades",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateGradeRecord",
+      "responseSchema": "GradeRecord"
+    },
+    {
+      "operationId": "archiveGradeRecord",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/school/grades/{gradeRecordId}",
+      "tag": "School grades",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ArchiveGradeRecord",
+      "responseSchema": "GradeRecord"
+    },
+    {
+      "operationId": "listPerformanceTargets",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/performance/targets",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PerformanceTargetList"
+    },
+    {
+      "operationId": "setPerformanceTarget",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/performance/targets/{courseId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetPerformanceTarget",
+      "responseSchema": "PerformanceTarget"
+    },
+    {
+      "operationId": "removePerformanceTarget",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/performance/targets/{courseId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getPerformanceSummary",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/performance/summary",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "PerformanceSummary"
+    },
+    {
+      "operationId": "generateStudyRecommendations",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/performance/recommendations",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "GeneratePerformanceRecommendations",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listStudyPlans",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/plans",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyPlanList"
+    },
+    {
+      "operationId": "createStudyPlan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/plans",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateStudyPlan",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getStudyPlan",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/plans/{studyPlanId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyPlan"
+    },
+    {
+      "operationId": "updateStudyPlan",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/study/plans/{studyPlanId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateStudyPlan",
+      "responseSchema": "StudyPlan"
+    },
+    {
+      "operationId": "withdrawStudyPlan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/plans/{studyPlanId}/withdraw",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "WithdrawStudyPlan",
+      "responseSchema": "StudyWithdrawalProposal"
+    },
+    {
+      "operationId": "archiveStudyPlan",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/study/plans/{studyPlanId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listStudyExercises",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/exercises",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyExerciseList"
+    },
+    {
+      "operationId": "generateStudyExercise",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/exercises",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateStudyExercise",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getStudyExercise",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/exercises/{exerciseId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyExercise"
+    },
+    {
+      "operationId": "submitStudyAttempt",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/exercises/{exerciseId}/attempts",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateStudyAttempt",
+      "responseSchema": "StudyAttempt"
+    },
+    {
+      "operationId": "listStudyAttempts",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/attempts",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyAttemptList"
+    },
+    {
+      "operationId": "getStudyAttempt",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/attempts/{attemptId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyAttempt"
+    },
+    {
+      "operationId": "gradeStudyAttempt",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/attempts/{attemptId}/feedback",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RequestStudyFeedback",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "correctStudyFeedback",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/study/attempts/{attemptId}/feedback",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "CorrectStudyFeedback",
+      "responseSchema": "StudyAttempt"
+    },
+    {
+      "operationId": "createStudyActivity",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/activities",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateStudyActivity",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "listStudyActivities",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/activities",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyActivityList"
+    },
+    {
+      "operationId": "getStudyActivity",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/activities/{activityId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudyActivity"
+    },
+    {
+      "operationId": "submitStudyResponse",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/activities/{activityId}/responses",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "SubmitStudyResponse",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "archiveStudyActivity",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/study/activities/{activityId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listStudySessions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/sessions",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudySessionList"
+    },
+    {
+      "operationId": "createStudySession",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/sessions",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateStudySession",
+      "responseSchema": "StudySession"
+    },
+    {
+      "operationId": "getStudySession",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/sessions/{studySessionId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "StudySession"
+    },
+    {
+      "operationId": "applyStudySessionAction",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/sessions/{studySessionId}/actions",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "StudySessionAction",
+      "responseSchema": "StudySession"
+    },
+    {
+      "operationId": "archiveStudySession",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/study/sessions/{studySessionId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listKnowledgeGaps",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/knowledge-gaps",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "KnowledgeGapList"
+    },
+    {
+      "operationId": "createReportedKnowledgeGap",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/knowledge-gaps",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateReportedKnowledgeGap",
+      "responseSchema": "KnowledgeGap"
+    },
+    {
+      "operationId": "updateKnowledgeGap",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/study/knowledge-gaps/{gapId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateKnowledgeGap",
+      "responseSchema": "KnowledgeGap"
+    },
+    {
+      "operationId": "correctKnowledgeGap",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/performance/knowledge-gaps/{gapId}",
+      "tag": "Performance",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "CorrectKnowledgeGap",
+      "responseSchema": "KnowledgeGap"
+    },
+    {
+      "operationId": "listFlashcardDecks",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/decks",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "FlashcardDeckList"
+    },
+    {
+      "operationId": "createFlashcardDeck",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/decks",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateFlashcardDeck",
+      "responseSchema": "FlashcardDeck"
+    },
+    {
+      "operationId": "getFlashcardDeck",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/decks/{flashcardDeckId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "FlashcardDeck"
+    },
+    {
+      "operationId": "updateFlashcardDeck",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/study/decks/{flashcardDeckId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateFlashcardDeck",
+      "responseSchema": "FlashcardDeck"
+    },
+    {
+      "operationId": "archiveFlashcardDeck",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/study/decks/{flashcardDeckId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "listFlashcards",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/cards",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "FlashcardList"
+    },
+    {
+      "operationId": "createFlashcard",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/cards",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "CreateFlashcard",
+      "responseSchema": "Flashcard"
+    },
+    {
+      "operationId": "getFlashcard",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/cards/{flashcardId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Flashcard"
+    },
+    {
+      "operationId": "updateFlashcard",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/study/cards/{flashcardId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateFlashcard",
+      "responseSchema": "Flashcard"
+    },
+    {
+      "operationId": "archiveFlashcard",
+      "method": "DELETE",
+      "path": "/api/v1/vaults/{vaultId}/study/cards/{flashcardId}",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 204,
+      "requestSchema": null,
+      "responseSchema": null
+    },
+    {
+      "operationId": "getFlashcardReviewQueue",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/study/review-queue",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "FlashcardReviewQueue"
+    },
+    {
+      "operationId": "recordFlashcardReview",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/cards/{flashcardId}/reviews",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "RecordFlashcardReview",
+      "responseSchema": "FlashcardReview"
+    },
+    {
+      "operationId": "reviewFlashcard",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/study/flashcards/{flashcardId}/reviews",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "ReviewFlashcard",
+      "responseSchema": "FlashcardReviewReceipt"
+    },
+    {
+      "operationId": "getSchedulerPreferences",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/preferences",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchedulerPreferences"
+    },
+    {
+      "operationId": "setSchedulerPreferences",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/preferences",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetSchedulerPreferences",
+      "responseSchema": "SchedulerPreferences"
+    },
+    {
+      "operationId": "previewSchedule",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/preview",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "SchedulePreviewRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getSchedulingConstraints",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/constraints",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchedulingConstraints"
+    },
+    {
+      "operationId": "setSchedulingConstraints",
+      "method": "PUT",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/constraints",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "SetSchedulingConstraints",
+      "responseSchema": "SchedulingConstraints"
+    },
+    {
+      "operationId": "proposeSchedule",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/plans",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ProposeSchedule",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "previewReplan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/replan",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ScheduleReplanRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "proposeReplan",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/replans",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ScheduleReplanRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "getScheduleExplanation",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/explanations/{proposalId}",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ScheduleExplanation"
+    },
+    {
+      "operationId": "listProposals",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/proposals",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ProposalList"
+    },
+    {
+      "operationId": "createProposal",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/proposals",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "ProposalInput",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "getProposal",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/proposals/{proposalId}",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "rejectProposal",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/proposals/{proposalId}/reject",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "RejectProposal",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "acceptProposal",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/proposals/{proposalId}/accept",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "AcceptProposal",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "undoProposalApplication",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/proposals/{proposalId}/undo",
+      "tag": "Proposals",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UndoProposal",
+      "responseSchema": "ProposalUndoReceipt"
+    },
+    {
+      "operationId": "previewIdeaPromotion",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ideas/{ideaId}/promotion-preview",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "PreviewIdeaPromotion",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "proposeIdeaProject",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/ideas/{ideaId}/project-proposal",
+      "tag": "Profile",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "ProposeIdeaProject",
+      "responseSchema": "Proposal"
+    },
+    {
+      "operationId": "proposeTaskBreakdown",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/tasks/{taskId}/breakdown",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ProposeTaskBreakdown",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "startExecutionSession",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/execution-sessions",
+      "tag": "Execution",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "StartExecutionSession",
+      "responseSchema": "ExecutionSession"
+    },
+    {
+      "operationId": "getExecutionSession",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/execution-sessions/{executionSessionId}",
+      "tag": "Execution",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ExecutionSession"
+    },
+    {
+      "operationId": "transitionExecutionSession",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/execution-sessions/{executionSessionId}/transition",
+      "tag": "Execution",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "TransitionExecutionSession",
+      "responseSchema": "ExecutionSession"
+    },
+    {
+      "operationId": "getIndexStatus",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/index/status",
+      "tag": "Search",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "IndexStatus"
+    },
+    {
+      "operationId": "rebuildIndex",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/index/rebuild",
+      "tag": "Search",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "RebuildIndexRequest",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "workerHeartbeat",
+      "method": "POST",
+      "path": "/api/v1/worker/heartbeat",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerHeartbeatRequest",
+      "responseSchema": "WorkerHeartbeatResponse"
+    },
+    {
+      "operationId": "claimWorkerJob",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/claim",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": [
+        200,
+        204
+      ],
+      "requestSchema": "ClaimWorkerJobRequest",
+      "responseSchema": "WorkerLease"
+    },
+    {
+      "operationId": "getWorkerJobInput",
+      "method": "GET",
+      "path": "/api/v1/worker/jobs/{jobId}/input",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "WorkerJobInput"
+    },
+    {
+      "operationId": "getWorkerJobSource",
+      "method": "GET",
+      "path": "/api/v1/worker/jobs/{jobId}/sources/{sourceId}",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "WorkerSourceInput"
+    },
+    {
+      "operationId": "getWorkerJobEvidence",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/evidence",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerEvidenceRequest",
+      "responseSchema": "WorkerEvidencePacket"
+    },
+    {
+      "operationId": "appendWorkerIndexBatch",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/index-batches",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerIndexBatch",
+      "responseSchema": "IndexBatchAck"
+    },
+    {
+      "operationId": "renewWorkerLease",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/heartbeat",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerLeaseHeartbeat",
+      "responseSchema": "LeaseState"
+    },
+    {
+      "operationId": "appendWorkerEvents",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/events",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerProgressEvents",
+      "responseSchema": "EventAck"
+    },
+    {
+      "operationId": "completeWorkerJob",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/complete",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerComplete",
+      "responseSchema": "Job"
+    },
+    {
+      "operationId": "failWorkerJob",
+      "method": "POST",
+      "path": "/api/v1/worker/jobs/{jobId}/fail",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "WorkerFail",
+      "responseSchema": "Job"
+    },
+    {
+      "operationId": "listWorkers",
+      "method": "GET",
+      "path": "/api/v1/workers",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "WorkerList"
+    },
+    {
+      "operationId": "configureWorker",
+      "method": "PATCH",
+      "path": "/api/v1/workers/{workerId}",
+      "tag": "Workers",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "ConfigureWorker",
+      "responseSchema": "WorkerSummary"
+    },
+    {
+      "operationId": "getToday",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/today",
+      "tag": "Today",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "Today"
+    },
+    {
+      "operationId": "getNextActionCandidates",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/scheduler/recommendations",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NextActionSet"
+    },
+    {
+      "operationId": "getNextActions",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/next-actions",
+      "tag": "Scheduler",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NextActionSet"
+    },
+    {
+      "operationId": "getMomentumSummary",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/momentum/summary",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "MomentumSummary"
+    },
+    {
+      "operationId": "setMomentumPreferences",
+      "method": "PATCH",
+      "path": "/api/v1/vaults/{vaultId}/momentum/preferences",
+      "tag": "Study",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "UpdateMomentumPreferences",
+      "responseSchema": "MomentumPreferences"
+    },
+    {
+      "operationId": "pullSync",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/sync/pull",
+      "tag": "Sync",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SyncBatch"
+    },
+    {
+      "operationId": "pushSync",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/sync/push",
+      "tag": "Sync",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "PushSync",
+      "responseSchema": "SyncAck"
+    },
+    {
+      "operationId": "createSyncSnapshot",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/sync/snapshots",
+      "tag": "Sync",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "CreateSyncSnapshot",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "openSyncSocket",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/sync/ws",
+      "tag": "Sync",
+      "authentication": "required",
+      "success": 101,
+      "requestSchema": null,
+      "responseSchema": "SyncSocketServerFrame"
+    },
+    {
+      "operationId": "streamVaultEvents",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/events",
+      "tag": "Sync",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "VaultChangeEvent"
+    }
+  ]
+}
