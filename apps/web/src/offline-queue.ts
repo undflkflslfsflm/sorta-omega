@@ -3,7 +3,7 @@ import type { CalendarEvent, Note, SyncAck, SyncConflict, SyncOperation, Task } 
 export type PendingCapture = { id: string; text: string; createdAt: string; attempts: number; lastError: string | null };
 export type CachedCoreRecords = { id: "core"; notes: Note[]; tasks: Task[]; events: CalendarEvent[]; cachedAt: string };
 type PendingSyncOperation = { id: string; operation: SyncOperation; createdAt: string };
-type StoredSyncConflict = SyncConflict & { id: string; recordedAt: string };
+export type StoredSyncConflict = SyncConflict & { id: string; recordedAt: string; operation?: SyncOperation };
 
 const DATABASE = "sorta-private-offline-v1";
 const CAPTURE_STORE = "pending-captures";
@@ -85,7 +85,7 @@ async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
     try {
       tx.objectStore(META_STORE).put({id:"cursor",value:ack.cursor});
       for(const id of completed)tx.objectStore(SYNC_STORE).delete(id);
-      for(const conflict of ack.conflicts)tx.objectStore(CONFLICT_STORE).put({...conflict,id:conflict.operationId,recordedAt:new Date().toISOString()});
+      for(const conflict of ack.conflicts)tx.objectStore(CONFLICT_STORE).put({...conflict,id:conflict.operationId,operation:batch.find(item=>item.id===conflict.operationId)!.operation,recordedAt:new Date().toISOString()});
     } catch(error){tx.abort();reject(error);}
   });
   return completed.size;

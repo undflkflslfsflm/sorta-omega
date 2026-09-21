@@ -65,5 +65,6 @@ describe("trusted browser replica",()=>{
     await queueSyncOperation({type:"task_create",operationId:second,taskId:"00000000-0000-4000-8000-000000000122",command:{title:"Two",priority:3,allowSplit:true}});
     const result=await flushSyncOperations(async(operations,cursor)=>{expect(cursor).toBe("cursor-1");expect(operations.map(item=>item.operationId)).toEqual([first,second]);return{acceptedOperationIds:[first],cursor:"cursor-2",conflicts:[{operationId:second,code:"stale_revision",currentRevision:2,tombstoned:false}]};});
     expect(result).toEqual({sent:1,remaining:0,conflicts:1});expect(await syncCursor()).toBe("cursor-2");expect(await pendingSyncOperations()).toEqual([]);expect((await syncConflicts())[0]?.operationId).toBe(second);
+    expect((await syncConflicts())[0]?.operation).toMatchObject({operationId:second,command:{title:"Two"}});
   });
 });

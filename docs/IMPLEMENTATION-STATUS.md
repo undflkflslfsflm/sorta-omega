@@ -6,6 +6,7 @@ This file records verified implementation state. Planned routes in the specifica
 
 ## Implemented
 
+- Offline conflict acknowledgements now retain the rejected operation payload together with the conflict in one IndexedDB transaction. Settings exposes original-change review and a local JSON download; older conflicts explicitly report missing payloads. This provides manual recovery evidence, not automated conflict resolution. Offline queue tests cover commit failure, atomic acknowledgement rollback, enqueue ordering and payload retention.
 - Rich-note editing now applies the disabled state to the editor itself, restarts the autosave delay on every edit, pauses automatic retries after a save failure, and registers a browser unload warning while changes are unsaved or saving. These safeguards do not provide durable offline storage or guard in-app navigation; those remain separate work.
 - React/TypeScript/Vite responsive application shell with Inbox, Today, Calendar, Tasks and Brain routes as in-app workspaces.
 - Fastify API bound to loopback by default.
