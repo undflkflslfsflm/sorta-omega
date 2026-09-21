@@ -21,7 +21,17 @@ Expected owner-provided profile:
 - 2 TB Kingston NVMe SSD
 - 16 TB Seagate HDD
 
-Start by running the read-only `infra/windows-host/host-doctor.ps1` and retain its JSON output under `docs/evidence/`. Also record `nvidia-smi`, GPU driver/CUDA compatibility, actual drive letters/filesystems/free space, Docker/WSL state, Node/pnpm, Rust/MSVC/SDK, WebView2, Tailscale and model runtimes. The Windows CIM VRAM figure can truncate; use `nvidia-smi` as the GPU-memory evidence.
+Start with the deterministic preflight below. It runs the host doctor, validates the expected hardware and required toolchain, checks the authoritative specs, runs every repository gate, verifies the selected storage paths and model configuration, and writes timestamped JSON evidence under `docs/evidence/`. It exits nonzero whenever a required item is missing.
+
+```powershell
+& .\infra\windows-host\run-rtx4090-preflight.ps1 `
+  -CanonicalOrigin 'https://<final-reviewed-origin>' `
+  -BlobRoot 'D:\SortaOmega\blobs' `
+  -BackupRoot '<owner-approved-path-on-an-independent-volume>' `
+  -PrepareStorage
+```
+
+Run the command from an ordinary PowerShell session first. Elevate only if a separately reviewed installation or service action actually requires it. Do not weaken the execution policy, firewall, ACLs or browser security to make a check pass. The Windows CIM VRAM figure can truncate; the preflight therefore uses `nvidia-smi` as GPU-memory evidence.
 
 Do not assume the 2 TB or 16 TB drive letter. Put the repository, PostgreSQL, active model files and build caches on the NVMe. Use the HDD only for owner-approved bulk originals and encrypted backup retention after measuring the consequence; keep PostgreSQL off the HDD. Never store the sole backup beside the live database.
 
@@ -39,7 +49,7 @@ Do not assume the 2 TB or 16 TB drive letter. Put the repository, PostgreSQL, ac
 - Google disconnect now performs bounded fixed-endpoint OAuth revocation and records success/failure honestly. Microsoft account-side cleanup is still unsupported by an equivalent endpoint and must remain explicit.
 - Teams and InSchool have a visible Edge persistent-profile snapshot bridge. It retains the authenticated browser profile locally but does not serialize cookies/tokens or claim live synchronization.
 
-Before any new changes, rerun:
+The preflight runs this exact repository sequence automatically:
 
 ```powershell
 pnpm install --frozen-lockfile
