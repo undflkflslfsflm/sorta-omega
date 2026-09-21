@@ -15,6 +15,7 @@ export class OllamaProvider implements AiProvider {
   private async post(path: string, body: unknown) {
     const response = await fetch(new URL(path, this.baseUrl), {
       method: "POST",
+      redirect: "error",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120_000)
@@ -33,7 +34,7 @@ export class OllamaProvider implements AiProvider {
 
   async embed(input: string | string[], dimensions = 1024) {
     const result = await this.post("api/embed", { model: this.embeddingModel, input, dimensions, truncate: false });
-    if (!Array.isArray(result.embeddings) || result.embeddings.some((vector: unknown) => !Array.isArray(vector) || vector.length !== dimensions || vector.some((value) => typeof value !== "number" || !Number.isFinite(value)))) {
+    if (!Array.isArray(result.embeddings) || result.embeddings.length !== (Array.isArray(input) ? input.length : 1) || result.embeddings.some((vector: unknown) => !Array.isArray(vector) || vector.length !== dimensions || vector.some((value) => typeof value !== "number" || !Number.isFinite(value)))) {
       throw new Error("ollama_invalid_embedding_response");
     }
     return result.embeddings as number[][];
@@ -68,6 +69,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
   private async post(path: string, body: unknown) {
     const response = await fetch(new URL(path, this.baseUrl), {
       method: "POST",
+      redirect: "error",
       headers: {
         "content-type": "application/json",
         ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {})
@@ -97,8 +99,9 @@ export class OpenAiCompatibleProvider implements AiProvider {
     if (!this.embeddingModel) throw new Error("openai_compatible_embedding_model_not_configured");
     const result = await this.post("embeddings", { model: this.embeddingModel, input, dimensions });
     const data = result.data;
-    if (!Array.isArray(data)) throw new Error("openai_compatible_invalid_embedding_response");
+    if (!Array.isArray(data) || data.length !== (Array.isArray(input) ? input.length : 1)) throw new Error("openai_compatible_invalid_embedding_response");
     const ordered = [...data].sort((a, b) => Number(a?.index) - Number(b?.index));
+    if (ordered.some((item, index) => item?.index !== index)) throw new Error("openai_compatible_invalid_embedding_response");
     const vectors = ordered.map((item) => item?.embedding);
     if (vectors.some((vector) => !Array.isArray(vector) || vector.length !== dimensions || vector.some((value) => typeof value !== "number" || !Number.isFinite(value)))) {
       throw new Error("openai_compatible_invalid_embedding_response");

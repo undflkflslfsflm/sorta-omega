@@ -11,6 +11,7 @@ describe("Ollama provider", () => {
     const schema = { type: "object", properties: { ok: { const: true } }, required: ["ok"] };
     const result = await provider.extract("test", schema, (value) => value as { ok: true });
     expect(result.ok).toBe(true);
+    expect(fetchMock.mock.calls[0][1].redirect).toBe("error");
     const request = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(request).toMatchObject({ model: "chat-model", stream: false, think: false, format: schema, options: { temperature: 0 } });
   });
@@ -33,6 +34,7 @@ describe("OpenAI-compatible provider", () => {
     const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
     expect(url.href).toBe("http://127.0.0.1:8000/v1/chat/completions");
     expect(init.headers).not.toHaveProperty("authorization");
+    expect(init.redirect).toBe("error");
     expect(JSON.parse(init.body as string)).toMatchObject({
       model: "Qwen/Qwen3.8-Flash-Next",
       stream: false,
@@ -49,5 +51,22 @@ describe("OpenAI-compatible provider", () => {
     const provider = new OpenAiCompatibleProvider(new URL("http://127.0.0.1:8000/v1/"), "chat", "local-secret-value", "embed");
     await expect(provider.chat([{ role: "user", content: "test" }])).rejects.toThrow("openai_compatible_invalid_chat_response");
     await expect(provider.embed("test", 1024)).rejects.toThrow("openai_compatible_invalid_embedding_response");
+  });
+});
+
+describe("embedding batch correspondence", () => {
+  it.each([{embeddings:[]}, {embeddings:[[0.1,0.2]]}, {embeddings:[[0.1,0.2],[0.3,0.4],[0.5,0.6]]}])("rejects missing or extra Ollama vectors: %j", async ({embeddings}) => {
+    vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({embeddings}),{status:200})));
+    const provider=new OllamaProvider(new URL("http://127.0.0.1:11434/"),"chat","embed");
+    await expect(provider.embed(["one","two"],2)).rejects.toThrow("ollama_invalid_embedding_response");
+  });
+  it("rejects duplicate embedding indices and restores valid response order",async()=>{
+    const fetchMock=vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({data:[{index:0,embedding:[1,2]},{index:0,embedding:[3,4]}]})))
+      .mockResolvedValueOnce(new Response(JSON.stringify({data:[{index:1,embedding:[3,4]},{index:0,embedding:[1,2]}]})));
+    vi.stubGlobal("fetch",fetchMock);
+    const provider=new OpenAiCompatibleProvider(new URL("http://127.0.0.1:8000/v1/"),"chat",undefined,"embed");
+    await expect(provider.embed(["one","two"],2)).rejects.toThrow("openai_compatible_invalid_embedding_response");
+    expect(await provider.embed(["one","two"],2)).toEqual([[1,2],[3,4]]);
   });
 });
