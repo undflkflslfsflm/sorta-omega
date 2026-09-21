@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { dismissSyncConflict } from "./offline-queue";
+import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
@@ -8,6 +9,22 @@ Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>st
 
 describe("trusted browser replica",()=>{
   beforeEach(async()=>{storage.clear();await clearPendingCaptures();await clearOfflineReplica();});
+
+  it("retains canonical snapshots only for trusted use and erases them with the replica",async()=>{
+    const snapshot={noteId:"00000000-0000-4000-8000-000000000411",revisionId:"00000000-0000-4000-8000-000000000412",updateBase64:"AAA="};
+    await expect(cacheNoteSnapshot(snapshot)).rejects.toThrow("disabled");
+    setOfflineCaptureEnabled(true);
+    await cacheNoteSnapshot(snapshot);
+    expect(await cachedNoteSnapshot(snapshot.noteId)).toMatchObject(snapshot);
+    setOfflineCaptureEnabled(false);
+    expect(await cachedNoteSnapshot(snapshot.noteId)).toBeNull();
+    setOfflineCaptureEnabled(true);
+    await removeCachedNoteSnapshot(snapshot.noteId);
+    expect(await cachedNoteSnapshot(snapshot.noteId)).toBeNull();
+    await cacheNoteSnapshot(snapshot);
+    await clearOfflineReplica();
+    expect(await cachedNoteSnapshot(snapshot.noteId)).toBeNull();
+  });
 
   it("rejects a write that succeeds at request level but aborts before commit",async()=>{
     const original=IDBObjectStore.prototype.put;

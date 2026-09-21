@@ -2,6 +2,7 @@ import type { CalendarEvent, Note, SyncAck, SyncConflict, SyncOperation, Task } 
 
 export type PendingCapture = { id: string; text: string; createdAt: string; attempts: number; lastError: string | null };
 export type CachedCoreRecords = { id: "core"; notes: Note[]; tasks: Task[]; events: CalendarEvent[]; cachedAt: string };
+export type CachedNoteSnapshot = { noteId:string; revisionId:string; updateBase64:string; cachedAt:string };
 type PendingSyncOperation = { id: string; operation: SyncOperation; createdAt: string };
 export type StoredSyncConflict = SyncConflict & { id: string; recordedAt: string; operation?: SyncOperation };
 
@@ -51,6 +52,18 @@ export async function setReplicaDeviceId(deviceId:string){await put(META_STORE,{
 export async function replicaDeviceId(){return (await get<{id:string;value:string}>(META_STORE,"device-id"))?.value??null;}
 export async function setSyncCursor(cursor:string){await put(META_STORE,{id:"cursor",value:cursor});}
 export async function syncCursor(){return (await get<{id:string;value:string}>(META_STORE,"cursor"))?.value??null;}
+export async function cacheNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
+  if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
+  const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(!uuid.test(snapshot.noteId)||!uuid.test(snapshot.revisionId))throw new Error("Invalid note snapshot identity");
+  if(snapshot.updateBase64.length<4||snapshot.updateBase64.length>2_666_668||snapshot.updateBase64.length%4!==0||! /^[A-Za-z0-9+/]*={0,2}$/.test(snapshot.updateBase64))throw new Error("Invalid note snapshot encoding");
+  await put(META_STORE,{id:`note-snapshot:${snapshot.noteId}`,...snapshot,cachedAt:new Date().toISOString()});
+}
+export async function cachedNoteSnapshot(noteId:string):Promise<CachedNoteSnapshot|null>{
+  if(!offlineCaptureEnabled())return null;
+  return (await get<CachedNoteSnapshot>(META_STORE,`note-snapshot:${noteId}`))??null;
+}
+export async function removeCachedNoteSnapshot(noteId:string){await remove(META_STORE,`note-snapshot:${noteId}`);}
 export async function cacheCoreRecords(records:Omit<CachedCoreRecords,"id"|"cachedAt">){await put(CORE_STORE,{id:"core",...records,cachedAt:new Date().toISOString()});}
 export async function cachedCoreRecords(){return (await get<CachedCoreRecords>(CORE_STORE,"core"))??null;}
 export async function queueSyncOperation(operation:SyncOperation){

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { OfflineConflictReview } from "./OfflineConflictReview";
+import { cacheNoteSnapshot } from "./offline-queue";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
 import type { ActivityEvent, AiOperation, AiStatus, AttendanceRecord, AttendanceSummary, AutomationDecision, BlobSummary, Calendar as CalendarRecord, CalendarBrief, CalendarEntity, CalendarEvent, CalendarPolicySet, CalendarView as CalendarViewData, Chat, ChatMessage, Collection, Commitment, EventReminderPlan, Flashcard, FlashcardDeck, FlashcardReviewItem, Goal, Idea, Job, JobHandle, KnowledgeGap, Label, Memory, ModelProfile, MomentumPreferences, MomentumSummary, NextActionSet, Note, NoteRevision, Notification, PerformanceGrade, PerformanceSummary, PerformanceTarget, PersonalProfile, Preferences, PrepItem, Project, Proposal, ProviderCalendarAction, Relationship, Reminder, RoutingRule, RulePreviewResult, ScheduleExplanation, SchedulerPreferences, SchoolAssessment, SchoolAssignment, SchoolCourse, SchoolLesson, SchoolSubject, SearchItem, SearchResult, StudyAttempt, StudyExercise, StudyPlan, StudySession, SystemStatus, Task, TaskExecutionHistory, Today } from "@sorta/contracts";
 import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationConnection, Interest, NativeAuthStatus, NativePairingChallenge, PersonalDataImportPreview, PersonalDataItem } from "@sorta/contracts";
@@ -588,6 +589,15 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) { ret
 function NoteList({ notes, onOpen }: { notes: Note[]; onOpen?: (note: Note) => void }) { return <div className="notes-grid">{notes.map(note => <article className={onOpen ? "note-card interactive" : "note-card"} key={note.id} onClick={() => onOpen?.(note)} onKeyDown={event => { if (onOpen && (event.key === "Enter" || event.key === " ")) onOpen(note); }} tabIndex={onOpen ? 0 : undefined}><div className="note-meta"><Archive size={15}/><span>{note.classification ?? "unclassified"}{note.classificationLocked ? " · locked" : ""}</span><time>{new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(note.updatedAt))}</time></div><h3>{note.title}</h3><p>{note.body}</p><small>Revision {note.revision} · {note.status}</small></article>)}{notes.length === 0 && <div className="large-empty"><Brain/><h2>Your brain is ready</h2><p>Capture your first note. It will remain available even if AI is offline.</p></div>}</div>; }
 
 function NoteEditor({ note, onClose, onSaved,onTrashed }: { note: Note; onClose: () => void; onSaved: () => Promise<void>;onTrashed:(note:Note)=>void }) {
+  useEffect(() => {
+    if (!offlineCaptureEnabled()) return;
+    let cancelled = false;
+    void api.noteDocument(note.id, "yjs_update").then(async snapshot => {
+      if (cancelled || !offlineCaptureEnabled() || typeof snapshot.content !== "string") return;
+      await cacheNoteSnapshot({ noteId: note.id, revisionId: snapshot.revisionId, updateBase64: snapshot.content });
+    }).catch(() => { /* Snapshot caching does not acknowledge or save editor changes. */ });
+    return () => { cancelled = true; };
+  }, [note.id, note.revision]);
   const [document,setDocument]=useState<EditorDocument|null>(null);const expectedRevision=useRef(note.revision);
   const [revisions,setRevisions]=useState<NoteRevision[]>([]);
   const [attachments,setAttachments]=useState<BlobSummary[]>([]);
