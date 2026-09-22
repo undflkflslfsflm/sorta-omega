@@ -18,7 +18,14 @@ self.addEventListener("fetch", (event) => {
   const shell = SHELL.includes(url.pathname);
   const asset = /^\/assets\/[^/]+\.(?:js|css|woff2?|svg|png|webp|ico)$/.test(url.pathname);
   if (!shell && !asset) return;
-  const responsePromise = fetch(request).then(async (response) => {
+  const responsePromise = (async () => {
+    // Serve the installed build consistently while a newer worker waits. A
+    // network-first index could reference new chunks absent from this cache.
+    if (shell) {
+      const installed = await (await caches.open(CACHE)).match(request);
+      if (installed) return installed;
+    }
+    return fetch(request).then(async (response) => {
     if (response.ok && !response.redirected && response.type !== "opaque") {
       try { await (await caches.open(CACHE)).put(request, response.clone()); }
       catch { /* A full cache must not turn a successful online load into an error. */ }
@@ -28,7 +35,8 @@ self.addEventListener("fetch", (event) => {
     const cached = await (await caches.open(CACHE)).match(request);
     // Never return HTML for a missing script, stylesheet, or image.
     return cached ?? Response.error();
-  });
+    });
+  })();
   event.respondWith(responsePromise);
   event.waitUntil(responsePromise.then(() => undefined));
 });

@@ -19,6 +19,13 @@ function worker() {
 }
 
 describe("public-only service worker cache", () => {
+  it("serves the installed HTML without mixing in a newer network build", async () => {
+    const w = worker();
+    w.cache.match.mockResolvedValue(new Response("installed HTML"));
+    expect(await (await w.request("/").respondWith.mock.calls[0][0]).text()).toBe("installed HTML");
+    expect(w.fetch).not.toHaveBeenCalled();
+  });
+
   it("does not intercept private, query-bearing, cross-origin, or write requests", () => {
     const w = worker();
     for (const path of ["/api", "/api/notes", "/health", "/exports/private.pdf", "/?token=secret", "/assets/app.js?token=secret", "https://other.test/assets/app.js"]) {
