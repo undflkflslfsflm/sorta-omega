@@ -2,9 +2,9 @@
 import "fake-indexeddb/auto";
 import { Editor } from "@tiptap/core";
 import * as Y from "yjs";
-import { beforeEach,describe,expect,it } from "vitest";
+import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import { editorDocumentSchema } from "@sorta/contracts";
-import { richEditorExtensions } from "./rich-editor-extensions";
+import { richEditorExtensions,sharedEditorContent } from "./rich-editor-extensions";
 import { RichNoteSession,encodeNoteUpdate } from "./rich-note-session";
 import { clearOfflineReplica,pendingSyncOperations,setOfflineCaptureEnabled } from "./offline-queue";
 
@@ -16,13 +16,14 @@ function snapshot(){
 }
 function mount(session:RichNoteSession){
   const element=document.createElement("div");document.body.append(element);
-  const editor=new Editor({element,extensions:richEditorExtensions(session.document)});
+  const editor=new Editor({element,extensions:richEditorExtensions(session.document),content:sharedEditorContent(session.document)});
   return {editor,element};
 }
 async function close(session:RichNoteSession,editor:Editor,element:HTMLElement){
   editor.destroy();await session.persist();session.close();element.remove();
 }
 describe("mounted Tiptap shared note",()=>{
+  afterEach(()=>vi.restoreAllMocks());
   beforeEach(async()=>{localStorage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);});
 
   it("rejects unsupported links before they can poison a saved document",async()=>{
@@ -74,6 +75,7 @@ describe("mounted Tiptap shared note",()=>{
   });
 
   it("keeps table, checklist and callout content through the actual binding and reload",async()=>{
+    const warnings=vi.spyOn(console,"warn");
     const initial=snapshot(),session=await RichNoteSession.open(initial,1),{editor,element}=mount(session);
     editor.commands.insertContent([
       {type:"table",content:[{type:"tableRow",content:[{type:"tableHeader",attrs:{align:"center"},content:[{type:"paragraph",content:[{type:"text",text:"Header"}]}]},{type:"tableCell",content:[{type:"paragraph",content:[{type:"text",text:"Value"}]}]}]}]},
@@ -84,9 +86,15 @@ describe("mounted Tiptap shared note",()=>{
     expect(element.querySelector("table")).not.toBeNull();
     expect(element.querySelector('input[type="checkbox"]')).not.toBeNull();
     await session.persist();await close(session,editor,element);
-    const reopened=await RichNoteSession.open(initial,1),next=mount(reopened);
+    const reopened=await RichNoteSession.open(initial,1);
+    const beforeMount=Y.encodeStateAsUpdate(reopened.document);
+    const next=mount(reopened);
     expect(next.editor.getJSON()).toEqual(expected);
     expect(next.element.textContent).toContain("Remember");
+    expect(Y.encodeStateAsUpdate(reopened.document)).toEqual(beforeMount);
+    expect(reopened.hasUnsavedChanges).toBe(false);
+    expect(next.editor.state.selection.$from.parent.inlineContent).toBe(true);
+    expect(warnings.mock.calls.flat().join(" ")).not.toContain("TextSelection endpoint");
     await close(reopened,next.editor,next.element);
   });
 });

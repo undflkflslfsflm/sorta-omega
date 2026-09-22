@@ -79,3 +79,7 @@ DOM-level tests now mount the actual Tiptap collaboration plugin in jsdom, use r
 This uses jsdom plus fake IndexedDB, not a real browser or PostgreSQL. The mixed table-first fixture emits `TextSelection endpoint not pointing into a node with inline content (table)` even though content/reload assertions pass. Selection/caret behavior remains an explicit investigation item; the warning is not suppressed. The added jsdom development dependency also reports the transitive `whatwg-encoding` deprecation during installation.
 
 Verification: 31 web tests passed, web typechecking passed, and the regenerated dependency inventory passes its consistency check.
+
+## Table-first cursor correction
+
+The selection warning was traced to the binding's initial forced render: an empty paragraph's cursor offset was copied into the canonical table node. Shared editor views now start with JSON projected from the existing Yjs fragment, rather than an empty paragraph. This does not initialize or replace Yjs history. The regression asserts a valid inline cursor, no selection warning, unchanged encoded canonical state, and no unsaved update after mounting the table-first document. All 31 web tests and web typechecking pass after the correction. This resolves the jsdom reproduction above; real-browser caret/navigation acceptance is still required.

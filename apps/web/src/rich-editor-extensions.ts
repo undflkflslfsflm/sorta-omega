@@ -6,6 +6,16 @@ import Placeholder from "@tiptap/extension-placeholder";
 import Collaboration from "@tiptap/extension-collaboration";
 import type * as Y from "yjs";
 import { Callout } from "./Callout";
+import { yXmlFragmentToProsemirrorJSON } from "@tiptap/y-tiptap";
+import { editorDocumentSchema } from "@sorta/contracts";
+
+// This initializes only the ProseMirror view from the existing shared history.
+// Starting from an empty paragraph gives the binding an invalid initial cursor
+// when the canonical document begins with a table or another nested block.
+export function sharedEditorContent(document:Y.Doc){
+  if(!document.share.has("prosemirror"))throw new Error("Note requires server rich-text migration");
+  return editorDocumentSchema.parse(yXmlFragmentToProsemirrorJSON(document.getXmlFragment("prosemirror")));
+}
 
 export function richEditorExtensions(document?:Y.Doc){
   if(document&&!document.share.has("prosemirror"))throw new Error("Note requires server rich-text migration");

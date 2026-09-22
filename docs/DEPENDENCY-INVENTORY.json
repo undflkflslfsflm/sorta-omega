@@ -4,7 +4,7 @@
     "packageManager": "pnpm@10.15.1",
     "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
-    "pnpmLockfileSha256": "e6a39581eae3c9fb3f45f9abff2415a8a7d4dd83706a2bdd40b062a9700e7727",
+    "pnpmLockfileSha256": "633d6b3508664141b97c3e8236b9915d97776eaa3649d645c5da2e9f4c3f5280",
     "javascriptLicenseCommand": "pnpm licenses list --json"
   },
   "summary": {
@@ -333,6 +333,11 @@
         {
           "name": "@tiptap/starter-kit",
           "requested": "^3.31.3",
+          "section": "dependencies"
+        },
+        {
+          "name": "@tiptap/y-tiptap",
+          "requested": "3.0.9",
           "section": "dependencies"
         },
         {

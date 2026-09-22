@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { editorDocumentSchema, type EditorDocument } from "@sorta/contracts";
 import { EditorContent, useEditor } from "@tiptap/react";
-import { richEditorExtensions } from "./rich-editor-extensions";
+import { richEditorExtensions, sharedEditorContent } from "./rich-editor-extensions";
 import { registerEditorNavigation } from "./editor-navigation";
 import { ApiError } from "./api";
 import { type CalloutKind } from "./Callout";
@@ -12,7 +12,8 @@ export default function RichDocumentEditor({ initialDocument, disabled, onSave, 
   const receivedDocument = useRef(initialDocument);
   const revisionConflict = useRef(false);
   const [dirty,setDirty]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState<string|null>(null);const changeVersion=useRef(0);const savedSignature=useRef(JSON.stringify(initialDocument));const savingRef=useRef(false);
-  const editor=useEditor({extensions:richEditorExtensions(session?.document),content:session?undefined:initialDocument,editorProps:{attributes:{class:"tiptap-document","aria-label":"Rich note editor"}},onUpdate:()=>{if(session)return;changeVersion.current+=1;setDirty(true);setError(null);}},[session]);
+  const content=useMemo(()=>session?sharedEditorContent(session.document):initialDocument,[session,initialDocument]);
+  const editor=useEditor({extensions:richEditorExtensions(session?.document),content,editorProps:{attributes:{class:"tiptap-document","aria-label":"Rich note editor"}},onUpdate:()=>{if(session)return;changeVersion.current+=1;setDirty(true);setError(null);}},[session]);
 
   async function save(){
     if(!editor||savingRef.current||disabled)return;
