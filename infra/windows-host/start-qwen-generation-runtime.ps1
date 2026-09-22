@@ -12,22 +12,25 @@ $ErrorActionPreference = 'Stop'
 $model = Get-Item -LiteralPath ([IO.Path]::GetFullPath($ModelPath)) -ErrorAction Stop
 if ($model.PSIsContainer) { throw 'ModelPath must identify a GGUF file.' }
 
+$existing = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+if ($existing) {
+  $health = try { Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 3 } catch { $null }
+  $models = try { Invoke-RestMethod -Uri "http://127.0.0.1:$Port/v1/models" -TimeoutSec 3 } catch { $null }
+  if ($health.status -eq 'ok' -and $models.data.id -contains 'Qwen/Qwen3.8-Flash-Next') { exit 0 }
+  throw "Loopback port $Port is already in use by a different or unhealthy process."
+}
+
 $actualSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $model.FullName).Hash.ToLowerInvariant()
 if ($actualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
   throw "Generation model SHA-256 mismatch. Expected $ExpectedSha256, got $actualSha256."
 }
 
-$existing = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-if ($existing) {
-  $health = try { Invoke-RestMethod -Uri "http://127.0.0.1:$Port/health" -TimeoutSec 3 } catch { $null }
-  if ($health.status -eq 'ok') { exit 0 }
-  throw "Loopback port $Port is already in use by a different or unhealthy process."
-}
-
 $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
 if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
   if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'RuntimeDirectory is required when LocalApplicationData is unavailable.' }
-  $server = Get-ChildItem (Join-Path $localAppData 'Microsoft\WinGet\Packages\ggml.llamacpp_*') -Recurse -Filter 'llama-server.exe' -File |
+  $packageRoot = Join-Path $localAppData 'Microsoft\WinGet\Packages'
+  $server = Get-ChildItem -LiteralPath $packageRoot -Directory -Filter 'ggml.llamacpp_*' -ErrorAction SilentlyContinue |
+    Get-ChildItem -Recurse -Filter 'llama-server.exe' -File -ErrorAction SilentlyContinue |
     Select-Object -First 1 -ExpandProperty FullName
   $RuntimeDirectory = if ($server) { Split-Path -Parent $server } else { $null }
 } else {

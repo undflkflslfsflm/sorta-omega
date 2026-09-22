@@ -3,6 +3,7 @@ param(
   [Parameter(Mandatory)][string]$RepositoryRoot,
   [Parameter(Mandatory)][string]$ModelPath,
   [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
+  [string]$RuntimeDirectory,
   [string]$TaskName = 'SortaOmega-QwenGeneration'
 )
 
@@ -13,16 +14,24 @@ if (-not (Test-Path -LiteralPath $launcher -PathType Leaf)) { throw "Runtime lau
 $model = [IO.Path]::GetFullPath($ModelPath)
 if (-not (Test-Path -LiteralPath $model -PathType Leaf)) { throw "Model file not found: $model" }
 $localAppData = [Environment]::GetFolderPath('LocalApplicationData')
-if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'LocalApplicationData could not be resolved during task installation.' }
-$server = Get-ChildItem (Join-Path $localAppData 'Microsoft\WinGet\Packages\ggml.llamacpp_*') -Recurse -Filter 'llama-server.exe' -File |
-  Select-Object -First 1 -ExpandProperty FullName
-if (-not $server) { throw 'llama-server.exe was not found in the WinGet package directory.' }
-$runtimeDirectory = Split-Path -Parent $server
+if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'RuntimeDirectory is required when LocalApplicationData is unavailable.' }
+  $packageRoot = Join-Path $localAppData 'Microsoft\WinGet\Packages'
+  $server = Get-ChildItem -LiteralPath $packageRoot -Directory -Filter 'ggml.llamacpp_*' -ErrorAction SilentlyContinue |
+    Get-ChildItem -Recurse -Filter 'llama-server.exe' -File -ErrorAction SilentlyContinue |
+    Select-Object -First 1 -ExpandProperty FullName
+  if (-not $server) { throw "llama-server.exe was not found under $packageRoot." }
+  $RuntimeDirectory = Split-Path -Parent $server
+} else {
+  $RuntimeDirectory = [IO.Path]::GetFullPath($RuntimeDirectory)
+  $server = Join-Path $RuntimeDirectory 'llama-server.exe'
+  if (-not (Test-Path -LiteralPath $server -PathType Leaf)) { throw "llama-server.exe was not found: $server" }
+}
 $logDirectory = Join-Path $localAppData 'SortaOmega\logs'
 
 $quotedLauncher = '"' + $launcher.Replace('"','""') + '"'
 $quotedModel = '"' + $model.Replace('"','""') + '"'
-$quotedRuntimeDirectory = '"' + $runtimeDirectory.Replace('"','""') + '"'
+$quotedRuntimeDirectory = '"' + $RuntimeDirectory.Replace('"','""') + '"'
 $quotedLogDirectory = '"' + $logDirectory.Replace('"','""') + '"'
 $arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $quotedLauncher -ModelPath $quotedModel -ExpectedSha256 $ExpectedSha256 -RuntimeDirectory $quotedRuntimeDirectory -LogDirectory $quotedLogDirectory"
 $currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
