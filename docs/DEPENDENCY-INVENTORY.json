@@ -4,7 +4,7 @@
     "packageManager": "pnpm@10.15.1",
     "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
-    "pnpmLockfileSha256": "633d6b3508664141b97c3e8236b9915d97776eaa3649d645c5da2e9f4c3f5280",
+    "pnpmLockfileSha256": "26e561776dc91f1d716359847f6fa5c25a1af0a21d44f45980a8c433fb6b55dd",
     "javascriptLicenseCommand": "pnpm licenses list --json"
   },
   "summary": {
@@ -3967,6 +3967,11 @@
       {
         "name": "arboard",
         "requested": "\"3\"",
+        "section": "dependencies"
+      },
+      {
+        "name": "chrono",
+        "requested": "{ version = \"0.4\", default-features = false, features = [\"clock\", \"std\"] }",
         "section": "dependencies"
       },
       {
