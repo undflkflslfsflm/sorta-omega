@@ -18,7 +18,7 @@ struct ClipboardCapture {
     mime_type: &'static str,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct WorkspaceTarget {
     workspace: String,
