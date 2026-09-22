@@ -99,3 +99,9 @@ All 36 web tests pass, including denial followed by outage, persisted blocking a
 ## React editor lifecycle checks
 
 Tests now render `RichDocumentEditor` itself with React DOM in jsdom, drive editor commands and click its actual save button. They verify that newer edits remain dirty when an older save finishes, an incoming legacy revision does not overwrite unsaved text, blocked access disables the contenteditable surface and save button, and failed local persistence does not announce success or allow navigation. Retrying that shared save commits the outbox, announces local-only success and releases navigation protection without calling the legacy replacement API. All 40 web tests pass. This extends component coverage but does not replace real-browser or database-backed acceptance.
+
+## Two mounted editors
+
+A two-editor DOM regression starts both replicas from one canonical Yjs history, applies concurrent local formatting and remote text edits, delivers their updates in opposite orders and repeats delivery. Both rendered editor documents converge. Undo on the formatting editor removes only its local bold change and preserves the other editor's inserted text; delivering that undo converges both editors again. This tests the installed collaboration/undo plugins, not a mocked merge function. It does not exercise transport authentication, separate browser storage, or PostgreSQL persistence.
+
+Verification: all 41 web tests and web typechecking passed. The release ledger distinguishes this scoped run from its older full-workspace baseline; no live acceptance scenario was promoted on the strength of these component tests.

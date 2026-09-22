@@ -15,11 +15,14 @@ This file is the release ledger for the 133 scenarios in Appendix C of `OMEGA-AP
 
 No scenario is currently recorded as `passed-live` or `passed-fixture`. The present repository has broad automated component coverage, but PostgreSQL, Docker, the RTX 4090 host, provider accounts, and a second authenticated client were not available in this environment. This distinction is intentional.
 
-## Current automated evidence
+## Recorded automated evidence
+
+Rows below describe scoped runs, not a claim that every command was rerun against the latest commit. Recent rich-text component evidence is detailed in `RICH-TEXT-SYNC-WORK.md`; full release acceptance remains open.
 
 | Evidence | Current result | Scope |
 | --- | --- | --- |
-| `pnpm test` | 217 passing tests: API 181, local worker 22, maintenance worker 2, browser bridge 2, desktop 7, web 2, client 1 | Contract, unit, and component behavior only |
+| Earlier full-workspace `pnpm test` | 217 passing tests at that earlier snapshot: API 181, local worker 22, maintenance worker 2, browser bridge 2, desktop 7, web 2, client 1 | Historical baseline; not the latest test inventory |
+| Latest scoped web suite | 41 tests passed; web typecheck passed on local Node 24.19.0 / pnpm 10.15.1 | Includes two mounted Tiptap editors, opposite-order/repeated updates, local-only undo, React save lifecycle and offline cache guards; jsdom/fake IndexedDB, not a real browser/server scenario |
 | `pnpm typecheck` | Passed | All workspace TypeScript projects |
 | `pnpm contracts:check` | Passed at 420 implemented HTTP operations | Generated OpenAPI, generated client, and API inventory drift |
 | Master operation audit | 355 expected, 420 implemented, 0 missing | Operation names only; not an effects test |

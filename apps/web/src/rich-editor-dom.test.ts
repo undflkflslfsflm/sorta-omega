@@ -26,6 +26,40 @@ describe("mounted Tiptap shared note",()=>{
   afterEach(()=>vi.restoreAllMocks());
   beforeEach(async()=>{localStorage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);});
 
+  it("converges two editors and undoes only the local edit after remote delivery",()=>{
+    const base=new Y.Doc();
+    for(const value of ["First","Second"]){
+      const paragraph=new Y.XmlElement("paragraph"),text=new Y.XmlText();
+      paragraph.insert(0,[text]);base.getXmlFragment("prosemirror").push([paragraph]);text.insert(0,value);
+    }
+    const initial=Y.encodeStateAsUpdate(base),left=new Y.Doc(),right=new Y.Doc();
+    Y.applyUpdate(left,initial);Y.applyUpdate(right,initial);
+    const leftElement=document.createElement("div"),rightElement=document.createElement("div");
+    document.body.append(leftElement,rightElement);
+    const alice=new Editor({element:leftElement,extensions:richEditorExtensions(left),content:sharedEditorContent(left)});
+    const bob=new Editor({element:rightElement,extensions:richEditorExtensions(right),content:sharedEditorContent(right)});
+    try{
+      alice.commands.setTextSelection({from:1,to:6});alice.commands.toggleBold();
+      bob.commands.setTextSelection(bob.state.doc.content.size-1);bob.commands.insertContent(" remote");
+      const aliceUpdate=Y.encodeStateAsUpdate(left),bobUpdate=Y.encodeStateAsUpdate(right);
+      Y.applyUpdate(left,bobUpdate,"remote");Y.applyUpdate(right,aliceUpdate,"remote");
+      const converged=alice.getJSON();
+      expect(bob.getJSON()).toEqual(converged);
+      expect(leftElement.querySelector("strong")?.textContent).toBe("First");
+      expect(alice.getText()).toContain("Second remote");
+      Y.applyUpdate(left,bobUpdate,"remote");Y.applyUpdate(right,aliceUpdate,"remote");
+      expect(alice.getJSON()).toEqual(converged);expect(bob.getJSON()).toEqual(converged);
+      expect(alice.commands.undo()).toBe(true);
+      expect(alice.getText()).toContain("Second remote");
+      expect(leftElement.querySelector("strong")).toBeNull();
+      Y.applyUpdate(right,Y.encodeStateAsUpdate(left),"remote");
+      expect(bob.getJSON()).toEqual(alice.getJSON());
+      expect(editorDocumentSchema.safeParse(bob.getJSON()).success).toBe(true);
+    }finally{
+      alice.destroy();bob.destroy();left.destroy();right.destroy();base.destroy();leftElement.remove();rightElement.remove();
+    }
+  });
+
   it("rejects unsupported links before they can poison a saved document",async()=>{
     const session=await RichNoteSession.open(snapshot(),1),{editor,element}=mount(session);
     editor.commands.setTextSelection({from:1,to:6});
