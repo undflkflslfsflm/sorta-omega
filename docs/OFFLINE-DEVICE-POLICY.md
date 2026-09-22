@@ -67,3 +67,21 @@ transient network/server outages are not reclassified as revocation; retained
 data remains locked or eligible for the normal, still-valid offline fallback.
 Two focused tests distinguish revoked-device cleanup from a network failure that
 must preserve the cache.
+
+## Cache limits
+
+The browser records the exact `cacheLimits` returned by the approved server
+policy. A legacy local trust flag without those authoritative limits is not
+eligible for offline use. Every write that can increase private retained data—
+captures, core projections, note snapshots and drafts, sync operations, and
+conflicts—runs in one read/write transaction spanning all private stores. The
+projected UTF-8 JSON byte count and item count are checked before any mutation,
+so an over-limit write aborts without a partial draft, queue entry, cursor move,
+or conflict record. Transactions touching the same stores serialize concurrent
+tabs against the same budget. Device identity, policy controls, cursors, and
+authorization-block markers do not consume the content quota.
+
+Focused tests cover byte and item rejection, rollback, concurrent-tab
+serialization, authoritative limit enrollment, invalidation, and refusal of a
+pre-upgrade trust flag that has no recorded limits. Browser-engine and storage-
+pressure behavior remain part of end-to-end release validation.

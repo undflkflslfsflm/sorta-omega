@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { searchResultSchema, type Note, type Task, type CalendarEvent } from "@sorta/contracts";
 import { api, ApiError } from "./api";
-import { cacheCoreRecords, clearOfflineReplica, setOfflineCaptureEnabled, setReplicaDeviceId, setCachedNoteAccessBlocked } from "./offline-queue";
+import { cacheCoreRecords, clearOfflineReplica, setOfflineCaptureEnabled, setOfflinePolicyLimits, setReplicaDeviceId, setCachedNoteAccessBlocked } from "./offline-queue";
 import { searchCachedRecords, searchWithOfflineFallback } from "./offline-search";
 
 const { readDocument } = vi.hoisted(()=>({readDocument:vi.fn(async()=>null as unknown)}));
@@ -17,7 +17,7 @@ const event={id,title:"Historie time",revision:2,createdAt:stamp,trashedAt:null}
 
 describe("trusted offline keyword search",()=>{
   beforeEach(async()=>{
-    vi.restoreAllMocks(); storage.clear(); await clearOfflineReplica();
+    vi.restoreAllMocks(); storage.clear(); setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000}); await clearOfflineReplica();
     readDocument.mockReset().mockResolvedValue(null);
     setOfflineCaptureEnabled(true);await setReplicaDeviceId(id);
     await cacheCoreRecords({notes:[note],tasks:[task],events:[event]});

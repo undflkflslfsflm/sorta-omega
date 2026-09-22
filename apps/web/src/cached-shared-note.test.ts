@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { api,ApiError } from "./api";
 import { loadNoteSnapshot,loadCachedNoteDocument } from "./cached-shared-note";
-import { cacheNoteSnapshot,clearOfflineReplica,localNoteDraft,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
+import { cacheNoteSnapshot,clearOfflineReplica,localNoteDraft,setOfflineCaptureEnabled,setOfflinePolicyLimits,setReplicaDeviceId } from "./offline-queue";
 import { RichNoteSession,encodeNoteUpdate } from "./rich-note-session";
 vi.mock("./api",async importOriginal=>({...await importOriginal<typeof import("./api")>(),api:{noteDocument:vi.fn()}}));
 const storage=new Map<string,string>();
@@ -17,7 +17,7 @@ async function seed(){
   await cacheNoteSnapshot(snapshot);doc.destroy();return snapshot;
 }
 describe("offline canonical note reopening",()=>{
-  beforeEach(async()=>{storage.clear();await clearOfflineReplica();vi.mocked(api.noteDocument).mockReset();});
+  beforeEach(async()=>{storage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearOfflineReplica();vi.mocked(api.noteDocument).mockReset();});
   it("keeps a denial blocked across later outages and module reload until authorized recovery",async()=>{
     const snapshot=await seed(),session=await RichNoteSession.open(snapshot,1);
     const text=(session.document.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;

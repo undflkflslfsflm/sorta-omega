@@ -16,14 +16,32 @@ const SYNC_STORE = "pending-sync";
 const CONFLICT_STORE = "sync-conflicts";
 const TRUST_KEY = "sorta.trustedOfflineCapture";
 const POLICY_EXPIRY_KEY="sorta.offlinePolicyExpiresAt";
+const POLICY_LIMITS_KEY="sorta.offlinePolicyLimits";
+const PRIVATE_STORES=[CAPTURE_STORE,META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE] as const;
+type PrivateStore=(typeof PRIVATE_STORES)[number];
+type StoredRow={id:string;[key:string]:unknown};
+type PrivateMutation={store:PrivateStore;value:StoredRow|null;id:string};
 const blockedNoteAccess=new Set<string>();
 let blockedCoreAccess=false;
 
-export function offlineCaptureEnabled(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&(!expiry||Date.parse(expiry)>Date.now());}
+export function offlineCaptureEnabled(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&offlinePolicyLimits()!==null&&(!expiry||Date.parse(expiry)>Date.now());}
 export function offlinePolicyExpired(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&Boolean(expiry)&&Date.parse(expiry!)<=Date.now();}
 export function setOfflineCaptureEnabled(enabled:boolean){ localStorage.setItem(TRUST_KEY,String(enabled)); }
 export function setOfflinePolicyExpiry(expiresAt:string|null){if(expiresAt)localStorage.setItem(POLICY_EXPIRY_KEY,expiresAt);else localStorage.removeItem(POLICY_EXPIRY_KEY);}
 export function offlinePolicyExpiry(){return localStorage.getItem(POLICY_EXPIRY_KEY);}
+export type OfflinePolicyLimits={maxBytes:number;maxItems:number};
+export function setOfflinePolicyLimits(limits:OfflinePolicyLimits|null){if(limits)localStorage.setItem(POLICY_LIMITS_KEY,JSON.stringify(limits));else localStorage.removeItem(POLICY_LIMITS_KEY);}
+export function offlinePolicyLimits():OfflinePolicyLimits|null{
+  try{
+    const parsed=JSON.parse(localStorage.getItem(POLICY_LIMITS_KEY)??"null") as Partial<OfflinePolicyLimits>|null;
+    return parsed&&Number.isSafeInteger(parsed.maxBytes)&&parsed.maxBytes!>0&&Number.isSafeInteger(parsed.maxItems)&&parsed.maxItems!>0
+      ?{maxBytes:parsed.maxBytes!,maxItems:parsed.maxItems!}:null;
+  }catch{return null;}
+}
+
+export class OfflineCacheLimitError extends Error{
+  constructor(readonly byteCount:number,readonly itemCount:number,readonly limits:OfflinePolicyLimits){super("Offline cache policy limit exceeded");this.name="OfflineCacheLimitError";}
+}
 
 function database():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{const request=indexedDB.open(DATABASE,2);request.onupgradeneeded=()=>{for(const name of [CAPTURE_STORE,META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name,{keyPath:"id"});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
@@ -50,8 +68,46 @@ async function getAll<T>(storeName:string){return withStore<T[]>(storeName,"read
 async function remove(storeName:string,id:string){await withStore<void>(storeName,"readwrite",(store,done,fail)=>{const request=store.delete(id);request.onsuccess=()=>done();request.onerror=()=>fail(request.error);});}
 async function clear(storeName:string){await withStore<void>(storeName,"readwrite",(store,done,fail)=>{const request=store.clear();request.onsuccess=()=>done();request.onerror=()=>fail(request.error);});}
 
+function countsTowardPolicy(store:PrivateStore,row:StoredRow){return store!==META_STORE||row.id.startsWith("note-snapshot:")||row.id.startsWith("note-draft:");}
+function encodedBytes(value:unknown){return new TextEncoder().encode(JSON.stringify(value)).byteLength;}
+async function mutatePrivate<T>(plan:(rows:Map<PrivateStore,StoredRow[]>)=>{mutations:PrivateMutation[];result:T}):Promise<T>{
+  const db=await database();
+  return new Promise<T>((resolve,reject)=>{
+    let transaction:IDBTransaction;
+    try{transaction=db.transaction([...PRIVATE_STORES],"readwrite");}
+    catch(error){db.close();reject(error);return;}
+    let failure:unknown,result:T,remaining=PRIVATE_STORES.length;
+    const rows=new Map<PrivateStore,StoredRow[]>();
+    const fail=(reason:unknown)=>{failure=reason;try{transaction.abort();}catch{db.close();reject(reason);}};
+    transaction.oncomplete=()=>{db.close();resolve(result);};
+    transaction.onabort=()=>{db.close();reject(failure??transaction.error??new Error("Offline transaction aborted"));};
+    transaction.onerror=()=>{failure??=transaction.error;};
+    const prepare=()=>{
+      try{
+        const prepared=plan(rows),projected=new Map<PrivateStore,StoredRow[]>([...rows].map(([store,items])=>[store,[...items]]));
+        for(const mutation of prepared.mutations){
+          const items=projected.get(mutation.store)!;
+          const index=items.findIndex(item=>item.id===mutation.id);
+          if(mutation.value===null){if(index>=0)items.splice(index,1);}
+          else if(index>=0)items[index]=mutation.value;else items.push(mutation.value);
+        }
+        const retained=[...projected].flatMap(([store,items])=>items.filter(item=>countsTowardPolicy(store,item)));
+        const limits=offlinePolicyLimits(),byteCount=retained.reduce((total,item)=>total+encodedBytes(item),0);
+        if(limits&&(retained.length>limits.maxItems||byteCount>limits.maxBytes))throw new OfflineCacheLimitError(byteCount,retained.length,limits);
+        result=prepared.result;
+        for(const mutation of prepared.mutations){const store=transaction.objectStore(mutation.store);if(mutation.value===null)store.delete(mutation.id);else store.put(mutation.value);}
+      }catch(error){fail(error);}
+    };
+    for(const storeName of PRIVATE_STORES){
+      const request=transaction.objectStore(storeName).getAll();
+      request.onerror=()=>fail(request.error);
+      request.onsuccess=()=>{rows.set(storeName,request.result as StoredRow[]);if(--remaining===0)prepare();};
+    }
+  });
+}
+
 export async function pendingCaptures():Promise<PendingCapture[]>{return (await getAll<PendingCapture>(CAPTURE_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
-export async function queueCapture(text:string,id=crypto.randomUUID()):Promise<PendingCapture>{const item={id,text,createdAt:new Date().toISOString(),attempts:0,lastError:null};await put(CAPTURE_STORE,item);return item;}
+export async function queueCapture(text:string,id=crypto.randomUUID()):Promise<PendingCapture>{const item={id,text,createdAt:new Date().toISOString(),attempts:0,lastError:null};await mutatePrivate(()=>({mutations:[{store:CAPTURE_STORE,id,value:item}],result:undefined}));return item;}
 export async function removePendingCapture(id:string){await remove(CAPTURE_STORE,id);}
 export async function clearPendingCaptures(){await clear(CAPTURE_STORE);}
 export async function flushPendingCaptures(send:(item:PendingCapture)=>Promise<unknown>){const items=await pendingCaptures();let sent=0;for(const item of items){try{await send(item);await removePendingCapture(item.id);sent++;}catch{break;}}return {sent,remaining:items.length-sent};}
@@ -70,7 +126,8 @@ function validateNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
 }
 export async function cacheNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
   validateNoteSnapshot(snapshot);
-  await put(META_STORE,{id:`note-snapshot:${snapshot.noteId}`,...snapshot,cachedAt:new Date().toISOString()});
+  const value={id:`note-snapshot:${snapshot.noteId}`,...snapshot,cachedAt:new Date().toISOString()};
+  await mutatePrivate(()=>({mutations:[{store:META_STORE,id:value.id,value}],result:undefined}));
 }
 export async function localNoteDraft(noteId:string):Promise<LocalNoteDraft|null>{
   if(!offlineCaptureEnabled())return null;
@@ -88,41 +145,20 @@ export async function persistLocalNoteEdit(
   validateNoteSnapshot(snapshot);
   const operation=syncOperationSchema.parse(input);
   if(operation.type!=="note_yjs_update"||operation.noteId!==snapshot.noteId)throw new Error("Note update identity mismatch");
-  const db=await database();
-  await new Promise<void>((resolve,reject)=>{
-    let tx:IDBTransaction;
-    try{tx=db.transaction([META_STORE,SYNC_STORE],"readwrite");}
-    catch(error){db.close();reject(error);return;}
-    let failure:unknown;
-    const fail=(error:unknown)=>{failure=error;tx.abort();};
-    tx.oncomplete=()=>{db.close();resolve();};
-    tx.onabort=()=>{db.close();reject(failure??tx.error??new Error("Note persistence transaction aborted"));};
-    const meta=tx.objectStore(META_STORE),queue=tx.objectStore(SYNC_STORE);
-    const request=meta.get(`note-draft:${snapshot.noteId}`);
-    request.onsuccess=()=>{
-      try{
-        if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
-        const draft=request.result as LocalNoteDraft|undefined;
-        if(draft?.lastOperationId===operation.operationId){
-          if(draft.updateBase64!==snapshot.updateBase64||draft.revisionId!==snapshot.revisionId||JSON.stringify(draft.lastOperation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
-        }else if((draft?.lastOperationId??null)!==expectedLocalOperationId)throw new Error("Local note changed in another editor");
-        const rowsRequest=queue.getAll();
-        rowsRequest.onsuccess=()=>{
-          try{
-            if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
-            const rows=rowsRequest.result as PendingSyncOperation[];
-            const prior=rows.find(row=>row.id===operation.operationId);
-            if(prior&&JSON.stringify(prior.operation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
-            // A retry after acknowledgement must not queue the accepted edit again.
-            if(draft?.lastOperationId===operation.operationId)return;
-            if(prior)throw new Error("Queued operation ID is already in use");
-            const last=rows.reduce((latest,row)=>Math.max(latest,Date.parse(row.createdAt)||0),0);
-            queue.add({id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()});
-            meta.put({id:`note-draft:${snapshot.noteId}`,...snapshot,lastOperationId:operation.operationId,lastOperation:operation,cachedAt:new Date().toISOString()});
-          }catch(error){fail(error);}
-        };
-      }catch(error){fail(error);}
-    };
+  await mutatePrivate(rows=>{
+    if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
+    const draft=rows.get(META_STORE)!.find(row=>row.id===`note-draft:${snapshot.noteId}`) as LocalNoteDraft|undefined;
+    if(draft?.lastOperationId===operation.operationId){
+      if(draft.updateBase64!==snapshot.updateBase64||draft.revisionId!==snapshot.revisionId||JSON.stringify(draft.lastOperation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
+    }else if((draft?.lastOperationId??null)!==expectedLocalOperationId)throw new Error("Local note changed in another editor");
+    const queued=rows.get(SYNC_STORE)! as PendingSyncOperation[],prior=queued.find(row=>row.id===operation.operationId);
+    if(prior&&JSON.stringify(prior.operation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
+    if(draft?.lastOperationId===operation.operationId)return {mutations:[],result:undefined};
+    if(prior)throw new Error("Queued operation ID is already in use");
+    const last=queued.reduce((latest,row)=>Math.max(latest,Date.parse(row.createdAt)||0),0);
+    const queuedValue={id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()};
+    const draftValue={id:`note-draft:${snapshot.noteId}`,...snapshot,lastOperationId:operation.operationId,lastOperation:operation,cachedAt:new Date().toISOString()};
+    return {mutations:[{store:SYNC_STORE,id:queuedValue.id,value:queuedValue},{store:META_STORE,id:draftValue.id,value:draftValue}],result:undefined};
   });
 }
 export async function cachedNoteSnapshot(noteId:string):Promise<CachedNoteSnapshot|null>{
@@ -146,23 +182,15 @@ export async function setCachedCoreAccessBlocked(blocked:boolean){
   else{await remove(META_STORE,"core-access-blocked");blockedCoreAccess=false;}
 }
 export async function cachedCoreAccessBlocked(){return blockedCoreAccess||Boolean(await get(META_STORE,"core-access-blocked"));}
-export async function cacheCoreRecords(records:Omit<CachedCoreRecords,"id"|"cachedAt">){await put(CORE_STORE,{id:"core",...records,cachedAt:new Date().toISOString()});}
+export async function cacheCoreRecords(records:Omit<CachedCoreRecords,"id"|"cachedAt">){const value={id:"core",...records,cachedAt:new Date().toISOString()};await mutatePrivate(()=>({mutations:[{store:CORE_STORE,id:value.id,value}],result:undefined}));}
 export async function cachedCoreRecords(){if(await cachedCoreAccessBlocked())return null;return (await get<CachedCoreRecords>(CORE_STORE,"core"))??null;}
 export async function queueSyncOperation(operation:SyncOperation){
-  await withStore<void>(SYNC_STORE,"readwrite",(store,done,fail)=>{
-    const existing=store.getAll();
-    existing.onerror=()=>fail(existing.error);
-    existing.onsuccess=()=>{
-      const rows=existing.result as PendingSyncOperation[];
-      const prior=rows.find(item=>item.id===operation.operationId);
-      if(prior){
-        if(JSON.stringify(prior.operation)!==JSON.stringify(operation)){fail(new Error("Queued operation ID cannot be reused for different content"));return;}
-        done();return;
-      }
-      const last=rows.reduce((latest,item)=>Math.max(latest,Date.parse(item.createdAt)||0),0);
-      const request=store.add({id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()});
-      request.onsuccess=()=>done();request.onerror=()=>fail(request.error);
-    };
+  await mutatePrivate(rows=>{
+    const queued=rows.get(SYNC_STORE)! as PendingSyncOperation[],prior=queued.find(item=>item.id===operation.operationId);
+    if(prior){if(JSON.stringify(prior.operation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");return {mutations:[],result:undefined};}
+    const last=queued.reduce((latest,item)=>Math.max(latest,Date.parse(item.createdAt)||0),0);
+    const value={id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()};
+    return {mutations:[{store:SYNC_STORE,id:value.id,value}],result:undefined};
   });
 }
 export async function pendingSyncOperations(){return (await getAll<PendingSyncOperation>(SYNC_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
@@ -186,17 +214,11 @@ async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   const batchIds=new Set(batch.map(item=>item.id));
   const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);
   if([...completed].some(id=>!batchIds.has(id)))throw new Error("Sync acknowledgement contains an unknown operation");
-  const db=await database();
-  await new Promise<void>((resolve,reject)=>{
-    const tx=db.transaction([META_STORE,SYNC_STORE,CONFLICT_STORE],"readwrite");
-    tx.oncomplete=()=>{db.close();resolve();};
-    tx.onabort=()=>{db.close();reject(tx.error??new Error("Sync acknowledgement transaction aborted"));};
-    try {
-      tx.objectStore(META_STORE).put({id:"cursor",value:ack.cursor});
-      for(const id of completed)tx.objectStore(SYNC_STORE).delete(id);
-      for(const conflict of ack.conflicts)tx.objectStore(CONFLICT_STORE).put({...conflict,id:conflict.operationId,operation:batch.find(item=>item.id===conflict.operationId)!.operation,recordedAt:new Date().toISOString()});
-    } catch(error){tx.abort();reject(error);}
-  });
+  await mutatePrivate(()=>({mutations:[
+    {store:META_STORE,id:"cursor",value:{id:"cursor",value:ack.cursor}},
+    ...[...completed].map(id=>({store:SYNC_STORE,id,value:null}) satisfies PrivateMutation),
+    ...ack.conflicts.map(conflict=>({store:CONFLICT_STORE,id:conflict.operationId,value:{...conflict,id:conflict.operationId,operation:batch.find(item=>item.id===conflict.operationId)!.operation,recordedAt:new Date().toISOString()}}) satisfies PrivateMutation)
+  ],result:undefined}));
   return completed.size;
 }
 let activeSyncFlush: Promise<{sent:number;remaining:number;conflicts:number}> | null = null;

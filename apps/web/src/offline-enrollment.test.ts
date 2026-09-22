@@ -3,14 +3,14 @@ import { beforeEach,describe,expect,it,vi } from "vitest";
 import type { DeviceCachePolicy } from "@sorta/contracts";
 import { api,ApiError,VAULT_ID } from "./api";
 import { approvePersistentOfflineCache,enforceLocalOfflinePolicyExpiry,verifyPersistentOfflineCache } from "./offline-enrollment";
-import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,offlineCaptureEnabled,offlineClearOnLogout,offlinePolicyExpiry,setOfflineCaptureEnabled,setOfflinePolicyExpiry,setReplicaDeviceId } from "./offline-queue";
+import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,offlineCaptureEnabled,offlineClearOnLogout,offlinePolicyExpiry,offlinePolicyLimits,setOfflineCaptureEnabled,setOfflinePolicyExpiry,setOfflinePolicyLimits,setReplicaDeviceId } from "./offline-queue";
 
 const deviceId="00000000-0000-4000-8000-000000000611";
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key)}});
 const policy={deviceId,mode:"session_only",trusted:false,selectedVaultIds:[],cacheLimits:{maxBytes:536_870_912,maxItems:10_000},expireAfterSeconds:null,clearOnLogout:true,reportedState:{status:"unknown",cachedVaultIds:[],byteCount:null,itemCount:null,reportedAt:null},latestPurge:null,revision:0,createdAt:null,updatedAt:null} as DeviceCachePolicy;
 describe("persistent offline enrollment",()=>{
-  beforeEach(async()=>{vi.restoreAllMocks();vi.useRealTimers();storage.clear();await clearOfflineReplica();});
+  beforeEach(async()=>{vi.restoreAllMocks();vi.useRealTimers();storage.clear();setOfflinePolicyLimits(policy.cacheLimits);await clearOfflineReplica();});
   it("explicitly promotes a session-only paired device and records logout policy",async()=>{
     vi.spyOn(api,"deviceCachePolicy").mockResolvedValue(policy);
     const configured={...policy,mode:"trusted_persistent" as const,trusted:true,selectedVaultIds:[VAULT_ID],revision:1};
@@ -18,6 +18,7 @@ describe("persistent offline enrollment",()=>{
     expect(await approvePersistentOfflineCache(deviceId)).toEqual(configured);
     expect(update).toHaveBeenCalledWith(policy,{trusted:true,selectedVaultIds:[VAULT_ID],cacheLimits:policy.cacheLimits,expireAfterSeconds:null,clearOnLogout:true});
     expect(await offlineClearOnLogout()).toBe(true);
+    expect(offlinePolicyLimits()).toEqual(policy.cacheLimits);
   });
   it("does not rewrite an already approved policy and preserves retain-on-logout",async()=>{
     const configured={...policy,mode:"trusted_persistent" as const,trusted:true,selectedVaultIds:[VAULT_ID],clearOnLogout:false};
@@ -52,7 +53,7 @@ describe("persistent offline enrollment",()=>{
     const purged={...policy,latestPurge:{id:"00000000-0000-4000-8000-000000000612",status:"requested" as const,requestedAt:"2026-09-22T12:00:00.000Z",acknowledgedAt:null}};
     vi.spyOn(api,"deviceCachePolicy").mockResolvedValue(purged);
     await expect(verifyPersistentOfflineCache(deviceId)).rejects.toMatchObject({status:403,code:"offline_cache_purge_requested"});
-    expect(offlineCaptureEnabled()).toBe(false);expect(await cachedCoreRecords()).toBeNull();
+    expect(offlineCaptureEnabled()).toBe(false);expect(offlinePolicyLimits()).toBeNull();expect(await cachedCoreRecords()).toBeNull();
   });
   it("refreshes a valid policy without deleting cached data",async()=>{
     setOfflineCaptureEnabled(true);await cacheCoreRecords({notes:[],tasks:[],events:[]});

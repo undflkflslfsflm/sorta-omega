@@ -6,7 +6,7 @@ import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import { editorDocumentSchema } from "@sorta/contracts";
 import { richEditorExtensions,sharedEditorContent } from "./rich-editor-extensions";
 import { RichNoteSession,encodeNoteUpdate } from "./rich-note-session";
-import { clearOfflineReplica,pendingSyncOperations,setOfflineCaptureEnabled } from "./offline-queue";
+import { clearOfflineReplica,pendingSyncOperations,setOfflineCaptureEnabled,setOfflinePolicyLimits } from "./offline-queue";
 
 function snapshot(){
   const document=new Y.Doc(),paragraph=new Y.XmlElement("paragraph"),text=new Y.XmlText();
@@ -24,7 +24,7 @@ async function close(session:RichNoteSession,editor:Editor,element:HTMLElement){
 }
 describe("mounted Tiptap shared note",()=>{
   afterEach(()=>vi.restoreAllMocks());
-  beforeEach(async()=>{localStorage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);});
+  beforeEach(async()=>{localStorage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearOfflineReplica();setOfflineCaptureEnabled(true);});
 
   it("converges two editors and undoes only the local edit after remote delivery",()=>{
     const base=new Y.Doc();

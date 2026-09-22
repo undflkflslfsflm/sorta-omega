@@ -1,5 +1,5 @@
 import { api,ApiError,VAULT_ID } from "./api";
-import { clearOfflinePrivateDataForLogout, offlinePolicyExpired, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setOfflineClearOnLogout, setOfflinePolicyExpiry } from "./offline-queue";
+import { clearOfflinePrivateDataForLogout, offlinePolicyExpired, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setOfflineClearOnLogout, setOfflinePolicyExpiry, setOfflinePolicyLimits } from "./offline-queue";
 
 type CachePolicy=Awaited<ReturnType<typeof api.deviceCachePolicy>>;
 function policyExpiry(policy:CachePolicy){
@@ -12,10 +12,10 @@ function policyAllowsOmega(policy:CachePolicy){
   return policy.trusted&&policy.mode==="trusted_persistent"&&policy.selectedVaultIds.includes(VAULT_ID)
     &&policy.latestPurge?.status!=="requested"&&(!expiry||Date.parse(expiry)>Date.now());
 }
-async function rememberPolicy(policy:CachePolicy){await setOfflineClearOnLogout(policy.clearOnLogout);setOfflinePolicyExpiry(policyExpiry(policy));}
+async function rememberPolicy(policy:CachePolicy){await setOfflineClearOnLogout(policy.clearOnLogout);setOfflinePolicyExpiry(policyExpiry(policy));setOfflinePolicyLimits(policy.cacheLimits);}
 async function invalidateLocalReplica(){
   try{await clearOfflinePrivateDataForLogout();}finally{
-    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);
+    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);setOfflinePolicyLimits(null);
     try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
   }
 }

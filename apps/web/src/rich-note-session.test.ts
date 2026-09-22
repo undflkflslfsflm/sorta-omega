@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import * as Y from "yjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RichNoteSession, encodeNoteUpdate } from "./rich-note-session";
-import { cachedNoteSnapshot, clearOfflineReplica, localNoteDraft, pendingSyncOperations, setOfflineCaptureEnabled } from "./offline-queue";
+import { cachedNoteSnapshot, clearOfflineReplica, localNoteDraft, pendingSyncOperations, setOfflineCaptureEnabled, setOfflinePolicyLimits } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)}});
@@ -17,7 +17,7 @@ function baseline(){
 }
 function text(doc:Y.Doc){return (doc.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;}
 describe("durable rich note session",()=>{
-  beforeEach(async()=>{storage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);});
+  beforeEach(async()=>{storage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearOfflineReplica();setOfflineCaptureEnabled(true);});
   it("reports dirty state until the local transaction commits and unsubscribes cleanly",async()=>{
     const session=await RichNoteSession.open(baseline(),1);
     const states:boolean[]=[];

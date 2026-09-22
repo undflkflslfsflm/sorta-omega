@@ -7,7 +7,7 @@ import * as Y from "yjs";
 import { afterEach,beforeEach,describe,expect,it,vi } from "vitest";
 import RichDocumentEditor from "./RichDocumentEditor";
 import { RichNoteSession,encodeNoteUpdate } from "./rich-note-session";
-import { clearOfflineReplica,pendingSyncOperations,setOfflineCaptureEnabled } from "./offline-queue";
+import { clearOfflineReplica,pendingSyncOperations,setOfflineCaptureEnabled,setOfflinePolicyLimits } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 
 const initial={type:"doc" as const,content:[{type:"paragraph" as const,content:[{type:"text" as const,text:"Start"}]}]};
@@ -19,7 +19,7 @@ function editor(){return (element.querySelector(".tiptap") as HTMLElement&{edito
 function saveButton(){return element.querySelector(".save-state") as HTMLButtonElement;}
 beforeEach(async()=>{
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT",true);
-  localStorage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);
+  localStorage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearOfflineReplica();setOfflineCaptureEnabled(true);
   element=document.createElement("div");document.body.append(element);root=createRoot(element);
 });
 afterEach(async()=>{await act(async()=>root.unmount());element.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});

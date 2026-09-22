@@ -3,13 +3,13 @@ import { dismissSyncConflict } from "./offline-queue";
 import { localNoteDraft, persistLocalNoteEdit } from "./offline-queue";
 import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
-import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflinePrivateDataForLogout,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,localNoteDraft as readLocalNoteDraft,offlineClearOnLogout,offlinePolicyExpiry,pendingCaptures,pendingSyncOperations,queueCapture,queueSyncOperation,replicaDeviceId,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setOfflineClearOnLogout,setOfflinePolicyExpiry,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
+import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflinePrivateDataForLogout,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,localNoteDraft as readLocalNoteDraft,offlineClearOnLogout,offlinePolicyExpiry,pendingCaptures,pendingSyncOperations,queueCapture,queueSyncOperation,replicaDeviceId,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setOfflineClearOnLogout,setOfflinePolicyExpiry,setOfflinePolicyLimits,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key),clear:()=>storage.clear()}});
 
 describe("trusted browser replica",()=>{
-  beforeEach(async()=>{storage.clear();await clearPendingCaptures();await clearOfflineReplica();});
+  beforeEach(async()=>{storage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearPendingCaptures();await clearOfflineReplica();});
 
   const noteSnapshot={noteId:"00000000-0000-4000-8000-000000000511",revisionId:"00000000-0000-4000-8000-000000000512",updateBase64:"AAA="};
   const noteOperation={type:"note_yjs_update" as const,operationId:"00000000-0000-4000-8000-000000000513",noteId:noteSnapshot.noteId,baseRevision:1,updateBase64:"AAA="};
@@ -32,6 +32,11 @@ describe("trusted browser replica",()=>{
     expect(offlineCaptureEnabled()).toBe(true);expect(offlinePolicyExpiry()).toBe("2026-09-22T13:00:00.000Z");
     vi.setSystemTime(new Date("2026-09-22T13:00:00.000Z"));expect(offlineCaptureEnabled()).toBe(false);
     vi.useRealTimers();
+  });
+
+  it("does not honor a legacy trust flag without an authoritative cache limit",()=>{
+    setOfflinePolicyLimits(null);setOfflineCaptureEnabled(true);
+    expect(offlineCaptureEnabled()).toBe(false);
   });
 
   it("clears private logout data while preserving device enrollment and policy",async()=>{
@@ -133,6 +138,34 @@ describe("trusted browser replica",()=>{
     expect(offlineCaptureEnabled()).toBe(false);setOfflineCaptureEnabled(true);expect(offlineCaptureEnabled()).toBe(true);
     await cacheCoreRecords({notes:[],tasks:[],events:[]});
     expect((await cachedCoreRecords())?.notes).toEqual([]);
+  });
+
+  it("enforces configured item and byte limits without partially committing writes",async()=>{
+    setOfflineCaptureEnabled(true);setOfflinePolicyLimits({maxBytes:10_000,maxItems:1});
+    await queueCapture("first","00000000-0000-4000-8000-000000000701");
+    await expect(queueCapture("second","00000000-0000-4000-8000-000000000702")).rejects.toThrow("policy limit");
+    expect((await pendingCaptures()).map(item=>item.text)).toEqual(["first"]);
+    setOfflinePolicyLimits({maxBytes:120,maxItems:10});
+    await clearPendingCaptures();
+    await expect(queueCapture("x".repeat(200),"00000000-0000-4000-8000-000000000703")).rejects.toThrow("policy limit");
+    expect(await pendingCaptures()).toEqual([]);
+  });
+
+  it("serializes concurrent private writes against one shared item budget",async()=>{
+    setOfflinePolicyLimits({maxBytes:10_000,maxItems:1});
+    const results=await Promise.allSettled([
+      queueCapture("one","00000000-0000-4000-8000-000000000711"),
+      queueCapture("two","00000000-0000-4000-8000-000000000712")
+    ]);
+    expect(results.map(result=>result.status).sort()).toEqual(["fulfilled","rejected"]);
+    expect(await pendingCaptures()).toHaveLength(1);
+  });
+
+  it("rejects an over-budget note edit without leaving either half of its atomic commit",async()=>{
+    setOfflineCaptureEnabled(true);setOfflinePolicyLimits({maxBytes:10_000,maxItems:1});
+    await expect(persistLocalNoteEdit(noteSnapshot,noteOperation,null)).rejects.toThrow("policy limit");
+    expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+    expect(await pendingSyncOperations()).toEqual([]);
   });
 
   it("shares overlapping flushes and permits retry after a failed send",async()=>{

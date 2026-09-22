@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import type { Note } from "@sorta/contracts";
 import { api,ApiError } from "./api";
-import { cacheCoreRecords,cachedNoteAccessBlocked,clearOfflineReplica,setCachedNoteAccessBlocked,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
+import { cacheCoreRecords,cachedNoteAccessBlocked,clearOfflineReplica,setCachedNoteAccessBlocked,setOfflineCaptureEnabled,setOfflinePolicyLimits,setReplicaDeviceId } from "./offline-queue";
 import { openSearchNote } from "./open-search-note";
 
 const storage=new Map<string,string>();
@@ -11,7 +11,7 @@ const id="00000000-0000-4000-8000-000000000511";
 const note={id,title:"Cached note",body:"Cached body",revision:1} as Note;
 describe("search note resolution",()=>{
   beforeEach(async()=>{
-    vi.restoreAllMocks();storage.clear();await clearOfflineReplica();
+    vi.restoreAllMocks();storage.clear();setOfflinePolicyLimits({maxBytes:536_870_912,maxItems:10_000});await clearOfflineReplica();
     setOfflineCaptureEnabled(true);await setReplicaDeviceId(id);
     await cacheCoreRecords({notes:[note],tasks:[],events:[]});
   });
