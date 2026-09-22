@@ -3,6 +3,7 @@ import { OfflineConflictReview } from "./OfflineConflictReview";
 import { searchWithOfflineFallback } from "./offline-search";
 import { openSearchNote } from "./open-search-note";
 import { classifyWorkspaceRefreshFailure } from "./workspace-refresh";
+import { resolveStartupAuthState } from "./startup-auth";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -45,19 +46,12 @@ export function App() {
   const [authState, setAuthState] = useState<AuthState>("checking");
 
   async function checkSession() {
-    try {
-      const session = await api.session();
-      setAuthState(session.auth_level === "recovery" ? "recovery" : "authenticated");
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.status >= 500) {if(offlineCaptureEnabled()&&await cachedCoreRecords().catch(()=>null))return setAuthState("offline");return setAuthState("unavailable");}
-      try {
-        await api.loginOptions<PublicKeyCredentialRequestOptionsJSON>();
-        setAuthState("signin");
-      } catch (loginError) {
-        if (loginError instanceof ApiError && loginError.code === "bootstrap_required") setAuthState("setup");
-        else if(offlineCaptureEnabled()&&await cachedCoreRecords().catch(()=>null))setAuthState("offline");else setAuthState("unavailable");
-      }
-    }
+    setAuthState(await resolveStartupAuthState({
+      session:api.session,
+      loginOptions:()=>api.loginOptions<PublicKeyCredentialRequestOptionsJSON>(),
+      cachedOfflineAvailable:async()=>offlineCaptureEnabled()&&Boolean(await cachedCoreRecords().catch(()=>null)),
+      blockCoreCache:()=>setCachedCoreAccessBlocked(true)
+    }));
   }
 
   useEffect(() => { void checkSession(); }, []);

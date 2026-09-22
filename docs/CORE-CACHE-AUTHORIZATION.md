@@ -27,3 +27,18 @@ authorized unblock and preservation of retained bytes. UI state clearing and
 full sign-in/reconnect behavior still require real browser/backend revocation
 testing. Cache bytes are retained for authorized recovery and are not claimed to
 be remotely erased while a browser is offline.
+
+## Startup boundary
+
+Startup now permits trusted offline mode only when the initial session request
+itself fails because of a network error or API 5xx and an unblocked core cache is
+available. After an explicit host response, a subsequent failure while requesting
+passkey options cannot downgrade startup into offline access. A session 401 leads
+to sign-in when options are available, otherwise an unavailable screen. A session
+403 also applies the immediate/persistent core block before sign-in. Bootstrap
+setup is shown only for the server's explicit `bootstrap_required` response;
+malformed responses and other errors do not read cached private records.
+
+Five direct startup-decision tests cover authenticated/recovery sessions, initial
+outage with and without cache, 401 followed by a login-options outage, 403 with a
+simulated persistence failure, explicit bootstrap setup and malformed responses.
