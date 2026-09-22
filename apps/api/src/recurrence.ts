@@ -1,4 +1,6 @@
-import { RRule, datetime } from "rrule";
+import rrule from "rrule";
+
+const { RRule, datetime } = rrule;
 
 export type RecurrenceRule = {
   frequency: "daily" | "weekly" | "monthly" | "yearly";
