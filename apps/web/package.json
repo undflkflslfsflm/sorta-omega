@@ -15,6 +15,7 @@
     "@sorta/desktop": "workspace:*",
     "@tauri-apps/api": "^2.11.1",
     "@tiptap/core": "^3.31.3",
+    "@tiptap/extension-collaboration": "3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",
     "@tiptap/extension-table": "^3.31.3",
     "@tiptap/extension-task-item": "^3.31.3",
@@ -23,7 +24,8 @@
     "@tiptap/starter-kit": "^3.31.3",
     "lucide-react": "^0.542.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "yjs": "13.6.32"
   },
   "devDependencies": {
     "@types/react": "^19.1.12",

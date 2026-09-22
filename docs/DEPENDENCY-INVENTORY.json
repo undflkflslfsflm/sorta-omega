@@ -4,13 +4,13 @@
     "packageManager": "pnpm@10.15.1",
     "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
-    "pnpmLockfileSha256": "064db8057e6cb7940a96aab2c4867cc055687aef2e8037211c8316967abf7e6d",
+    "pnpmLockfileSha256": "ff0313b6c53de76c0ec6193066cb6c71d5aac5352951fcf3604f63eb9ee2c182",
     "javascriptLicenseCommand": "pnpm licenses list --json"
   },
   "summary": {
     "workspaceManifests": 9,
-    "installedJavascriptPackages": 317,
-    "installedJavascriptPackageVersions": 329,
+    "installedJavascriptPackages": 319,
+    "installedJavascriptPackageVersions": 331,
     "javascriptLicenseExpressions": 11
   },
   "directJavascriptDependencies": [
@@ -301,6 +301,11 @@
           "section": "dependencies"
         },
         {
+          "name": "@tiptap/extension-collaboration",
+          "requested": "3.31.3",
+          "section": "dependencies"
+        },
+        {
           "name": "@tiptap/extension-placeholder",
           "requested": "^3.31.3",
           "section": "dependencies"
@@ -379,6 +384,11 @@
           "name": "vitest",
           "requested": "^3.2.4",
           "section": "devDependencies"
+        },
+        {
+          "name": "yjs",
+          "requested": "13.6.32",
+          "section": "dependencies"
         }
       ]
     },
@@ -515,8 +525,8 @@
       },
       {
         "license": "MIT",
-        "packages": 274,
-        "versions": 283
+        "packages": 276,
+        "versions": 285
       },
       {
         "license": "Python-2.0",
@@ -1277,6 +1287,15 @@
         "description": "code block extension for tiptap"
       },
       {
+        "name": "@tiptap/extension-collaboration",
+        "versions": [
+          "3.31.3"
+        ],
+        "license": "MIT",
+        "homepage": "https://tiptap.dev",
+        "description": "collaboration extension for tiptap"
+      },
+      {
         "name": "@tiptap/extension-document",
         "versions": [
           "3.31.3"
@@ -1500,6 +1519,15 @@
         "license": "MIT",
         "homepage": "https://tiptap.dev",
         "description": "starter kit for tiptap"
+      },
+      {
+        "name": "@tiptap/y-tiptap",
+        "versions": [
+          "3.0.9"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/ueberdosis/y-tiptap#readme",
+        "description": "Tiptap prosemirror bindings for Yjs"
       },
       {
         "name": "@types/babel__core",
