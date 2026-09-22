@@ -1,0 +1,93 @@
+{
+    "observed_at":  "2026-09-22T18:23:42.2385282Z",
+    "computer_name":  "SILENT-4090",
+    "operating_system":  {
+                             "caption":  "Microsoft Windows 11 Pro",
+                             "version":  "10.0.26200",
+                             "architecture":  "64-bit"
+                         },
+    "cpu":  {
+                "name":  "13th Gen Intel(R) Core(TM) i9-13900KF",
+                "cores":  24,
+                "logical_processors":  32
+            },
+    "memory_gb":  63.8,
+    "gpu":  [
+                {
+                    "name":  "NVIDIA GeForce RTX 4090",
+                    "adapter_memory_gb":  4,
+                    "driver_version":  "32.0.15.8180"
+                }
+            ],
+    "disks":  [
+                  {
+                      "drive":  "D",
+                      "filesystem":  "NTFS",
+                      "free_gb":  14072.8,
+                      "size_gb":  14902
+                  },
+                  {
+                      "drive":  "C",
+                      "filesystem":  "NTFS",
+                      "free_gb":  628.6,
+                      "size_gb":  1906.1
+                  }
+              ],
+    "commands":  {
+                     "docker":  {
+                                    "available":  true,
+                                    "path":  "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+                                    "version":  "Docker version 29.7.2, build a7dcaa6"
+                                },
+                     "podman":  {
+                                    "available":  false,
+                                    "path":  null,
+                                    "version":  null
+                                },
+                     "psql":  {
+                                  "available":  false,
+                                  "path":  null,
+                                  "version":  null
+                              },
+                     "ollama":  {
+                                    "available":  true,
+                                    "path":  "C:\\Users\\vikto\\AppData\\Local\\Programs\\Ollama\\ollama.exe",
+                                    "version":  "ollama version is 0.34.2"
+                                },
+                     "tailscale":  {
+                                       "available":  true,
+                                       "path":  "C:\\Program Files\\Tailscale\\tailscale.exe",
+                                       "version":  "1.102.4"
+                                   },
+                     "cloudflared":  {
+                                         "available":  false,
+                                         "path":  null,
+                                         "version":  null
+                                     },
+                     "node":  {
+                                  "available":  true,
+                                  "path":  "C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\work\\runtime\\node-v22.23.2-win-x64\\node.exe",
+                                  "version":  "v22.23.2"
+                              },
+                     "pnpm":  {
+                                  "available":  true,
+                                  "path":  "C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\work\\runtime\\node-v22.23.2-win-x64\\pnpm.ps1",
+                                  "version":  "10.15.1"
+                              },
+                     "wsl":  {
+                                 "available":  true,
+                                 "path":  "C:\\WINDOWS\\system32\\wsl.exe",
+                                 "version":  "W\u0000S\u0000L\u0000 \u0000v\u0000e\u0000r\u0000s\u0000i\u0000o\u0000n\u0000:\u0000 \u00002\u0000.\u00007\u0000.\u00001\u00002\u0000.\u00000\u0000"
+                             }
+                 },
+    "services":  [
+                     {
+                         "name":  "Tailscale",
+                         "status":  "Running",
+                         "start_type":  "Automatic"
+                     }
+                 ],
+    "notes":  [
+
+              ]
+}

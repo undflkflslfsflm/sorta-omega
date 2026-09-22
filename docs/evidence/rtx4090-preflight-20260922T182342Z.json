@@ -1,0 +1,212 @@
+{
+    "schema_version":  1,
+    "run_id":  "20260922T182342Z",
+    "observed_at":  "2026-09-22T18:25:11.1078605Z",
+    "computer_name":  "SILENT-4090",
+    "repository":  "C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git",
+    "host_doctor_evidence":  "C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\docs\\evidence\\host-doctor-20260922T182342Z.json",
+    "checks":  [
+                   {
+                       "name":  "Windows 11 host",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "Microsoft Windows 11 Pro 10.0.26200"
+                   },
+                   {
+                       "name":  "Expected CPU",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "13th Gen Intel(R) Core(TM) i9-13900KF"
+                   },
+                   {
+                       "name":  "System memory",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "63.8 GiB detected; at least 60 GiB usable is required"
+                   },
+                   {
+                       "name":  "RTX 4090 GPU",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "NVIDIA GeForce RTX 4090; 24564 MiB; driver 581.80"
+                   },
+                   {
+                       "name":  "Authoritative spec: OMEGA-APP-SPEC.md",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "7198D8D56207083B5B8EC4D7047A5C3631271A4E9C2CB43BCCDD1AD80C786097"
+                   },
+                   {
+                       "name":  "Authoritative spec: OMEGA-MASTER-SPEC.md",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "846FD2B06A4A3B878F50ADF17C3093AA50AA820884C658013F83A29556A0D228"
+                   },
+                   {
+                       "name":  "Canonical secure origin",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "http://127.0.0.1:3210"
+                   },
+                   {
+                       "name":  "Blob root",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "C:\\SortaOmegaData\\blob-storage; use -PrepareStorage to create the reviewed path"
+                   },
+                   {
+                       "name":  "Blob root root ACL",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "Root must disable inheritance and allow only current owner, SYSTEM and Administrators; descendant ACLs require separate audit"
+                   },
+                   {
+                       "name":  "Backup root",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "D:\\SortaBackups; use -PrepareStorage to create the reviewed path"
+                   },
+                   {
+                       "name":  "Backup root root ACL",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "Root must disable inheritance and allow only current owner, SYSTEM and Administrators; descendant ACLs require separate audit"
+                   },
+                   {
+                       "name":  "Independent live and backup disks",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "Resolved physical disk identities compared; separate drive letters alone are insufficient"
+                   },
+                   {
+                       "name":  "Docker daemon",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 29.7.2"
+                   },
+                   {
+                       "name":  "WSL2",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 Default Distribution: Ubuntu\r\n\r\nDefault Version: 2"
+                   },
+                   {
+                       "name":  "Rust toolchain",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 rustc 1.98.1 (48a229cea 2026-09-01)"
+                   },
+                   {
+                       "name":  "Cargo toolchain",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 cargo 1.98.1 (797e8a9bc 2026-08-05)"
+                   },
+                   {
+                       "name":  "Tailscale service",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 100.113.88.18  silent-4090  undflkflslfsflm@  windows  -  \r\n100.74.176.23  takk-oyvind  undflkflslfsflm@  windows  -"
+                   },
+                   {
+                       "name":  "Ollama service",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 NAME                                     ID              SIZE      MODIFIED    \r\nqwen3-embedding:0.6b                     ac6da0dfba84    639 MB    3 hours ago    \r\ncyntox-os-lab-worker:latest              dc19ff8a671e    17 GB     2 weeks ago    \r\ncyntox:latest                            a9cbccb312e5    17 GB     2 weeks ago    \r\nqwenthos:latest                          d720a5b3a76d    17 GB     3 weeks ago    \r\nqwen-os-lab-worker:latest                a9ce46c5700c    17 GB     3 weeks ago    \r\nhuihui-qwen3.8-27b-abliterated:latest    20058f3f3be6    17 GB     3 weeks ago"
+                   },
+                   {
+                       "name":  "Node.js 22.x",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "22.23.2; pinned release baseline. Parallel API worker crashes were reported on both Node 22 and 24; use the default single-worker API test command."
+                   },
+                   {
+                       "name":  "pnpm 10.15.1",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "10.15.1"
+                   },
+                   {
+                       "name":  "WebView2 Runtime",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "153.0.4234.48"
+                   },
+                   {
+                       "name":  "MSVC and Windows SDK",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "C:\\Program Files (x86)\\Microsoft Visual Studio\\2022\\BuildTools"
+                   },
+                   {
+                       "name":  "Install frozen dependencies",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 Scope: all 9 workspace projects\r\nLockfile is up to date, resolution step is skipped\r\nAlready up to date\r\n\r\nDone in 409ms using pnpm v10.15.1"
+                   },
+                   {
+                       "name":  "Generate API client",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 client:generate C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm contracts:generate \u0026\u0026 pnpm --filter @sorta/client generate\r\n\r\n\r\n\u003e sorta-omega@0.1.0 contracts:generate C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm --filter @sorta/contracts generate:openapi\r\n\r\n\r\n\u003e @sorta/contracts@0.1.0 generate:openapi C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\contracts\r\n\u003e tsx src/generate-openapi.ts\r\n\r\nGenerated 420 operations at C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\docs\\openapi.json and C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\docs\\API-INVENTORY.json\r\n\r\n\u003e @sorta/client@0.1.0 generate C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\client\r\n\u003e tsx src/generate.ts\r\n\r\nGenerated TypeScript client schema at C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\client\\src\\schema.ts"
+                   },
+                   {
+                       "name":  "Typecheck",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 typecheck C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm -r typecheck\r\n\r\nScope: 8 of 9 workspace projects\r\napps/browser-bridge typecheck$ tsc -p tsconfig.json --noEmit\r\npackages/client typecheck$ tsc -p tsconfig.json --noEmit\r\napps/maintenance-worker typecheck$ tsc -p tsconfig.json --noEmit\r\npackages/contracts typecheck$ tsc -p tsconfig.json --noEmit\r\napps/browser-bridge typecheck: Done\r\napps/maintenance-worker typecheck: Done\r\npackages/client typecheck: Done\r\npackages/contracts typecheck: Done\r\napps/api typecheck$ tsc -p tsconfig.json --noEmit\r\napps/desktop typecheck$ tsc -p tsconfig.json --noEmit\r\napps/local-worker typecheck$ tsc -p tsconfig.json --noEmit\r\napps/desktop typecheck: Done\r\napps/local-worker typecheck: Done\r\napps/api typecheck: Done\r\napps/web typecheck$ tsc -b\r\napps/web typecheck: Done"
+                   },
+                   {
+                       "name":  "Tests",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 pretest C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm --filter @sorta/contracts build\r\n\r\n\r\n\u003e @sorta/contracts@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\contracts\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e sorta-omega@0.1.0 test C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm -r --workspace-concurrency=1 test\r\n\r\nScope: 8 of 9 workspace projects\r\n\r\n\u003e @sorta/browser-bridge@0.1.0 test C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\browser-bridge\r\n\u003e vitest run\r\n\r\n\r\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.7 \u001b[39m\u001b[90mC:/Users/vikto/Documents/Codex/2026-09-21/th/sorta-omega-git/apps/browser-bridge\u001b[39m\r\n\r\n \u001b[32mΓ£ô\u001b[39m src/normalize.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\r\n\r\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\r\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m3 passed\u001b[39m\u001b[22m\u001b[90m (3)\u001b[39m\r\n\u001b[2m   Start at \u001b[22m 20:24:13\r\n\u001b[2m   Duration \u001b[22m 343ms\u001b[2m (transform 40ms, setup 0ms, collect 38ms, tests 3ms, environment 0ms, prepare 142ms)\u001b[22m\r\n\r\n\r\n\u003e @sorta/maintenance-worker@0.1.0 test C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\maintenance-worker\r\n\u003e vitest run\r\n\r\n\r\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.7 \u001b[39m\u001b[90mC:/Users/vikto/Documents/Codex/2026-09-21/th/sorta-omega-git/apps/maintenance-worker\u001b[39m\r\n\r\n \u001b[32mΓ£ô\u001b[39m src/bundle.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 20\u001b[2mms\u001b[22m\u001b[39m\r\n\r\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m1 passed\u001b[39m\u001b[22m\u001b[90m (1)\u001b[39m\r\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m2 passed\u001b[39m\u001b[22m\u001b[90m (2)\u001b[39m\r\n\u001b[2m   Start at \u001b[22m 20:24:14\r\n\u001b[2m   Duration \u001b[22m 372ms\u001b[2m (transform 36ms, setup 0ms, collect 46ms, tests 20ms, environment 0ms, prepare 134ms)\u001b[22m\r\n\r\n\r\n\u003e @sorta/client@0.1.0 test C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\client\r\n\u003e vitest run\r\n\r\n\r\n\u001b[1m\u001b[46m RUN \u001b[49m\u001b[22m \u001b[36mv3.2.7 \u001b[39m\u001b[90mC:/Users/vikto/Documents/Codex/2026-09-21/th/sorta-omega-gâ€¦"
+                   },
+                   {
+                       "name":  "Contract drift",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 contracts:check C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm --filter @sorta/contracts check:openapi \u0026\u0026 pnpm --filter @sorta/client check:generated\r\n\r\n\r\n\u003e @sorta/contracts@0.1.0 check:openapi C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\contracts\r\n\u003e tsx src/generate-openapi.ts --check\r\n\r\nOpenAPI and API inventory artifacts are current (420 operations)\r\n\r\n\u003e @sorta/client@0.1.0 check:generated C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\client\r\n\u003e tsx src/generate.ts --check\r\n\r\nGenerated TypeScript client schema is current"
+                   },
+                   {
+                       "name":  "Dependency inventory drift",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 deps:check C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e node scripts/generate-dependency-inventory.mjs --check\r\n\r\ndependency inventory is current"
+                   },
+                   {
+                       "name":  "Production build",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "exit=0 \u003e sorta-omega@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\r\n\u003e pnpm -r --workspace-concurrency=1 build\r\n\r\nScope: 8 of 9 workspace projects\r\n\r\n\u003e @sorta/browser-bridge@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\browser-bridge\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/maintenance-worker@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\maintenance-worker\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/client@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\client\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/contracts@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\contracts\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/api@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\api\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/desktop@0.1.0 prebuild C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\desktop\r\n\u003e pnpm --filter @sorta/contracts build\r\n\r\n\r\n\u003e @sorta/contracts@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\packages\\contracts\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/desktop@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\desktop\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/local-worker@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\local-worker\r\n\u003e tsc -p tsconfig.json\r\n\r\n\r\n\u003e @sorta/web@0.1.0 build C:\\Users\\vikto\\Documents\\Codex\\2026-09-21\\th\\sorta-omega-git\\apps\\web\r\n\u003e tsc -b \u0026\u0026 vite build\r\n\r\n\u001b[36mvite v7.3.6 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\r\ntransforming...\r\n\u001b[32mΓ£ô\u001b[39m 1831 modules transformed.\r\nrendering chunks...\r\ncomputing gzip size...\r\n\u001b[2mdist/\u001b[22m\u001b[32mindex.html                             \u001b[39m\u001b[1m\u001b[2m  0.98 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m Γöé gzip:   0.45 kB\u001b[22m\r\n\u001b[2mdist/\u001b[22m\u001b[32mservice-worker.js                      \u001b[39m\u001b[1m\u001b[2m  2.59 kB\u001b[22m\u001b[1m\u001b[22m\r\n\u001b[2mdist/\u001b[22m\u001b[35massets/index-3sAZpsCs.csâ€¦"
+                   },
+                   {
+                       "name":  "Required generation model configured",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "Qwen/Qwen3.8-Flash-Next"
+                   },
+                   {
+                       "name":  "Generation model immutable digest",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "2e0f14e7eeddce8f80fc88cf96a9cc641b4f60549318fb53e30af85649883586"
+                   },
+                   {
+                       "name":  "Generation runtime model listing",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "endpoint=http://127.0.0.1:8000/v1/models required-model-present=True"
+                   },
+                   {
+                       "name":  "Qwen embedding model installed",
+                       "passed":  true,
+                       "required":  true,
+                       "detail":  "endpoint=http://127.0.0.1:11434 model=qwen3-embedding:0.6b"
+                   }
+               ],
+    "blockers":  [
+
+                 ],
+    "ready":  true
+}
