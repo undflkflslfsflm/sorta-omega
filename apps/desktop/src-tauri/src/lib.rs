@@ -247,10 +247,8 @@ async fn inspect_model_runtime(client: &reqwest::Client, backend: &'static str, 
 #[tauri::command]
 async fn model_inspect() -> Result<ModelInspection, String> {
     let client=reqwest::Client::builder().timeout(Duration::from_secs(3)).redirect(reqwest::redirect::Policy::none()).build().map_err(|_| "model_inspection_client_unavailable".to_string())?;
-    let (generation,embedding)=tokio::join!(
-        inspect_model_runtime(&client,"openai_compatible","http://127.0.0.1:8000/v1/models"),
-        inspect_model_runtime(&client,"ollama","http://127.0.0.1:11434/api/tags")
-    );
+    let generation=inspect_model_runtime(&client,"openai_compatible","http://127.0.0.1:8000/v1/models").await;
+    let embedding=inspect_model_runtime(&client,"ollama","http://127.0.0.1:11434/api/tags").await;
     Ok(ModelInspection { runtimes:vec![generation,embedding],mutations_applied:false,credentials_sent:false })
 }
 
