@@ -73,6 +73,8 @@ If generated artifacts change unexpectedly, stop and inspect the diff; do not ac
 
 ## Phase 2 — PostgreSQL, migrations and persistence
 
+The empty-volume loopback deployment, all 94 migrations, health/readiness, schema metadata, port scope and a joint PostgreSQL/application restart now pass on `SILENT-4090`; see `docs/evidence/LOOPBACK-DEPLOYMENT-2026-09-22.md`. Continue with the interactive owner bootstrap and authenticated scenarios below.
+
 1. Start PostgreSQL and the application with the reviewed Compose profile. PostgreSQL must have no published host port; the app must publish only `127.0.0.1:3210`.
 2. Run all migrations from an empty database and prove schema version 93 through `/api/v1/meta` and `/api/v1/status`.
 3. Restart PostgreSQL and the app. Verify `/health/live` and `/health/ready`, then perform owner bootstrap with a passkey and save recovery codes outside the app.

@@ -154,7 +154,7 @@ This file records verified implementation state. Planned routes in the specifica
 - Database migrations, passkey/recovery ceremonies, resumable-upload filesystem/database integration and end-to-end persistence: PostgreSQL and Docker are not installed or running on this machine.
 - Two-PC access, restart recovery, offline edit synchronization and PWA installation.
 - Model and embedding tests; the current client has no Ollama executable and no model worker has been configured.
-- Windows host service startup, Tailscale Serve, Cloudflare Access and backup/restore. The current computer was positively identified as a Surface Laptop 5 with Intel Iris Xe, not the required RTX 4090 host.
+- Windows service startup policy, Tailscale Serve, Cloudflare Access and backup/restore. A loopback-only production Compose stack now builds and survives restart on `SILENT-4090`; PostgreSQL has no published host port, the app binds only `127.0.0.1:3210`, all 94 migrations apply from empty storage, health/readiness pass and metadata reports schema version 93. Owner bootstrap and authenticated end-to-end acceptance still require the interactive owner ceremony.
 - Tauri install/upgrade/rollback/uninstall, shortcut-conflict behavior, tray behavior, start-at-login, live Windows Credential Manager storage/rotation, the complete native pairing ceremony, authenticated native file import, signing and the under-500-ms quick-capture target. Rust check/test plus unsigned MSI/NSIS packaging now pass serially on `SILENT-4090`; the retained evidence also records a parallel `rustc` access violation and exact unsigned artifact hashes.
 
 ## Externally blocked
