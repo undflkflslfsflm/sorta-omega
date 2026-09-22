@@ -8,7 +8,7 @@
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r --workspace-concurrency=1 build",
     "pretest": "pnpm --filter @sorta/contracts build",
-    "test": "pnpm -r test",
+    "test": "pnpm -r --workspace-concurrency=1 test",
     "typecheck": "pnpm -r typecheck",
     "db:migrate": "pnpm --filter @sorta/api db:migrate",
     "contracts:generate": "pnpm --filter @sorta/contracts generate:openapi",
