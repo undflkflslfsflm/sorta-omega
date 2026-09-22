@@ -31,6 +31,7 @@ Rows below describe scoped runs, not a claim that every command was rerun agains
 | Real Chromium host-off startup | Passed at commit `b4f7478` in the Codex in-app Chromium browser, 1280×720 CSS px at DPR 2 | With Vite available but the API/database unavailable and no enrolled cache, only the locked “Home host unavailable” screen rendered; retry remained locked and the browser console contained no warnings/errors. This is a scoped startup boundary, not NOTE-04/OPS-02 or phone/PWA acceptance. |
 | PowerShell parser checks | Passed for backup and restore scripts | Syntax/fixture validation only; no database or clean-host restore |
 | Live RTX 4090 backup validation | Passed at commit `a8f7357`; retained in `docs/evidence/BACKUP-VALIDATION-2026-09-22.md` | The production PostgreSQL custom archive and zero-blob manifest passed hash/readability validation, then restored into an isolated empty PostgreSQL container with 137 public tables, 94 migration records and one vault. Production was unchanged. This is not the required representative clean-host application/blob restore. |
+| Live Qwen generation smoke | Exact 75,216,526,912-byte GGUF hash, loopback model identity, ordinary chat and strict JSON-schema output passed on the RTX 4090; retained in `docs/evidence/QWEN-GENERATION-VALIDATION-2026-09-22.md` | Establishes the required model API identity and runtime compatibility using a community IQ2_XXS conversion. The complete held-out evaluation and durable worker/service path remain open. |
 
 ## Scenario ledger
 

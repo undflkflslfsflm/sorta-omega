@@ -39,6 +39,7 @@ describe("OpenAI-compatible provider", () => {
       model: "Qwen/Qwen3.8-Flash-Next",
       stream: false,
       temperature: 0,
+      chat_template_kwargs: { enable_thinking: false },
       response_format: { type: "json_schema", json_schema: { name: "omega_response", strict: true, schema } }
     });
   });

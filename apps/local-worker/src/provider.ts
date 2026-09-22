@@ -88,7 +88,8 @@ export class OpenAiCompatibleProvider implements AiProvider {
       model: this.chatModel,
       messages,
       stream: false,
-      temperature: 0
+      temperature: 0,
+      chat_template_kwargs: { enable_thinking: false }
     });
     const content = result.choices?.[0]?.message?.content;
     if (typeof content !== "string") throw new Error("openai_compatible_invalid_chat_response");
@@ -118,6 +119,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       ],
       stream: false,
       temperature: 0,
+      chat_template_kwargs: { enable_thinking: false },
       response_format: {
         type: "json_schema",
         json_schema: { name: "omega_response", strict: true, schema }
