@@ -54,8 +54,10 @@ function Invoke-NativeCheck {
   }
 
   try {
-    $output = ((& $File @Arguments 2>&1 | Out-String) -replace [char]0, '').Trim()
-    $exitCode = $LASTEXITCODE
+    $rawOutput = & $File @Arguments 2>&1
+    $commandSucceeded = $?
+    $exitCode = if ($commandSucceeded) { 0 } elseif ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 1 }
+    $output = (($rawOutput | Out-String) -replace [char]0, '').Trim()
   } catch {
     Add-Check -Name $Name -Passed $false -Required $Required -Detail $_.Exception.Message
     return
