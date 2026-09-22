@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { OfflineConflictReview } from "./OfflineConflictReview";
 import { cacheNoteSnapshot } from "./offline-queue";
+import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
 import type { ActivityEvent, AiOperation, AiStatus, AttendanceRecord, AttendanceSummary, AutomationDecision, BlobSummary, Calendar as CalendarRecord, CalendarBrief, CalendarEntity, CalendarEvent, CalendarPolicySet, CalendarView as CalendarViewData, Chat, ChatMessage, Collection, Commitment, EventReminderPlan, Flashcard, FlashcardDeck, FlashcardReviewItem, Goal, Idea, Job, JobHandle, KnowledgeGap, Label, Memory, ModelProfile, MomentumPreferences, MomentumSummary, NextActionSet, Note, NoteRevision, Notification, PerformanceGrade, PerformanceSummary, PerformanceTarget, PersonalProfile, Preferences, PrepItem, Project, Proposal, ProviderCalendarAction, Relationship, Reminder, RoutingRule, RulePreviewResult, ScheduleExplanation, SchedulerPreferences, SchoolAssessment, SchoolAssignment, SchoolCourse, SchoolLesson, SchoolSubject, SearchItem, SearchResult, StudyAttempt, StudyExercise, StudyPlan, StudySession, SystemStatus, Task, TaskExecutionHistory, Today } from "@sorta/contracts";
 import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationConnection, Interest, NativeAuthStatus, NativePairingChallenge, PersonalDataImportPreview, PersonalDataItem } from "@sorta/contracts";
@@ -128,7 +129,9 @@ function friendlyDate(value: string) {
 }
 
 function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promise<void>;onAuthenticationRequired:()=>void }) {
-  const [view, setView] = useState<View>(initialView);
+  const [view, updateView] = useState<View>(initialView);
+  const currentView=useRef(view);currentView.current=view;
+  function setView(next:View){if(next===currentView.current||allowEditorNavigation()){currentView.current=next;updateView(next);}}
   const [today, setToday] = useState<Today | null>(null);
   const [nextActions, setNextActions] = useState<NextActionSet | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -142,7 +145,9 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const [uploadProgress,setUploadProgress]=useState<string|null>(null);
   const [pendingAttachment,setPendingAttachment]=useState<{blob:BlobSummary;operationId:string}|null>(null);
   const [taskTitle, setTaskTitle] = useState("");
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [selectedNote, updateSelectedNote] = useState<Note | null>(null);
+  const currentSelectedNote=useRef(selectedNote);currentSelectedNote.current=selectedNote;
+  function setSelectedNote(next:Note|null){if(next?.id===currentSelectedNote.current?.id||allowEditorNavigation()){currentSelectedNote.current=next;updateSelectedNote(next);}}
   const [recentlyTrashed,setRecentlyTrashed]=useState<Note|null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +244,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         <button className="quick-add" onClick={() => setView("inbox")}><Plus size={18}/> Capture</button>
         <button className="icon-button" aria-label="Open school" title="School" onClick={() => setView("school")}><BookOpen size={18}/></button>
         <button className="icon-button" aria-label="Open settings" title="Settings" onClick={() => setView("settings")}><Settings size={18}/></button>
-        <button className="avatar" aria-label="Sign out" title="Sign out" onClick={() => void onLogout()}>VK</button>
+        <button className="avatar" aria-label="Sign out" title="Sign out" onClick={() => {if(allowEditorNavigation())void onLogout();}}>VK</button>
       </header>
       {error && <div className="error-banner" role="status">{error}<button onClick={() => void refresh()}>Retry</button></div>}
       <section className="content">

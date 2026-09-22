@@ -39,3 +39,9 @@ Verification: all 10 web storage tests and web typechecking passed locally. New 
 All 16 web tests passed, including real Yjs edit/reload, remote-update suppression, failed-write retry, missing-migration rejection, and schema equality between legacy and collaboration modes. Storage tests still use fake IndexedDB, not a real browser crash. Dependencies are pinned to the existing Tiptap 3.31.3 family and Yjs 13.6.32.
 
 Web typechecking, production build and dependency-inventory verification also passed on local Node 24.19.0 / pnpm 10.15.1. Vite reports chunks over 500 kB (editor approximately 558 kB and main approximately 666 kB uncompressed); bundle optimization remains outstanding rather than hiding the warning.
+
+## Navigation guard
+
+The current editor registers a live-state guard used by application view changes, changing/closing the selected note, and explicit sign-out. In-flight saves block those transitions; unsaved content requires an explicit discard confirmation. Same-note metadata refreshes remain permitted. Initial editor normalization establishes a clean baseline rather than generating a false dirty prompt. Browser unload warnings remain in place. Authentication revocation is deliberately not suppressed by a navigation guard. Historical restore/trash workflows and session-driven local-save status still need coordinated lifecycle work before collaborative rollout.
+
+All 17 web tests passed after adding guard-state/discard/cleanup coverage. These are unit checks, not real browser interaction acceptance.

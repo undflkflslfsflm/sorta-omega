@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { editorDocumentSchema, type EditorDocument } from "@sorta/contracts";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { richEditorExtensions } from "./rich-editor-extensions";
+import { registerEditorNavigation } from "./editor-navigation";
 import { ApiError } from "./api";
 import { type CalloutKind } from "./Callout";
 
@@ -15,6 +16,14 @@ export default function RichDocumentEditor({ initialDocument, disabled, onSave }
   async function save(){if(!editor||savingRef.current||disabled)return;if(revisionConflict.current){setError("A different revision was loaded. Copy your unsaved text and reopen the note before saving.");return;}const parsed=editorDocumentSchema.safeParse(editor.getJSON());if(!parsed.success){setError("This document contains an unsupported block or attribute.");return;}const signature=JSON.stringify(parsed.data);if(signature===savedSignature.current){setDirty(false);return;}const version=changeVersion.current;savingRef.current=true;setSaving(true);setError(null);try{await onSave(parsed.data);savedSignature.current=signature;if(changeVersion.current===version)setDirty(false);}catch(caught){setError(caught instanceof ApiError&&caught.code==="stale_revision"?"This note changed elsewhere. Copy any unsaved text, then reopen the latest revision.":"Autosave failed. Your changes remain in this editor.");}finally{savingRef.current=false;setSaving(false);}}
   useEffect(() => {
     if (!editor) return;
+    if(changeVersion.current===0)savedSignature.current=JSON.stringify(editor.getJSON());
+    return registerEditorNavigation(() => ({
+      saving: savingRef.current,
+      dirty: JSON.stringify(editor.getJSON()) !== savedSignature.current
+    }));
+  }, [editor]);
+  useEffect(() => {
+    if (!editor) return;
     editor.setEditable(!disabled);
   }, [editor, disabled]);
   useEffect(() => {
@@ -26,7 +35,7 @@ export default function RichDocumentEditor({ initialDocument, disabled, onSave }
       return;
     }
     editor.commands.setContent(initialDocument, { emitUpdate: false });
-    savedSignature.current = JSON.stringify(initialDocument);
+    savedSignature.current = JSON.stringify(editor.getJSON());
     setError(null);
   }, [editor, initialDocument, dirty]);
   useEffect(() => {
