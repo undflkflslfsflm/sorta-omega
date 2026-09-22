@@ -1,0 +1,71 @@
+"$schema" = "../gen/schemas/schema.json"
+
+[[permission]]
+identifier = "allow-capture-open"
+description = "Allows the renderer to open the deliberate quick-capture window."
+commands.allow = ["capture_open"]
+
+[[permission]]
+identifier = "allow-clipboard-capture-selection"
+description = "Allows an explicit owner action to read selected clipboard text."
+commands.allow = ["clipboard_capture_selection"]
+
+[[permission]]
+identifier = "allow-file-import"
+description = "Allows an explicit owner action to select and import one file through the canonical API."
+commands.allow = ["file_import"]
+
+[[permission]]
+identifier = "allow-app-open-workspace"
+description = "Allows navigation to a finite in-app workspace target."
+commands.allow = ["app_open_workspace"]
+
+[[permission]]
+identifier = "allow-launch-calendar-view"
+description = "Allows navigation to the calendar workspace."
+commands.allow = ["launch_calendar_view"]
+
+[[permission]]
+identifier = "allow-open-calendar-event"
+description = "Allows navigation to one validated calendar event identifier."
+commands.allow = ["open_calendar_event"]
+
+[[permission]]
+identifier = "allow-open-commitment"
+description = "Allows navigation to one validated commitment identifier."
+commands.allow = ["open_commitment"]
+
+[[permission]]
+identifier = "allow-desktop-status"
+description = "Allows reading finite shortcut and start-at-login status."
+commands.allow = ["desktop_status"]
+
+[[permission]]
+identifier = "allow-set-start-at-login"
+description = "Allows the owner to explicitly change start-at-login state."
+commands.allow = ["set_start_at_login"]
+
+[[permission]]
+identifier = "allow-native-pairing-begin"
+description = "Allows creation of a bounded native device pairing request."
+commands.allow = ["native_pairing_begin"]
+
+[[permission]]
+identifier = "allow-native-pairing-poll"
+description = "Allows polling the active native device pairing request."
+commands.allow = ["native_pairing_poll"]
+
+[[permission]]
+identifier = "allow-native-auth-status"
+description = "Allows reading redacted native authentication status."
+commands.allow = ["native_auth_status"]
+
+[[permission]]
+identifier = "allow-native-api-request"
+description = "Allows a schema-bounded request to one canonical vault API path."
+commands.allow = ["native_api_request"]
+
+[[permission]]
+identifier = "allow-native-unpair"
+description = "Allows removal of the local native refresh credential."
+commands.allow = ["native_unpair"]
