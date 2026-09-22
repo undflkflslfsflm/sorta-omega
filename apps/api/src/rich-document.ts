@@ -44,3 +44,15 @@ export function readRichDocument(document: Y.Doc) {
   const json = yXmlFragmentToProsemirrorJSON(document.getXmlFragment(richDocumentFragmentName));
   return editorDocumentSchema.parse(json);
 }
+
+// Whole-document owner edits require the caller's existing revision fence.
+export function replaceRichDocument(document: Y.Doc, input: unknown) {
+  if (!document.share.has(richDocumentFragmentName)) throw new Error("rich_document_not_initialized");
+  const editor = editorDocumentSchema.parse(input);
+  const children = sharedChildren(editor.content);
+  const fragment = document.getXmlFragment(richDocumentFragmentName);
+  document.transact(() => {
+    fragment.delete(0, fragment.length);
+    fragment.insert(0, children);
+  }, "owner");
+}

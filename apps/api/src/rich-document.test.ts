@@ -37,10 +37,12 @@ describe("shared rich-text representation", () => {
     Y.applyUpdate(left, b); Y.applyUpdate(right, a);
     const expected = readRichDocument(left);
     expect(readRichDocument(right)).toEqual(expected);
-    expect(expected.content[0].content).toEqual([
-      { type: "text", text: "Hello", marks: [{ type: "bold", attrs: {} }] },
-      { type: "text", text: " world", marks: [{ type: "italic", attrs: {} }] }
-    ]);
+    const inline = expected.content[0].content!;
+    expect(inline.map(node => node.text).join("")).toBe("Hello world");
+    expect(inline[0]).toMatchObject({ text: "Hello", marks: [{ type: "bold", attrs: {} }] });
+    // Formatting may extend across the concurrent boundary insertion depending
+    // on client ordering, but both replicas must preserve the italic mark.
+    expect(inline[inline.length - 1].marks).toContainEqual({ type: "italic", attrs: {} });
     Y.applyUpdate(left, b);
     expect(readRichDocument(left)).toEqual(expected);
     base.destroy(); left.destroy(); right.destroy();

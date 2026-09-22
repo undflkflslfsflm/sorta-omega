@@ -1,8 +1,60 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
+import { initializeRichDocument } from "./rich-document.js";
 import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
 
 describe("canonical note documents", () => {
+  function richState() {
+    const doc = new Y.Doc();
+    Y.applyUpdate(doc, createDocumentState("Stale legacy projection"));
+    initializeRichDocument(doc, toEditorJson("Hello"));
+    return Buffer.from(Y.encodeStateAsUpdate(doc));
+  }
+
+  it("reads and replaces migrated fragments instead of stale legacy projections", () => {
+    const state = richState();
+    expect(readDocumentText(state)).toBe("Hello");
+    expect(readEditorDocument(state)).toEqual(toEditorJson("Hello"));
+    const replaced = replaceEditorDocument(state, toEditorJson("New"));
+    expect(readDocumentText(replaced.state)).toBe("New");
+    expect(readEditorDocument(replaced.state)).toEqual(toEditorJson("New"));
+    expect(readDocumentText(replaceDocumentText(replaced.state, ""), "Stale")).toBe("");
+  });
+
+  it("merges concurrent rich formatting and text through the production merge path", () => {
+    const state = richState();
+    const textOf = (doc: Y.Doc) => (doc.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    const bold = offlineUpdate(state, doc => textOf(doc).format(0, 5, { bold: {} }));
+    const suffix = offlineUpdate(state, doc => textOf(doc).insert(5, " world", { italic: {} }));
+    const first = mergeDocumentUpdate(mergeDocumentUpdate(state, bold).state, suffix);
+    const second = mergeDocumentUpdate(mergeDocumentUpdate(state, suffix).state, bold);
+    expect(first.document).toEqual(second.document);
+    expect(first.text).toBe("Hello world");
+    const inline = first.document.content[0].content!;
+    expect(inline[0].marks).toContainEqual({ type: "bold", attrs: {} });
+    // Concurrent formatting can extend across an insertion at its boundary.
+    expect(inline[inline.length - 1].marks).toContainEqual({ type: "italic", attrs: {} });
+    expect(readEditorDocument(first.state)).toEqual(first.document);
+    expect(readDocumentText(first.state)).toBe(first.text);
+    expect(mergeDocumentUpdate(first.state, bold).state).toEqual(first.state);
+  });
+
+  it("rejects legacy edits after migration without changing the input snapshot", () => {
+    const state = richState();
+    for (const update of [
+      offlineUpdate(state, doc => doc.getText("content").insert(0, "Lost edit")),
+      offlineUpdate(state, doc => doc.getMap("editor").set("document", JSON.stringify(toEditorJson("Lost edit"))))
+    ]) expect(() => mergeDocumentUpdate(state, update)).toThrow("legacy_document_update_after_migration");
+    expect(readDocumentText(state)).toBe("Hello");
+  });
+
+  it("does not let an offline update initialize the canonical rich fragment", () => {
+    const state = createDocumentState("Legacy");
+    const update = offlineUpdate(state, doc => { initializeRichDocument(doc, toEditorJson("Client migration")); });
+    expect(() => mergeDocumentUpdate(state, update)).toThrow("rich_document_migration_required");
+    expect(readDocumentText(state)).toBe("Legacy");
+  });
+
   function offlineUpdate(state: Uint8Array, edit: (document: Y.Doc) => void) {
     const client = new Y.Doc();
     Y.applyUpdate(client, state);

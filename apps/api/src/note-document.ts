@@ -1,5 +1,6 @@
 import { editorDocumentSchema, type EditorMarkInput, type EditorNodeInput } from "@sorta/contracts";
 import * as Y from "yjs";
+import { readRichDocument, replaceRichDocument, richDocumentFragmentName } from "./rich-document.js";
 
 const textName = "content";
 const editorMapName = "editor";
@@ -110,12 +111,14 @@ export function createDocumentState(text: string): Buffer {
 export function readDocumentText(state: Uint8Array | Buffer | null, fallback = ""): string {
   if (!state?.length) return fallback;
   const document = loadDocument(state);
+  if (document.share.has(richDocumentFragmentName)) return editorDocumentToText(readRichDocument(document));
   return document.getText(textName).toString();
 }
 
 export function readEditorDocument(state: Uint8Array | Buffer | null, fallback = ""): EditorDocument {
   if (!state?.length) return toEditorJson(fallback);
   const document = loadDocument(state);
+  if (document.share.has(richDocumentFragmentName)) return readRichDocument(document);
   const stored = document.getMap<string>(editorMapName).get(editorDocumentKey);
   if (stored) {
     try {
@@ -130,7 +133,8 @@ export function replaceEditorDocument(state: Uint8Array | Buffer | null, input: 
   const editor = editorDocumentSchema.parse(input);
   const text = editorDocumentToText(editor);
   const document = loadDocument(state, fallback);
-  applyEditorDocument(document, editor, text);
+  if (document.share.has(richDocumentFragmentName)) replaceRichDocument(document, editor);
+  else applyEditorDocument(document, editor, text);
   return { state: Buffer.from(Y.encodeStateAsUpdate(document)), text, document: editor };
 }
 
@@ -148,7 +152,25 @@ export function appendDocumentText(state: Uint8Array | Buffer | null, markdown: 
 
 export function mergeDocumentUpdate(state: Uint8Array | Buffer | null, updateBase64: string, fallback = ""): { state: Buffer; text: string; document: EditorDocument } {
   const document = loadDocument(state, fallback);
+  const rich = document.share.has(richDocumentFragmentName);
+  let legacyChanged = false;
+  if (rich) {
+    const changed = () => { legacyChanged = true; };
+    document.getText(textName).observeDeep(changed);
+    document.getMap(editorMapName).observeDeep(changed);
+  }
   Y.applyUpdate(document, new Uint8Array(Buffer.from(updateBase64, "base64")), "offline-device");
+  // Migration is a server-owned persisted operation, never an offline-client side effect.
+  if (!rich && document.share.has(richDocumentFragmentName)) throw new Error("rich_document_migration_required");
+  if (rich) {
+    if (legacyChanged) throw new Error("legacy_document_update_after_migration");
+    const editor = readRichDocument(document);
+    const text = editorDocumentToText(editor);
+    if (text.length > 200_000) throw new Error("merged_document_text_too_large");
+    const mergedState = Buffer.from(Y.encodeStateAsUpdate(document));
+    if (mergedState.length > 2_000_000) throw new Error("merged_document_too_large");
+    return { state: mergedState, text, document: editor };
+  }
   const text = document.getText(textName).toString();
   if (text.length > 200_000) throw new Error("merged_document_text_too_large");
   const stored = document.getMap<string>(editorMapName).get(editorDocumentKey);
