@@ -20,6 +20,7 @@ const blockedNoteAccess=new Set<string>();
 let blockedCoreAccess=false;
 
 export function offlineCaptureEnabled(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&(!expiry||Date.parse(expiry)>Date.now());}
+export function offlinePolicyExpired(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&Boolean(expiry)&&Date.parse(expiry!)<=Date.now();}
 export function setOfflineCaptureEnabled(enabled:boolean){ localStorage.setItem(TRUST_KEY,String(enabled)); }
 export function setOfflinePolicyExpiry(expiresAt:string|null){if(expiresAt)localStorage.setItem(POLICY_EXPIRY_KEY,expiresAt);else localStorage.removeItem(POLICY_EXPIRY_KEY);}
 export function offlinePolicyExpiry(){return localStorage.getItem(POLICY_EXPIRY_KEY);}

@@ -2,8 +2,8 @@ import "fake-indexeddb/auto";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import type { DeviceCachePolicy } from "@sorta/contracts";
 import { api,VAULT_ID } from "./api";
-import { approvePersistentOfflineCache,verifyPersistentOfflineCache } from "./offline-enrollment";
-import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,offlineCaptureEnabled,offlineClearOnLogout,offlinePolicyExpiry,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
+import { approvePersistentOfflineCache,enforceLocalOfflinePolicyExpiry,verifyPersistentOfflineCache } from "./offline-enrollment";
+import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,offlineCaptureEnabled,offlineClearOnLogout,offlinePolicyExpiry,setOfflineCaptureEnabled,setOfflinePolicyExpiry,setReplicaDeviceId } from "./offline-queue";
 
 const deviceId="00000000-0000-4000-8000-000000000611";
 const storage=new Map<string,string>();
@@ -60,5 +60,12 @@ describe("persistent offline enrollment",()=>{
     vi.spyOn(api,"deviceCachePolicy").mockResolvedValue(configured);
     expect(await verifyPersistentOfflineCache(deviceId)).toEqual(configured);
     expect(await cachedCoreRecords()).not.toBeNull();
+  });
+  it("actively removes expired private bytes before an online policy request",async()=>{
+    const request=vi.spyOn(api,"deviceCachePolicy");
+    setOfflineCaptureEnabled(true);setOfflinePolicyExpiry("2020-01-01T00:00:00.000Z");await cacheCoreRecords({notes:[],tasks:[],events:[]});
+    expect(await enforceLocalOfflinePolicyExpiry()).toBe(true);
+    expect(offlineCaptureEnabled()).toBe(false);expect(offlinePolicyExpiry()).toBeNull();expect(await cachedCoreRecords()).toBeNull();
+    expect(request).not.toHaveBeenCalled();
   });
 });

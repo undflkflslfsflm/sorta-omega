@@ -48,3 +48,14 @@ renewal, online purge clearing/disablement and valid-policy refresh without data
 loss. The current API does not expose a device-side purge acknowledgement route;
 after a purge, the owner can revoke/erase the old device and enroll a new one,
 and the product must not claim remote-erasure certification.
+
+Expiry no longer only withholds reads while leaving expired bytes indefinitely.
+Startup performs local expiry cleanup before deciding whether offline mode is
+available; synchronization repeats the check before contacting the server; and
+an in-app timer clears the private replica when approval expires while the app is
+open. Authenticated online UI may remain visible, but its expired offline copy is
+removed. An offline-only UI returns to the unavailable screen. Cleanup preserves
+device identity and policy metadata for later authenticated renewal, disables
+new caching, removes the local expiry marker and applies the core cache block.
+Focused tests prove expired private bytes are removed without issuing a policy
+request, in addition to the synchronous read-disable boundary.

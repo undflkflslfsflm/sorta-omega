@@ -4,7 +4,7 @@ import { searchWithOfflineFallback } from "./offline-search";
 import { openSearchNote } from "./open-search-note";
 import { classifyWorkspaceRefreshFailure } from "./workspace-refresh";
 import { resolveStartupAuthState } from "./startup-auth";
-import { approvePersistentOfflineCache, verifyPersistentOfflineCache } from "./offline-enrollment";
+import { approvePersistentOfflineCache, enforceLocalOfflinePolicyExpiry, verifyPersistentOfflineCache } from "./offline-enrollment";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -13,7 +13,7 @@ import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationC
 import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { Archive, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronDown, Circle, ClipboardPaste, Clock3, Command, Inbox, KeyRound, Lightbulb, ListTodo, LockKeyhole, MessageSquare, Paperclip, Plus, Search, Settings, Sparkles, Users, X, Zap } from "lucide-react";
 import { api, ApiError, VAULT_ID } from "./api";
-import { cacheCoreRecords, cachedCoreRecords, clearOfflinePrivateDataForLogout, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, offlineClearOnLogout, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
+import { cacheCoreRecords, cachedCoreRecords, clearOfflinePrivateDataForLogout, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, offlineClearOnLogout, offlinePolicyExpiry, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
 import { registerOmegaTools } from "./webmcp";
 import { desktopBridge } from "./desktop-bridge";
 
@@ -47,6 +47,7 @@ export function App() {
   const [authState, setAuthState] = useState<AuthState>("checking");
 
   async function checkSession() {
+    await enforceLocalOfflinePolicyExpiry().catch(()=>undefined);
     setAuthState(await resolveStartupAuthState({
       session:api.session,
       loginOptions:()=>api.loginOptions<PublicKeyCredentialRequestOptionsJSON>(),
@@ -56,6 +57,16 @@ export function App() {
   }
 
   useEffect(() => { void checkSession(); }, []);
+  useEffect(()=>{
+    let timer:number|undefined,cancelled=false;
+    const schedule=()=>{
+      if(cancelled)return;
+      const expiry=offlinePolicyExpiry(),remaining=expiry?Date.parse(expiry)-Date.now():NaN;
+      if(!Number.isFinite(remaining))return;
+      timer=window.setTimeout(()=>{void enforceLocalOfflinePolicyExpiry().then(expired=>{if(expired)setAuthState(current=>current==="offline"?"unavailable":current);else schedule();}).catch(()=>setAuthState(current=>current==="offline"?"unavailable":current));},Math.max(0,Math.min(remaining,2_147_000_000)));
+    };
+    schedule();return()=>{cancelled=true;if(timer!==undefined)window.clearTimeout(timer);};
+  },[authState]);
 
   async function logout(){
     const clear=await offlineClearOnLogout().catch(()=>true);
@@ -181,7 +192,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   }
 
   async function establishReplicaCursor(deviceId:string){const handle=await api.createSyncSnapshot(deviceId);const job=await api.job(handle.id);if(job.result?.type!=="sync_snapshot")throw new Error("sync_snapshot_result_missing");await setSyncCursor(job.result.watermarkCursor);setReplicaCursorReady(job.result.watermarkCursor);return job.result.watermarkCursor;}
-  async function synchronizeReplica(){if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;await verifyPersistentOfflineCache(deviceId);let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
+  async function synchronizeReplica(){if(await enforceLocalOfflinePolicyExpiry())throw new ApiError(403,"offline_cache_policy_expired");if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;await verifyPersistentOfflineCache(deviceId);let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
 
   async function refresh() {
     let onlineCoreLoaded=false;

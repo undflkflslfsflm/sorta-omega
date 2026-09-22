@@ -1,5 +1,5 @@
 import { api,ApiError,VAULT_ID } from "./api";
-import { clearOfflinePrivateDataForLogout, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setOfflineClearOnLogout, setOfflinePolicyExpiry } from "./offline-queue";
+import { clearOfflinePrivateDataForLogout, offlinePolicyExpired, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setOfflineClearOnLogout, setOfflinePolicyExpiry } from "./offline-queue";
 
 type CachePolicy=Awaited<ReturnType<typeof api.deviceCachePolicy>>;
 function policyExpiry(policy:CachePolicy){
@@ -34,4 +34,13 @@ export async function verifyPersistentOfflineCache(deviceId:string){
     try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
   }
   throw new ApiError(403,policy.latestPurge?.status==="requested"?"offline_cache_purge_requested":"offline_cache_policy_unavailable");
+}
+
+export async function enforceLocalOfflinePolicyExpiry(){
+  if(!offlinePolicyExpired())return false;
+  try{await clearOfflinePrivateDataForLogout();}finally{
+    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);
+    try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
+  }
+  return true;
 }
