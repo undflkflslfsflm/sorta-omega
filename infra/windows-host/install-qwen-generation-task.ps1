@@ -44,7 +44,7 @@ $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Loopback-only Qwen3.8-Flash-Next runtime for Sorta Omega.' -Force | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 
-$deadline = (Get-Date).AddMinutes(5)
+$deadline = (Get-Date).AddMinutes(10)
 do {
   Start-Sleep -Seconds 5
   $task = Get-ScheduledTask -TaskName $TaskName
