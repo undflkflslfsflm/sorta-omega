@@ -79,6 +79,9 @@ try {
 } finally {
     Remove-Item -LiteralPath $fingerprintFile -Force -ErrorAction SilentlyContinue
 }
+$hostKeyFingerprints = @(Get-ChildItem -LiteralPath (Join-Path $env:ProgramData 'ssh') -Filter 'ssh_host_*_key.pub' -File | ForEach-Object {
+    & ssh-keygen.exe -lf $_.FullName
+})
 
 [pscustomobject]@{
     Hostname = $env:COMPUTERNAME
@@ -87,5 +90,6 @@ try {
     AuthorizedKeys = $authorizedKeys
     AllowedRemoteAddress = $AllowedRemoteAddress
     PublicKeyFingerprint = $fingerprint
+    HostKeyFingerprints = $hostKeyFingerprints
     DefaultBroadFirewallRuleDisabled = [bool]$defaultRule
 }
