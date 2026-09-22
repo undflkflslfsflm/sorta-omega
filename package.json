@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "pnpm --filter @sorta/contracts build",
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -r --workspace-concurrency=1 build",
     "pretest": "pnpm --filter @sorta/contracts build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
