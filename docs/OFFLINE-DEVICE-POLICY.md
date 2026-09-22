@@ -1,0 +1,32 @@
+# Browser offline device policy
+
+The trusted-browser switch previously created a sync-capable client device and
+immediately wrote persistent IndexedDB data, without reading or updating the
+server's cache policy. New device policies default to session-only, so the UI's
+claim of an enrolled private replica was not established by server state.
+
+Enrollment now reads `GET /api/v1/devices/{id}/cache-policy` and, when needed,
+uses revision-fenced `PUT` to explicitly approve trusted-persistent caching for
+the Omega vault. Caching is enabled locally only after the returned policy proves
+both conditions. The server's `clearOnLogout` choice is saved locally. A newly
+created grant is revoked on best effort if policy approval or local enrollment
+fails, avoiding a silent orphan grant.
+
+Sign-out always locally blocks the core cache before showing sign-in. When the
+recorded policy requires clearing, it removes app-owned core records, note
+snapshots/drafts, sync queues, conflicts, cursors and pending captures while
+preserving the device identity and policy needed for later authenticated use.
+If unsynced captures or edits exist, the owner must explicitly confirm their
+permanent removal. If pending-data inspection or deletion fails, data is retained
+and locked instead of being silently discarded. A retain-on-logout policy keeps
+bytes but still locks them until a complete authorized refresh succeeds.
+
+## Evidence and limits
+
+Contract exports now include the existing `DeviceCachePolicy` schema type. Three
+enrollment tests cover promotion, already-approved retain policy and rejection of
+an unapproved server response. Fake-IndexedDB coverage verifies logout clearing
+removes private/pending records but preserves device identity and policy. Startup,
+workspace authorization and queue suites cover the surrounding lock boundary.
+Live passkey recency, real PostgreSQL policy persistence, failed-cleanup UI and
+browser sign-out/re-sign-in remain end-to-end release work.

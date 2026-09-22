@@ -4,6 +4,7 @@ import { searchWithOfflineFallback } from "./offline-search";
 import { openSearchNote } from "./open-search-note";
 import { classifyWorkspaceRefreshFailure } from "./workspace-refresh";
 import { resolveStartupAuthState } from "./startup-auth";
+import { approvePersistentOfflineCache } from "./offline-enrollment";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -12,7 +13,7 @@ import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationC
 import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { Archive, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronDown, Circle, ClipboardPaste, Clock3, Command, Inbox, KeyRound, Lightbulb, ListTodo, LockKeyhole, MessageSquare, Paperclip, Plus, Search, Settings, Sparkles, Users, X, Zap } from "lucide-react";
 import { api, ApiError, VAULT_ID } from "./api";
-import { cacheCoreRecords, cachedCoreRecords, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
+import { cacheCoreRecords, cachedCoreRecords, clearOfflinePrivateDataForLogout, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, offlineClearOnLogout, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
 import { registerOmegaTools } from "./webmcp";
 import { desktopBridge } from "./desktop-bridge";
 
@@ -56,7 +57,21 @@ export function App() {
 
   useEffect(() => { void checkSession(); }, []);
 
-  if (authState === "authenticated"||authState==="offline") return <OmegaApp onLogout={async () => { if(authState==="authenticated")await api.logout(); setAuthState("signin"); }} onAuthenticationRequired={()=>setAuthState("signin")}/>;
+  async function logout(){
+    const clear=await offlineClearOnLogout().catch(()=>true);
+    if(clear){
+      try{
+        const [captures,operations]=await Promise.all([pendingCaptures(),pendingSyncOperations()]);
+        if(captures.length+operations.length>0&&!window.confirm(`Sign out and permanently remove ${captures.length} pending capture${captures.length===1?"":"s"} and ${operations.length} pending offline edit${operations.length===1?"":"s"} from this browser?`))return;
+        await clearOfflinePrivateDataForLogout();
+      }catch{/* Unverifiable data is retained and locked instead of silently deleted. */}
+    }
+    try{await setCachedCoreAccessBlocked(true);}catch{/* In-memory blocking is immediate. */}
+    try{if(authState==="authenticated")await api.logout();}catch{/* Local sign-out still locks retained data. */}
+    setAuthState("signin");
+  }
+
+  if (authState === "authenticated"||authState==="offline") return <OmegaApp onLogout={logout} onAuthenticationRequired={()=>setAuthState("signin")}/>;
   return <AuthScreen state={authState} onAuthenticated={() => setAuthState("authenticated")} onRecovery={() => setAuthState("recovery")} onRetry={() => { setAuthState("checking"); void checkSession(); }}/>;
 }
 
@@ -521,7 +536,7 @@ function OfflineSettingsWorkspace(props:{pendingCount:number;onPendingCount:(cou
 function OfflineSettingsControls({pendingCount,onPendingCount}:{pendingCount:number;onPendingCount:(count:number)=>void}){
   const [enabled,setEnabled]=useState(()=>offlineCaptureEnabled());const [notice,setNotice]=useState<string|null>(null);const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState(false);const [deviceId,setDeviceId]=useState<string|null>(null);const [queued,setQueued]=useState(0);const [conflicts,setConflicts]=useState(0);
   useEffect(()=>{void Promise.all([replicaDeviceId(),pendingSyncOperations(),syncConflicts()]).then(([id,operations,items])=>{setDeviceId(id);setQueued(operations.length);setConflicts(items.length);});},[]);
-  async function change(value:boolean){setError(null);setNotice(null);if(!value){setEnabled(false);setOfflineCaptureEnabled(false);setNotice("New offline records will not be retained. Existing cached and pending records remain until erased.");return;}setBusy(true);try{let id=await replicaDeviceId();if(!id){const pairing=await api.createDevicePairing(`Trusted browser · ${navigator.platform||"web"}`);await api.approveDevicePairing(pairing.pairing_id,pairing.user_code,["sync:read","sync:write"]);const exchanged=await api.exchangeDevicePairing(pairing.pairing_id,pairing.device_code_once);id=exchanged.device_id;await setReplicaDeviceId(id);}setDeviceId(id);setOfflineCaptureEnabled(true);setEnabled(true);setNotice("This browser is enrolled for a private offline replica. Cached core records and pending writes remain local to this browser profile.");}catch(caught){setError(caught instanceof ApiError&&caught.code==="recent_strong_authentication_required"?"Sign out and sign in with your passkey, then enable the trusted browser within ten minutes.":"The trusted browser could not be enrolled; no offline replica was enabled.");}finally{setBusy(false);}}
+  async function change(value:boolean){setError(null);setNotice(null);if(!value){setEnabled(false);setOfflineCaptureEnabled(false);setNotice("New offline records will not be retained. Existing cached and pending records remain until erased.");return;}setBusy(true);let id=await replicaDeviceId();let created=false;try{if(!id){const pairing=await api.createDevicePairing(`Trusted browser · ${navigator.platform||"web"}`);await api.approveDevicePairing(pairing.pairing_id,pairing.user_code,["sync:read","sync:write"]);const exchanged=await api.exchangeDevicePairing(pairing.pairing_id,pairing.device_code_once);id=exchanged.device_id;created=true;}const policy=await approvePersistentOfflineCache(id);await setReplicaDeviceId(id);setDeviceId(id);setOfflineCaptureEnabled(true);setEnabled(true);setNotice(`This browser is explicitly approved for a private offline replica. ${policy.clearOnLogout?"Private cached data will be cleared on sign-out.":"Retained data will be locally locked on sign-out."}`);}catch(caught){if(created&&id)await api.revokeDevice(id).catch(()=>undefined);setError(caught instanceof ApiError&&caught.code==="recent_strong_authentication_required"?"Sign out and sign in with your passkey, then enable the trusted browser within ten minutes.":"The trusted browser could not be enrolled or approved for persistent caching; no offline replica was enabled.");}finally{setBusy(false);}}
   async function erase(){setError(null);try{const id=await replicaDeviceId();if(id)await api.revokeDevice(id);await Promise.all([clearPendingCaptures(),clearOfflineReplica()]);onPendingCount(0);setDeviceId(null);setQueued(0);setConflicts(0);setEnabled(false);setOfflineCaptureEnabled(false);setNotice("The local replica and pending records were erased, and its host device grant was revoked.");}catch{setError("The replica was not erased because its host device grant could not be revoked. Sign in again and retry.");}}
   return <><PageTitle eyebrow="Device trust" title="Settings" copy="Choose whether this browser may retain a private offline replica while the home host is unavailable."/><section className="settings-panel offline-settings"><label><input type="checkbox" checked={enabled} disabled={busy} onChange={event=>void change(event.target.checked)}/><span><strong>Trust this browser for offline use</strong><small>Explicitly enrolls this browser with sync-only scopes and stores cached core records plus pending captures/tasks/calendar writes in IndexedDB. Service-worker caches still exclude API responses.</small></span></label><div><span>{pendingCount} pending capture{pendingCount===1?"":"s"} · {queued} pending sync write{queued===1?"":"s"} · {conflicts} conflict{conflicts===1?"":"s"}</span><button className="text-button danger" disabled={busy||(!deviceId&&!pendingCount&&!queued&&!conflicts)} onClick={()=>void erase()}>Revoke and erase offline data</button></div>{deviceId&&<small>Replica device {deviceId.slice(0,8)} · cache is not remotely erasable while this browser is offline.</small>}{error&&<p className="form-error">{error}</p>}{notice&&<p className="success-banner">{notice}</p>}</section></>;
 }

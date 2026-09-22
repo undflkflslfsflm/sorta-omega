@@ -54,6 +54,8 @@ export async function flushPendingCaptures(send:(item:PendingCapture)=>Promise<u
 
 export async function setReplicaDeviceId(deviceId:string){await put(META_STORE,{id:"device-id",value:deviceId});}
 export async function replicaDeviceId(){return (await get<{id:string;value:string}>(META_STORE,"device-id"))?.value??null;}
+export async function setOfflineClearOnLogout(value:boolean){await put(META_STORE,{id:"clear-on-logout",value});}
+export async function offlineClearOnLogout(){return (await get<{id:string;value:boolean}>(META_STORE,"clear-on-logout"))?.value??true;}
 export async function setSyncCursor(cursor:string){await put(META_STORE,{id:"cursor",value:cursor});}
 export async function syncCursor(){return (await get<{id:string;value:string}>(META_STORE,"cursor"))?.value??null;}
 function validateNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
@@ -163,6 +165,19 @@ export async function pendingSyncOperations(){return (await getAll<PendingSyncOp
 export async function syncConflicts(){return (await getAll<StoredSyncConflict>(CONFLICT_STORE)).sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));}
 export async function dismissSyncConflict(id:string){await remove(CONFLICT_STORE,id);}
 export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);blockedNoteAccess.clear();blockedCoreAccess=false;}
+export async function clearOfflinePrivateDataForLogout(){
+  await clear(CAPTURE_STORE);
+  for(const store of [CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);
+  await withStore<void>(META_STORE,"readwrite",(store,done,fail)=>{
+    const request=store.getAll();
+    request.onerror=()=>fail(request.error);
+    request.onsuccess=()=>{
+      for(const row of request.result as Array<{id:string}>)if(!["device-id","clear-on-logout"].includes(row.id))store.delete(row.id);
+      done();
+    };
+  });
+  blockedNoteAccess.clear();blockedCoreAccess=false;
+}
 async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   const batchIds=new Set(batch.map(item=>item.id));
   const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);

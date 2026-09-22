@@ -3,7 +3,7 @@ import { dismissSyncConflict } from "./offline-queue";
 import { localNoteDraft, persistLocalNoteEdit } from "./offline-queue";
 import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
-import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
+import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflinePrivateDataForLogout,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,localNoteDraft as readLocalNoteDraft,offlineClearOnLogout,pendingCaptures,pendingSyncOperations,queueCapture,queueSyncOperation,replicaDeviceId,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setOfflineClearOnLogout,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key),clear:()=>storage.clear()}});
@@ -24,6 +24,18 @@ describe("trusted browser replica",()=>{
     await setCachedCoreAccessBlocked(false);
     expect(await cachedCoreAccessBlocked()).toBe(false);
     expect(await cachedCoreRecords()).toMatchObject(records);
+  });
+
+  it("clears private logout data while preserving device enrollment and policy",async()=>{
+    setOfflineCaptureEnabled(true);await setReplicaDeviceId(noteSnapshot.noteId);await setOfflineClearOnLogout(false);
+    await cacheCoreRecords({notes:[],tasks:[],events:[]});await queueCapture("unsent");await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    await clearOfflinePrivateDataForLogout();
+    expect(await replicaDeviceId()).toBe(noteSnapshot.noteId);
+    expect(await offlineClearOnLogout()).toBe(false);
+    expect(await cachedCoreRecords()).toBeNull();
+    expect(await pendingCaptures()).toEqual([]);
+    expect(await pendingSyncOperations()).toEqual([]);
+    expect(await readLocalNoteDraft(noteSnapshot.noteId)).toBeNull();
   });
 
   it("commits a local note and outbox together, preserves it across remote refresh and retries",async()=>{
