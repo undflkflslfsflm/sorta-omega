@@ -16,6 +16,7 @@ const SYNC_STORE = "pending-sync";
 const CONFLICT_STORE = "sync-conflicts";
 const TRUST_KEY = "sorta.trustedOfflineCapture";
 const blockedNoteAccess=new Set<string>();
+let blockedCoreAccess=false;
 
 export function offlineCaptureEnabled(){ return localStorage.getItem(TRUST_KEY)==="true"; }
 export function setOfflineCaptureEnabled(enabled:boolean){ localStorage.setItem(TRUST_KEY,String(enabled)); }
@@ -134,8 +135,13 @@ export async function setCachedNoteAccessBlocked(noteId:string,blocked:boolean){
   }
 }
 export async function removeCachedNoteSnapshot(noteId:string){await remove(META_STORE,`note-snapshot:${noteId}`);}
+export async function setCachedCoreAccessBlocked(blocked:boolean){
+  if(blocked){blockedCoreAccess=true;await put(META_STORE,{id:"core-access-blocked",blocked:true});}
+  else{await remove(META_STORE,"core-access-blocked");blockedCoreAccess=false;}
+}
+export async function cachedCoreAccessBlocked(){return blockedCoreAccess||Boolean(await get(META_STORE,"core-access-blocked"));}
 export async function cacheCoreRecords(records:Omit<CachedCoreRecords,"id"|"cachedAt">){await put(CORE_STORE,{id:"core",...records,cachedAt:new Date().toISOString()});}
-export async function cachedCoreRecords(){return (await get<CachedCoreRecords>(CORE_STORE,"core"))??null;}
+export async function cachedCoreRecords(){if(await cachedCoreAccessBlocked())return null;return (await get<CachedCoreRecords>(CORE_STORE,"core"))??null;}
 export async function queueSyncOperation(operation:SyncOperation){
   await withStore<void>(SYNC_STORE,"readwrite",(store,done,fail)=>{
     const existing=store.getAll();
@@ -156,7 +162,7 @@ export async function queueSyncOperation(operation:SyncOperation){
 export async function pendingSyncOperations(){return (await getAll<PendingSyncOperation>(SYNC_STORE)).sort((a,b)=>a.createdAt.localeCompare(b.createdAt));}
 export async function syncConflicts(){return (await getAll<StoredSyncConflict>(CONFLICT_STORE)).sort((a,b)=>a.recordedAt.localeCompare(b.recordedAt));}
 export async function dismissSyncConflict(id:string){await remove(CONFLICT_STORE,id);}
-export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);blockedNoteAccess.clear();}
+export async function clearOfflineReplica(){for(const store of [META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])await clear(store);blockedNoteAccess.clear();blockedCoreAccess=false;}
 async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   const batchIds=new Set(batch.map(item=>item.id));
   const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);

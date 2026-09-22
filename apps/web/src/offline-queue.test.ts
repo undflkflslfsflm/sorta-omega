@@ -3,7 +3,7 @@ import { dismissSyncConflict } from "./offline-queue";
 import { localNoteDraft, persistLocalNoteEdit } from "./offline-queue";
 import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
-import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
+import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key),clear:()=>storage.clear()}});
@@ -13,6 +13,18 @@ describe("trusted browser replica",()=>{
 
   const noteSnapshot={noteId:"00000000-0000-4000-8000-000000000511",revisionId:"00000000-0000-4000-8000-000000000512",updateBase64:"AAA="};
   const noteOperation={type:"note_yjs_update" as const,operationId:"00000000-0000-4000-8000-000000000513",noteId:noteSnapshot.noteId,baseRevision:1,updateBase64:"AAA="};
+
+  it("persists a workspace access block without destroying retained records",async()=>{
+    const records={notes:[],tasks:[],events:[]};
+    await cacheCoreRecords(records);
+    expect(await cachedCoreRecords()).toMatchObject(records);
+    await setCachedCoreAccessBlocked(true);
+    expect(await cachedCoreAccessBlocked()).toBe(true);
+    expect(await cachedCoreRecords()).toBeNull();
+    await setCachedCoreAccessBlocked(false);
+    expect(await cachedCoreAccessBlocked()).toBe(false);
+    expect(await cachedCoreRecords()).toMatchObject(records);
+  });
 
   it("commits a local note and outbox together, preserves it across remote refresh and retries",async()=>{
     await expect(persistLocalNoteEdit(noteSnapshot,noteOperation,null)).rejects.toThrow("disabled");

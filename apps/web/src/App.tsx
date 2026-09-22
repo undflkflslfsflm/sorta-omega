@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } 
 import { OfflineConflictReview } from "./OfflineConflictReview";
 import { searchWithOfflineFallback } from "./offline-search";
 import { openSearchNote } from "./open-search-note";
+import { classifyWorkspaceRefreshFailure } from "./workspace-refresh";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -10,7 +11,7 @@ import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationC
 import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { Archive, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronDown, Circle, ClipboardPaste, Clock3, Command, Inbox, KeyRound, Lightbulb, ListTodo, LockKeyhole, MessageSquare, Paperclip, Plus, Search, Settings, Sparkles, Users, X, Zap } from "lucide-react";
 import { api, ApiError, VAULT_ID } from "./api";
-import { cacheCoreRecords, cachedCoreRecords, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
+import { cacheCoreRecords, cachedCoreRecords, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
 import { registerOmegaTools } from "./webmcp";
 import { desktopBridge } from "./desktop-bridge";
 
@@ -174,15 +175,26 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   async function synchronizeReplica(){if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
 
   async function refresh() {
+    let onlineCoreLoaded=false;
     try {
       setError(null);
       await synchronizeReplica();
       const [nextToday, nextCandidates, nextNotes, nextTasks, nextEvents, nextEntities, nextCommitments, nextCollections] = await Promise.all([api.today(), api.nextActions(), api.notes(), api.tasks(), api.events(), api.entities(), api.commitments(), api.collections()]);
       setToday(nextToday); setNextActions(nextCandidates); setNotes(nextNotes.items); setTasks(nextTasks.items); setEvents(nextEvents.items); setEntities(nextEntities.items); setCommitments(nextCommitments.items); setCollections(nextCollections.items);
+      onlineCoreLoaded=true;
+      await setCachedCoreAccessBlocked(false);
       if(offlineCaptureEnabled())await cacheCoreRecords({notes:nextNotes.items,tasks:nextTasks.items,events:nextEvents.items});
       if(offlineCaptureEnabled()){const flushed=await flushPendingCaptures(item=>api.capture(item.text,item.id));setPendingCount(flushed.remaining);}
     } catch (caught) {
-      if(caught instanceof ApiError&&caught.status===401){onAuthenticationRequired();return;}
+      const failure=classifyWorkspaceRefreshFailure(caught);
+      if(failure==="authentication_required"){onAuthenticationRequired();return;}
+      if(failure==="access_denied"){
+        try{await setCachedCoreAccessBlocked(true);}catch{/* Current state is still removed immediately. */}
+        setToday(null);setNextActions(null);setNotes([]);setTasks([]);setEvents([]);setEntities([]);setCommitments([]);setCollections([]);setActiveCollection(null);currentSelectedNote.current=null;updateSelectedNote(null);
+        setError("Access to this workspace is unavailable. Cached workspace records will not be reopened until authorization succeeds.");return;
+      }
+      if(onlineCoreLoaded){setError("The workspace loaded, but trusted offline-cache maintenance did not finish. Online data remains available; offline freshness is not guaranteed.");return;}
+      if(failure!=="outage"){setError("The workspace could not be refreshed. Cached records were not substituted for this response.");return;}
       const cached=offlineCaptureEnabled()?await cachedCoreRecords().catch(()=>null):null;if(cached){setNotes(cached.notes);setTasks(cached.tasks);setEvents(cached.events);setError(`The home host is unavailable. Showing this browser's private cache from ${friendlyDate(cached.cachedAt)}; pending writes will retry after reconnect.`);}else setError("The home host is unavailable. Your unsent draft stays in this browser tab.");
     }
   }
