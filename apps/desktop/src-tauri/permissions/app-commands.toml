@@ -36,6 +36,11 @@ description = "Allows navigation to one validated commitment identifier."
 commands.allow = ["open_commitment"]
 
 [[permission]]
+identifier = "allow-navigate-to-event-source"
+description = "Allows navigation from an event to one finite, validated source record target."
+commands.allow = ["navigate_to_event_source"]
+
+[[permission]]
 identifier = "allow-desktop-status"
 description = "Allows reading finite shortcut and start-at-login status."
 commands.allow = ["desktop_status"]
