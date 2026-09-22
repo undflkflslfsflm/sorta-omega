@@ -25,8 +25,15 @@ while ($true) {
       Write-RuntimeLog 'Started com.docker.service.'
     }
 
-    & $DockerCliPath info --format '{{.ServerVersion}}' *> $null
-    if ($LASTEXITCODE -ne 0) {
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      $ErrorActionPreference = 'Continue'
+      & $DockerCliPath info --format '{{.ServerVersion}}' *> $null
+      $dockerReady = $LASTEXITCODE -eq 0
+    } finally {
+      $ErrorActionPreference = $previousErrorActionPreference
+    }
+    if (-not $dockerReady) {
       if (-not (Get-Process -Name 'Docker Desktop' -ErrorAction SilentlyContinue)) {
         Start-Process -FilePath $DockerDesktopPath -WindowStyle Hidden
         Write-RuntimeLog 'Started Docker Desktop.'
