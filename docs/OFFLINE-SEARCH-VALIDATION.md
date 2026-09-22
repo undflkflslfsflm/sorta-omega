@@ -48,3 +48,13 @@ Six new resolver tests use fake IndexedDB and controlled API replies to cover
 server-only results, outages, persistent denial, authorized recovery, malformed
 responses and required trust/enrollment/record presence. The full click-to-editor
 browser workflow, pagination and navigation-race UI checks remain unverified.
+
+Security follow-up: a successful note-metadata read no longer clears a remembered
+canonical-document access block. Metadata authorization may differ from document
+authorization, so only `loadNoteSnapshot` may unblock cached document content
+after its own successful request. The editor initialization path also preserves
+the canonical denial classification when an ancillary request fails first and
+shows an explicit access-denied message instead of a generic initialization
+failure. The complete web suite remained at 64 passing tests with typecheck green
+on the local unsupported Node 24 runtime; supported Node 22 and live multi-client
+permission-revocation testing remain release requirements.

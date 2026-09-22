@@ -39,11 +39,11 @@ describe("search note resolution",()=>{
       await setCachedNoteAccessBlocked(id,false);
     }
   });
-  it("clears a remembered block only after a successful authorized read",async()=>{
+  it("does not let metadata success clear a canonical-document access block",async()=>{
     await setCachedNoteAccessBlocked(id,true);
     vi.spyOn(api,"note").mockResolvedValue(note);
     expect(await openSearchNote(id)).toEqual(note);
-    expect(await cachedNoteAccessBlocked(id)).toBe(false);
+    expect(await cachedNoteAccessBlocked(id)).toBe(true);
   });
   it("does not fall back for malformed data or validation failures",async()=>{
     const request=vi.spyOn(api,"note");

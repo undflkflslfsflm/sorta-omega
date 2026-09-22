@@ -4,9 +4,10 @@ import { cachedCoreRecords, cachedNoteAccessBlocked, offlineCaptureEnabled, repl
 /** Resolve a search hit independently of the current/paginated note list. */
 export async function openSearchNote(noteId:string) {
   try {
-    const note = await api.note(noteId);
-    await setCachedNoteAccessBlocked(noteId,false);
-    return note;
+    // Metadata access does not prove canonical document access. Only the
+    // document loader may clear a remembered block after its own successful
+    // authorization check.
+    return await api.note(noteId);
   } catch(error) {
     if(error instanceof ApiError && [401,403,404,410].includes(error.status)) {
       try { await setCachedNoteAccessBlocked(noteId,true); } finally { throw error; }
