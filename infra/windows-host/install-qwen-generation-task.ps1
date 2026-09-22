@@ -16,9 +16,11 @@ if (-not (Test-Path -LiteralPath $model -PathType Leaf)) { throw "Model file not
 $quotedLauncher = '"' + $launcher.Replace('"','""') + '"'
 $quotedModel = '"' + $model.Replace('"','""') + '"'
 $arguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $quotedLauncher -ModelPath $quotedModel -ExpectedSha256 $ExpectedSha256"
+$currentIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+if ([string]::IsNullOrWhiteSpace($currentIdentity)) { throw 'Current Windows identity could not be resolved.' }
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $root
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentIdentity
+$principal = New-ScheduledTaskPrincipal -UserId $currentIdentity -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description 'Loopback-only Qwen3.8-Flash-Next runtime for Sorta Omega.' -Force | Out-Null
@@ -38,4 +40,3 @@ do {
 } while ((Get-Date) -lt $deadline -and $task.State -in @('Running','Ready'))
 
 throw "Scheduled generation runtime did not become healthy. Task state=$($task.State), last result=$($info.LastTaskResult)."
-
