@@ -151,13 +151,14 @@ This file records verified implementation state. Planned routes in the specifica
 - On `SILENT-4090`, the loopback-only production Compose stack builds, applies all 94 migrations from empty storage, reports schema version 93, reaches healthy/readiness state with PostgreSQL and survives a joint restart. PostgreSQL has no published host port.
 - The exact `Qwen/Qwen3.8-Flash-Next` generation runtime and `qwen3-embedding:0.6b` embedding runtime are persistent and live-verified on `SILENT-4090`; retained evidence records immutable model/runtime identifiers and real requests.
 - A real encrypted backup and isolated empty-pgvector restore pass on `SILENT-4090`.
+- Both Windows PCs are authenticated to the same Tailscale network. The Surface client reaches `SILENT-4090` directly over the tailnet, while direct TCP access to SSH, the app, PostgreSQL and both model endpoints remains blocked; LAN-scoped SSH remains available for administration.
 
 ## Not run
 
 - Owner passkey/recovery ceremonies, resumable-upload filesystem/database integration and authenticated end-to-end persistence scenarios. PostgreSQL migrations and the production stack are live-verified on `SILENT-4090`, but the owner has not completed bootstrap.
 - Two-PC access, restart recovery, offline edit synchronization and PWA installation.
 - Enrolled-worker end-to-end Qwen/RAG jobs and the retained evaluation. The exact generation and embedding runtimes themselves are live-verified.
-- Tailscale account authorization, Serve HTTPS and private two-client access/isolation. Tailscale 1.102.4 is installed on both Windows PCs, but both still require the owner login ceremony. Docker Desktop and Qwen generation are configured as persistent scheduled runtimes on `SILENT-4090`.
+- Tailscale Serve HTTPS and authenticated two-client application use. Both nodes are logged in and the direct-port isolation preflight passes, but the owner has not yet approved the tailnet HTTPS certificate/Serve feature. Docker Desktop and Qwen generation are configured as persistent scheduled runtimes on `SILENT-4090`.
 - Representative clean-host replacement restore with owner data. A real backup and isolated empty-database restore already pass.
 - Tauri install/upgrade/rollback/uninstall, shortcut-conflict behavior, tray behavior, start-at-login, live Windows Credential Manager storage/rotation, the complete native pairing ceremony, authenticated native file import, signing and the under-500-ms quick-capture target. Rust check/test plus unsigned MSI/NSIS packaging now pass serially on `SILENT-4090`; the retained evidence also records a parallel `rustc` access violation and exact unsigned artifact hashes.
 
