@@ -2,7 +2,8 @@
 param(
   [Parameter(Mandatory)][string]$ModelPath,
   [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExpectedSha256,
-  [string]$LogDirectory = (Join-Path $env:LOCALAPPDATA 'SortaOmega\logs'),
+  [string]$RuntimeDirectory,
+  [string]$LogDirectory,
   [ValidateRange(1024,262144)][int]$ContextSize = 4096,
   [ValidateRange(1,65535)][int]$Port = 8000
 )
@@ -23,11 +24,24 @@ if ($existing) {
   throw "Loopback port $Port is already in use by a different or unhealthy process."
 }
 
-$server = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\ggml.llamacpp_*') -Recurse -Filter 'llama-server.exe' -File |
-  Select-Object -First 1 -ExpandProperty FullName
+$localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'RuntimeDirectory is required when LocalApplicationData is unavailable.' }
+  $server = Get-ChildItem (Join-Path $localAppData 'Microsoft\WinGet\Packages\ggml.llamacpp_*') -Recurse -Filter 'llama-server.exe' -File |
+    Select-Object -First 1 -ExpandProperty FullName
+  $RuntimeDirectory = if ($server) { Split-Path -Parent $server } else { $null }
+} else {
+  $RuntimeDirectory = [IO.Path]::GetFullPath($RuntimeDirectory)
+  $server = Join-Path $RuntimeDirectory 'llama-server.exe'
+}
 if (-not $server) { throw 'llama-server.exe was not found in the WinGet package directory.' }
+if (-not (Test-Path -LiteralPath $server -PathType Leaf)) { throw "llama-server.exe was not found: $server" }
 
 $runtimeDirectory = Split-Path -Parent $server
+if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'LogDirectory is required when LocalApplicationData is unavailable.' }
+  $LogDirectory = Join-Path $localAppData 'SortaOmega\logs'
+}
 $resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
 New-Item -ItemType Directory -Force -Path $resolvedLogDirectory | Out-Null
 $stdoutLog = Join-Path $resolvedLogDirectory 'qwen-generation.out.log'
