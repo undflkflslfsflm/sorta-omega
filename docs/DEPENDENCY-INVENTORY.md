@@ -9,7 +9,7 @@ Lockfile SHA-256: `633d6b3508664141b97c3e8236b9915d97776eaa3649d645c5da2e9f4c3f5
 - 9 JavaScript workspace manifests.
 - 352 installed JavaScript packages covering 365 package versions.
 - 12 distinct JavaScript license expressions.
-- Rust dependencies are manifest-only because no Cargo.lock has been generated.
+- Rust dependencies are locked, but still require a Cargo-aware license audit.
 - No legal review has been performed.
 
 ## JavaScript licenses
@@ -45,7 +45,7 @@ Lockfile SHA-256: `633d6b3508664141b97c3e8236b9915d97776eaa3649d645c5da2e9f4c3f5
 
 ## Rust declarations
 
-Resolution status: declared only; Cargo is unavailable here, so transitive versions and licenses are not resolved.
+Resolution status: locked; run a Cargo-aware license audit on the Windows build host.
 
 | Crate | Section | Requested version/features |
 | --- | --- | --- |

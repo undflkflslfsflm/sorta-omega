@@ -118,8 +118,8 @@ Store the one-time token in the Windows service secret environment, set `OMEGA_W
 
 ## Phase 4 — Windows desktop package and native behavior
 
-1. Run `pnpm --filter @sorta/desktop native:info`, then `native:build`. Resolve and lock Rust dependencies; regenerate the dependency/license inventory afterward.
-2. Build both NSIS and MSI, but call them signed only if an actual trusted signing certificate was used and verified.
+1. Rust `cargo check -j 1`, `cargo test -j 1` and `native:build` now pass on `SILENT-4090`; the resolved graph is locked. Regenerate/review the dependency and license inventory after any lockfile change. The host's default-parallel `cargo check` produced one retained `rustc` access violation, so keep release validation serial until that instability is resolved.
+2. NSIS and MSI build successfully with hashes retained in `docs/evidence/NATIVE-WINDOWS-BUILD-2026-09-22.md`. They are `NotSigned`; call them signed only after an actual trusted certificate is used and verified.
 3. Test install, upgrade, rollback and uninstall while preserving data unless separate removal is confirmed.
 4. Verify Windows Credential Manager storage/rotation, one-time pairing, replay revocation, tray actions, shortcut conflict behavior, start-at-login and deliberate clipboard read. Exercise `file_import` with a small file, a file above the browser's 64 MiB limit, a changed-during-read file, cancellation, host loss between parts and a rejected/revoked `capture:write` grant; prove the renderer never receives a local path and the completed immutable blob hash matches the selected original.
 5. Measure quick-capture appearance against the under-500-ms target.
@@ -169,7 +169,7 @@ pnpm --filter @sorta/browser-bridge start -- --provider inschool --profile "<abs
 - Real Microsoft/Google provider fetch, delivery and lost-response reconciliation executors.
 - Live Teams/InSchool selector/account validation.
 - True realtime Yjs convergence and broader offline edits/conflicts.
-- The remaining native command set (including event-source navigation, folder watches, model/worker/audio/export/backup/update/focus operations) and compiled installer behavior. Calendar view, exact calendar-event and exact commitment navigation are implemented through a doubly validated renderer event, but still require a native build/runtime test.
+- The remaining native command set (including event-source navigation, folder watches, model/worker/audio/export/backup/update/focus operations) and installed runtime behavior. Calendar view, exact calendar-event and exact commitment navigation compile through a doubly validated renderer event, but still require an installed runtime test.
 - Clean-host replacement restore evidence.
 - Full security/privacy review: renderer/log/cache/backup inspection, CSP/origin checks, secret scanning, dependency/container/Rust/model licenses and attack tests.
 - Complete Appendix C route-effects and acceptance runs. `docs/ACCEPTANCE-TESTS.md` currently records all 133 scenarios honestly; update a row only after the complete scenario executes.

@@ -3961,8 +3961,8 @@
   },
   "rust": {
     "manifest": "apps/desktop/src-tauri/Cargo.toml",
-    "lockfile": null,
-    "resolutionStatus": "declared only; Cargo is unavailable here, so transitive versions and licenses are not resolved",
+    "lockfile": "apps/desktop/src-tauri/Cargo.lock",
+    "resolutionStatus": "locked; run a Cargo-aware license audit on the Windows build host",
     "dependencies": [
       {
         "name": "arboard",

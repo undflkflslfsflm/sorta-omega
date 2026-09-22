@@ -25,6 +25,6 @@ pnpm --filter @sorta/desktop native:info
 pnpm --filter @sorta/desktop native:build
 ```
 
-`native:build` requires Rust through rustup, Visual Studio Build Tools with the MSVC C++ workload and Windows SDK, and WebView2. MSI/NSIS artifacts, signing, install/upgrade/rollback/uninstall, shortcut-conflict handling, command-permission generation and the quick-capture latency target remain unverified until that toolchain is present. TypeScript bridge tests do not substitute for compiling the Rust command set.
+`native:build` requires Rust through rustup, Visual Studio Build Tools with the MSVC C++ workload and Windows SDK, and WebView2. The Rust crate, finite command permissions, optimized executable, MSI and NSIS bundles were compiled on `SILENT-4090` at commit `e2c4410`; see `docs/evidence/NATIVE-WINDOWS-BUILD-2026-09-22.md`. The artifacts are explicitly unsigned. Install/upgrade/rollback/uninstall, shortcut-conflict behavior, live Credential Manager/pairing/import flows and the quick-capture latency target remain runtime acceptance gates.
 
 Do not broaden the remote capability URL to an arbitrary web origin. A desktop shell that targets another PC must use the scoped pairing/native-token flow before private IPC is enabled for that origin.
