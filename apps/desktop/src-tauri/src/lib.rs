@@ -25,6 +25,13 @@ struct WorkspaceTarget {
     record_id: Option<String>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EventSourceTarget {
+    kind: String,
+    record_id: String,
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DesktopStatus {
@@ -100,6 +107,19 @@ fn open_commitment(app: AppHandle, commitment_id: String) -> Result<(), String> 
 }
 
 #[tauri::command]
+fn navigate_to_event_source(app: AppHandle, target: EventSourceTarget) -> Result<(), String> {
+    if !valid_record_id(&target.record_id) { return Err("event_source_record_id_invalid".to_string()); }
+    let workspace = match target.kind.as_str() {
+        "note" => "brain",
+        "task" => "tasks",
+        "calendar_event" => "calendar",
+        "commitment" => "life",
+        _ => return Err("event_source_kind_invalid".to_string()),
+    };
+    emit_navigation(&app, WorkspaceTarget { workspace: workspace.to_string(), record_id: Some(target.record_id) })
+}
+
+#[tauri::command]
 fn desktop_status(app: AppHandle) -> Result<DesktopStatus, String> {
     Ok(DesktopStatus {
         shortcut: DEFAULT_SHORTCUT,
@@ -140,7 +160,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }

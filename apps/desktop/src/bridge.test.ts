@@ -53,14 +53,17 @@ describe("desktop native bridge", () => {
   it("exposes finite record-navigation commands with validated ids",async()=>{
     const invoke=vi.fn(async()=>undefined),bridge=createDesktopBridge(invoke);
     const id="00000000-0000-4000-8000-000000000042";
-    await bridge.launchCalendarView();await bridge.openCalendarEvent(id);await bridge.openCommitment(id);
+    await bridge.launchCalendarView();await bridge.openCalendarEvent(id);await bridge.openCommitment(id);await bridge.navigateToEventSource({kind:"note",recordId:id});
     expect(invoke.mock.calls).toEqual([
       ["launch_calendar_view"],
       ["open_calendar_event",{eventId:id}],
-      ["open_commitment",{commitmentId:id}]
+      ["open_commitment",{commitmentId:id}],
+      ["navigate_to_event_source",{target:{kind:"note",recordId:id}}]
     ]);
     await expect(bridge.openCalendarEvent("not-an-id")).rejects.toThrow();
-    expect(invoke).toHaveBeenCalledTimes(3);
+    await expect(bridge.navigateToEventSource({kind:"url",recordId:id} as never)).rejects.toThrow();
+    await expect(bridge.navigateToEventSource({kind:"task",recordId:"not-an-id"})).rejects.toThrow();
+    expect(invoke).toHaveBeenCalledTimes(4);
   });
 
   it("reads and changes explicit Windows startup state",async()=>{

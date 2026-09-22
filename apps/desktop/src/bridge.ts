@@ -8,6 +8,7 @@ import {
   nativeAuthStatusSchema,
   nativeApiRequestSchema,
   nativeApiResponseSchema,
+  nativeEventSourceTargetSchema,
   nativeWorkspaceTargetSchema,
   type NativeApiRequest,
   type NativeApiResponse,
@@ -17,6 +18,7 @@ import {
   type NativePairingChallenge,
   type NativePairingStatus,
   type BlobSummary,
+  type NativeEventSourceTarget,
   type NativeWorkspaceTarget
 } from "@sorta/contracts";
 
@@ -46,6 +48,10 @@ export function createDesktopBridge(invoke: NativeInvoke,listen?:NativeListen) {
     async openCommitment(commitmentId:string):Promise<void>{
       const id=idSchema.parse(commitmentId);
       await invoke("open_commitment",{commitmentId:id});
+    },
+    async navigateToEventSource(target:NativeEventSourceTarget):Promise<void>{
+      const validated=nativeEventSourceTargetSchema.parse(target);
+      await invoke("navigate_to_event_source",{target:validated});
     },
     async onNavigate(handler:(target:NativeWorkspaceTarget)=>void):Promise<()=>void>{
       if(!listen)throw new Error("Native event listener is unavailable");
