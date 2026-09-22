@@ -4,7 +4,7 @@ import { searchWithOfflineFallback } from "./offline-search";
 import { openSearchNote } from "./open-search-note";
 import { classifyWorkspaceRefreshFailure } from "./workspace-refresh";
 import { resolveStartupAuthState } from "./startup-auth";
-import { approvePersistentOfflineCache } from "./offline-enrollment";
+import { approvePersistentOfflineCache, verifyPersistentOfflineCache } from "./offline-enrollment";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -181,7 +181,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   }
 
   async function establishReplicaCursor(deviceId:string){const handle=await api.createSyncSnapshot(deviceId);const job=await api.job(handle.id);if(job.result?.type!=="sync_snapshot")throw new Error("sync_snapshot_result_missing");await setSyncCursor(job.result.watermarkCursor);setReplicaCursorReady(job.result.watermarkCursor);return job.result.watermarkCursor;}
-  async function synchronizeReplica(){if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
+  async function synchronizeReplica(){if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;await verifyPersistentOfflineCache(deviceId);let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
 
   async function refresh() {
     let onlineCoreLoaded=false;

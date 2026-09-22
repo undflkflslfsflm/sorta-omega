@@ -3,7 +3,7 @@ import { dismissSyncConflict } from "./offline-queue";
 import { localNoteDraft, persistLocalNoteEdit } from "./offline-queue";
 import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
-import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflinePrivateDataForLogout,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,localNoteDraft as readLocalNoteDraft,offlineClearOnLogout,pendingCaptures,pendingSyncOperations,queueCapture,queueSyncOperation,replicaDeviceId,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setOfflineClearOnLogout,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
+import { cacheCoreRecords,cachedCoreAccessBlocked,cachedCoreRecords,clearOfflinePrivateDataForLogout,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,localNoteDraft as readLocalNoteDraft,offlineClearOnLogout,offlinePolicyExpiry,pendingCaptures,pendingSyncOperations,queueCapture,queueSyncOperation,replicaDeviceId,setCachedCoreAccessBlocked,setOfflineCaptureEnabled,setOfflineClearOnLogout,setOfflinePolicyExpiry,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value),removeItem:(key:string)=>storage.delete(key),clear:()=>storage.clear()}});
@@ -24,6 +24,14 @@ describe("trusted browser replica",()=>{
     await setCachedCoreAccessBlocked(false);
     expect(await cachedCoreAccessBlocked()).toBe(false);
     expect(await cachedCoreRecords()).toMatchObject(records);
+  });
+
+  it("disables trusted caching synchronously when its recorded policy expires",()=>{
+    vi.useFakeTimers();vi.setSystemTime(new Date("2026-09-22T12:00:00.000Z"));
+    setOfflineCaptureEnabled(true);setOfflinePolicyExpiry("2026-09-22T13:00:00.000Z");
+    expect(offlineCaptureEnabled()).toBe(true);expect(offlinePolicyExpiry()).toBe("2026-09-22T13:00:00.000Z");
+    vi.setSystemTime(new Date("2026-09-22T13:00:00.000Z"));expect(offlineCaptureEnabled()).toBe(false);
+    vi.useRealTimers();
   });
 
   it("clears private logout data while preserving device enrollment and policy",async()=>{

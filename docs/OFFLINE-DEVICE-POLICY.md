@@ -30,3 +30,21 @@ removes private/pending records but preserves device identity and policy. Startu
 workspace authorization and queue suites cover the surrounding lock boundary.
 Live passkey recency, real PostgreSQL policy persistence, failed-cleanup UI and
 browser sign-out/re-sign-in remain end-to-end release work.
+
+## Expiry and purge enforcement
+
+The browser records a finite policy expiry relative to the server policy's last
+update and checks it synchronously before any trusted-cache path. On each online
+replica synchronization it refreshes the authoritative policy. A policy that is
+expired, session-only, untrusted, missing the Omega vault, or carries a pending
+purge clears private replica data, disables new offline caching and applies the
+core access block before returning an authorization failure. Network failure
+during this check may use only a still-unexpired local approval. An expired but
+otherwise eligible policy must be revision-fenced through the server again to
+renew its validity; it is not silently extended in local storage.
+
+Additional tests cover recorded expiry, exact-boundary synchronous disablement,
+renewal, online purge clearing/disablement and valid-policy refresh without data
+loss. The current API does not expose a device-side purge acknowledgement route;
+after a purge, the owner can revoke/erase the old device and enroll a new one,
+and the product must not claim remote-erasure certification.

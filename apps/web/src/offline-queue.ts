@@ -15,11 +15,14 @@ const CORE_STORE = "core-cache";
 const SYNC_STORE = "pending-sync";
 const CONFLICT_STORE = "sync-conflicts";
 const TRUST_KEY = "sorta.trustedOfflineCapture";
+const POLICY_EXPIRY_KEY="sorta.offlinePolicyExpiresAt";
 const blockedNoteAccess=new Set<string>();
 let blockedCoreAccess=false;
 
-export function offlineCaptureEnabled(){ return localStorage.getItem(TRUST_KEY)==="true"; }
+export function offlineCaptureEnabled(){const expiry=localStorage.getItem(POLICY_EXPIRY_KEY);return localStorage.getItem(TRUST_KEY)==="true"&&(!expiry||Date.parse(expiry)>Date.now());}
 export function setOfflineCaptureEnabled(enabled:boolean){ localStorage.setItem(TRUST_KEY,String(enabled)); }
+export function setOfflinePolicyExpiry(expiresAt:string|null){if(expiresAt)localStorage.setItem(POLICY_EXPIRY_KEY,expiresAt);else localStorage.removeItem(POLICY_EXPIRY_KEY);}
+export function offlinePolicyExpiry(){return localStorage.getItem(POLICY_EXPIRY_KEY);}
 
 function database():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{const request=indexedDB.open(DATABASE,2);request.onupgradeneeded=()=>{for(const name of [CAPTURE_STORE,META_STORE,CORE_STORE,SYNC_STORE,CONFLICT_STORE])if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name,{keyPath:"id"});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
