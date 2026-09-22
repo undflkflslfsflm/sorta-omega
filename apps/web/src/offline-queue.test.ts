@@ -61,6 +61,8 @@ describe("trusted browser replica",()=>{
     expect(await localNoteDraft(noteSnapshot.noteId)).toMatchObject({...noteSnapshot,lastOperationId:noteOperation.operationId});
     await setSyncCursor("before");
     await flushSyncOperations(async()=>({acceptedOperationIds:[noteOperation.operationId],conflicts:[],cursor:"after"}));
+    expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+    expect(await cachedNoteSnapshot(noteSnapshot.noteId)).toMatchObject(noteSnapshot);
     await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
     expect(await pendingSyncOperations()).toEqual([]);
     await expect(persistLocalNoteEdit(noteSnapshot,{...noteOperation,baseRevision:2},null)).rejects.toThrow("cannot be reused");
@@ -69,6 +71,15 @@ describe("trusted browser replica",()=>{
     setOfflineCaptureEnabled(true);
     await clearOfflineReplica();
     expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+  });
+
+  it("retains a conflicted note draft instead of promoting it as acknowledged",async()=>{
+    setOfflineCaptureEnabled(true);
+    await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    await setSyncCursor("before");
+    await flushSyncOperations(async()=>({acceptedOperationIds:[],cursor:"after",conflicts:[{operationId:noteOperation.operationId,code:"stale_revision",currentRevision:2,tombstoned:false}]}));
+    expect(await localNoteDraft(noteSnapshot.noteId)).toMatchObject({lastOperationId:noteOperation.operationId,updateBase64:noteSnapshot.updateBase64});
+    expect((await syncConflicts())[0]?.operation).toEqual(noteOperation);
   });
 
   it("rejects competing stale editors instead of overwriting their local snapshot",async()=>{

@@ -5,6 +5,7 @@ export type PendingCapture = { id: string; text: string; createdAt: string; atte
 export type CachedCoreRecords = { id: "core"; notes: Note[]; tasks: Task[]; events: CalendarEvent[]; cachedAt: string };
 export type CachedNoteSnapshot = { noteId:string; revisionId:string; updateBase64:string; cachedAt:string };
 export type LocalNoteDraft = CachedNoteSnapshot & { lastOperationId: string; lastOperation: Extract<SyncOperation,{type:"note_yjs_update"}> };
+type AcknowledgedNoteOperation = { id:string; operation:Extract<SyncOperation,{type:"note_yjs_update"}>; acknowledgedAt:string };
 type PendingSyncOperation = { id: string; operation: SyncOperation; createdAt: string };
 export type StoredSyncConflict = SyncConflict & { id: string; recordedAt: string; operation?: SyncOperation };
 
@@ -148,9 +149,13 @@ export async function persistLocalNoteEdit(
   await mutatePrivate(rows=>{
     if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
     const draft=rows.get(META_STORE)!.find(row=>row.id===`note-draft:${snapshot.noteId}`) as LocalNoteDraft|undefined;
+    const acknowledged=rows.get(META_STORE)!.find(row=>row.id===`note-ack:${snapshot.noteId}`) as AcknowledgedNoteOperation|undefined;
     if(draft?.lastOperationId===operation.operationId){
       if(draft.updateBase64!==snapshot.updateBase64||draft.revisionId!==snapshot.revisionId||JSON.stringify(draft.lastOperation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
-    }else if((draft?.lastOperationId??null)!==expectedLocalOperationId)throw new Error("Local note changed in another editor");
+    }else if(acknowledged?.operation.operationId===operation.operationId){
+      if(JSON.stringify(acknowledged.operation)!==JSON.stringify(operation))throw new Error("Acknowledged operation ID cannot be reused for different content");
+      return {mutations:[],result:undefined};
+    }else if((draft?.lastOperationId??acknowledged?.operation.operationId??null)!==expectedLocalOperationId)throw new Error("Local note changed in another editor");
     const queued=rows.get(SYNC_STORE)! as PendingSyncOperation[],prior=queued.find(row=>row.id===operation.operationId);
     if(prior&&JSON.stringify(prior.operation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
     if(draft?.lastOperationId===operation.operationId)return {mutations:[],result:undefined};
@@ -212,13 +217,33 @@ export async function clearOfflinePrivateDataForLogout(){
 }
 async function persistSyncAck(ack:SyncAck,batch:PendingSyncOperation[]){
   const batchIds=new Set(batch.map(item=>item.id));
+  const accepted=new Set(ack.acceptedOperationIds);
   const completed=new Set([...ack.acceptedOperationIds,...ack.conflicts.map(item=>item.operationId)]);
   if([...completed].some(id=>!batchIds.has(id)))throw new Error("Sync acknowledgement contains an unknown operation");
-  await mutatePrivate(()=>({mutations:[
-    {store:META_STORE,id:"cursor",value:{id:"cursor",value:ack.cursor}},
-    ...[...completed].map(id=>({store:SYNC_STORE,id,value:null}) satisfies PrivateMutation),
-    ...ack.conflicts.map(conflict=>({store:CONFLICT_STORE,id:conflict.operationId,value:{...conflict,id:conflict.operationId,operation:batch.find(item=>item.id===conflict.operationId)!.operation,recordedAt:new Date().toISOString()}}) satisfies PrivateMutation)
-  ],result:undefined}));
+  await mutatePrivate(rows=>{
+    const now=new Date().toISOString();
+    const queued=rows.get(SYNC_STORE)! as PendingSyncOperation[];
+    const remaining=queued.filter(item=>!completed.has(item.id));
+    const mutations:PrivateMutation[]=[
+      {store:META_STORE,id:"cursor",value:{id:"cursor",value:ack.cursor}},
+      ...[...completed].map(id=>({store:SYNC_STORE,id,value:null}) satisfies PrivateMutation),
+      ...ack.conflicts.map(conflict=>({store:CONFLICT_STORE,id:conflict.operationId,value:{...conflict,id:conflict.operationId,operation:batch.find(item=>item.id===conflict.operationId)!.operation,recordedAt:now}}) satisfies PrivateMutation)
+    ];
+    const acceptedNotes=new Map<string,Extract<SyncOperation,{type:"note_yjs_update"}>>();
+    for(const item of batch)if(accepted.has(item.id)&&item.operation.type==="note_yjs_update")acceptedNotes.set(item.operation.noteId,item.operation);
+    for(const [noteId,operation] of acceptedNotes){
+      mutations.push({store:META_STORE,id:`note-ack:${noteId}`,value:{id:`note-ack:${noteId}`,operation,acknowledgedAt:now}});
+      const draft=rows.get(META_STORE)!.find(row=>row.id===`note-draft:${noteId}`) as LocalNoteDraft|undefined;
+      const hasLaterUpdate=remaining.some(item=>item.operation.type==="note_yjs_update"&&item.operation.noteId===noteId);
+      if(draft?.lastOperationId===operation.operationId&&!hasLaterUpdate){
+        mutations.push(
+          {store:META_STORE,id:`note-snapshot:${noteId}`,value:{id:`note-snapshot:${noteId}`,noteId,revisionId:draft.revisionId,updateBase64:draft.updateBase64,cachedAt:now}},
+          {store:META_STORE,id:`note-draft:${noteId}`,value:null}
+        );
+      }
+    }
+    return {mutations,result:undefined};
+  });
   return completed.size;
 }
 let activeSyncFlush: Promise<{sent:number;remaining:number;conflicts:number}> | null = null;
