@@ -74,6 +74,17 @@ describe("desktop native bridge", () => {
     expect(invoke).toHaveBeenLastCalledWith("set_start_at_login",{enabled:true});
   });
 
+  it("returns only a bounded read-only host preflight report",async()=>{
+    const checks=[
+      ["desktop_runtime","pass"],["docker_cli","pass"],["tailscale_cli","pass"],["ollama_cli","fail"],["node_runtime","pass"],["pnpm_runtime","pass"],["rust_toolchain","unknown"],["hardware_inventory","unknown"],["service_state","unknown"]
+    ].map(([kind,status])=>({kind,status,detail:`${kind} ${status}`}));
+    const invoke=vi.fn(async()=>({platform:"windows",architecture:"x86_64",checks,mutationsApplied:false,secretsIncluded:false}));
+    const bridge=createDesktopBridge(invoke);
+    await expect(bridge.hostPreflight()).resolves.toMatchObject({mutationsApplied:false,secretsIncluded:false,checks});
+    expect(invoke).toHaveBeenCalledWith("host_preflight");
+    await expect(createDesktopBridge(async()=>({...await invoke(),mutationsApplied:true})).hostPreflight()).rejects.toThrow();
+  });
+
   it("rejects malformed native results", async () => {
     const bridge = createDesktopBridge(async () => ({ text: "secret", mimeType: "text/html" }));
     await expect(bridge.captureClipboardSelection()).rejects.toThrow();

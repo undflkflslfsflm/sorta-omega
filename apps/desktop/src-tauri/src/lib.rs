@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::{env, path::{Path, PathBuf}};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -39,6 +40,43 @@ struct DesktopStatus {
     shortcut_registered: bool,
     start_at_login: bool,
     platform: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostPreflightCheck {
+    kind: &'static str,
+    status: &'static str,
+    detail: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostPreflight {
+    platform: &'static str,
+    architecture: &'static str,
+    checks: Vec<HostPreflightCheck>,
+    mutations_applied: bool,
+    secrets_included: bool,
+}
+
+fn path_has_executable(file_names: &[&str], fixed_candidates: &[PathBuf]) -> bool {
+    if fixed_candidates.iter().any(|candidate| candidate.is_file()) { return true; }
+    env::var_os("PATH").is_some_and(|value| env::split_paths(&value).any(|directory| {
+        file_names.iter().any(|file_name| Path::new(&directory).join(file_name).is_file())
+    }))
+}
+
+fn program_files_candidate(relative: &str) -> Vec<PathBuf> {
+    ["ProgramFiles", "ProgramFiles(x86)"].iter().filter_map(|name| env::var_os(name)).map(|root| PathBuf::from(root).join(relative)).collect()
+}
+
+fn local_app_data_candidate(relative: &str) -> Vec<PathBuf> {
+    env::var_os("LOCALAPPDATA").map(|root| vec![PathBuf::from(root).join(relative)]).unwrap_or_default()
+}
+
+fn executable_check(kind: &'static str, available: bool, present: &'static str, absent: &'static str) -> HostPreflightCheck {
+    HostPreflightCheck { kind, status: if available { "pass" } else { "fail" }, detail: if available { present } else { absent } }
 }
 
 fn show_window(app: &AppHandle, label: &str) -> Result<(), String> {
@@ -130,6 +168,33 @@ fn desktop_status(app: AppHandle) -> Result<DesktopStatus, String> {
 }
 
 #[tauri::command]
+fn host_preflight() -> HostPreflight {
+    let mut docker_candidates=program_files_candidate(r"Docker\Docker\resources\bin\docker.exe");
+    let tailscale_candidates=program_files_candidate(r"Tailscale\tailscale.exe");
+    let mut ollama_candidates=program_files_candidate(r"Ollama\ollama.exe");
+    ollama_candidates.extend(local_app_data_candidate(r"Programs\Ollama\ollama.exe"));
+    docker_candidates.extend(local_app_data_candidate(r"Docker\Docker\resources\bin\docker.exe"));
+    let architecture=match env::consts::ARCH { "x86_64"=>"x86_64", "aarch64"=>"aarch64", "x86"=>"x86", _=>"unknown" };
+    HostPreflight {
+        platform: "windows",
+        architecture,
+        checks: vec![
+            HostPreflightCheck { kind:"desktop_runtime",status:"pass",detail:"The packaged Windows host command executed." },
+            executable_check("docker_cli",path_has_executable(&["docker.exe","docker"],&docker_candidates),"Docker CLI is installed in a recognized local location.","Docker CLI was not found in PATH or a recognized local install location."),
+            executable_check("tailscale_cli",path_has_executable(&["tailscale.exe","tailscale"],&tailscale_candidates),"Tailscale CLI is installed in a recognized local location.","Tailscale CLI was not found in PATH or a recognized local install location."),
+            executable_check("ollama_cli",path_has_executable(&["ollama.exe","ollama"],&ollama_candidates),"Ollama CLI is installed in a recognized local location.","Ollama CLI was not found in PATH or a recognized local install location."),
+            executable_check("node_runtime",path_has_executable(&["node.exe","node"],&[]),"Node runtime is available in the desktop process PATH.","Node runtime is not available in the desktop process PATH."),
+            executable_check("pnpm_runtime",path_has_executable(&["pnpm.cmd","pnpm.exe","pnpm"],&[]),"pnpm is available in the desktop process PATH.","pnpm is not available in the desktop process PATH."),
+            executable_check("rust_toolchain",path_has_executable(&["cargo.exe","cargo"],&[]),"Rust Cargo is available in the desktop process PATH.","Rust Cargo is not available in the desktop process PATH."),
+            HostPreflightCheck { kind:"hardware_inventory",status:"unknown",detail:"Hardware inventory requires the separately reviewed host doctor; this bounded command does not infer it." },
+            HostPreflightCheck { kind:"service_state",status:"unknown",detail:"Service readiness was not probed; installed command presence is not represented as a running service." },
+        ],
+        mutations_applied: false,
+        secrets_included: false,
+    }
+}
+
+#[tauri::command]
 fn set_start_at_login(app: AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
     if enabled { manager.enable() } else { manager.disable() }.map_err(|_| "autostart_change_failed".to_string())
@@ -160,7 +225,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, host_preflight, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }

@@ -9,6 +9,7 @@ import {
   nativeApiRequestSchema,
   nativeApiResponseSchema,
   nativeEventSourceTargetSchema,
+  nativeHostPreflightSchema,
   nativeWorkspaceTargetSchema,
   type NativeApiRequest,
   type NativeApiResponse,
@@ -19,6 +20,7 @@ import {
   type NativePairingStatus,
   type BlobSummary,
   type NativeEventSourceTarget,
+  type NativeHostPreflight,
   type NativeWorkspaceTarget
 } from "@sorta/contracts";
 
@@ -52,6 +54,9 @@ export function createDesktopBridge(invoke: NativeInvoke,listen?:NativeListen) {
     async navigateToEventSource(target:NativeEventSourceTarget):Promise<void>{
       const validated=nativeEventSourceTargetSchema.parse(target);
       await invoke("navigate_to_event_source",{target:validated});
+    },
+    async hostPreflight():Promise<NativeHostPreflight>{
+      return nativeHostPreflightSchema.parse(await invoke("host_preflight"));
     },
     async onNavigate(handler:(target:NativeWorkspaceTarget)=>void):Promise<()=>void>{
       if(!listen)throw new Error("Native event listener is unavailable");
