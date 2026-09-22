@@ -38,7 +38,7 @@ Verification: all 10 web storage tests and web typechecking passed locally. New 
 
 All 16 web tests passed, including real Yjs edit/reload, remote-update suppression, failed-write retry, missing-migration rejection, and schema equality between legacy and collaboration modes. Storage tests still use fake IndexedDB, not a real browser crash. Dependencies are pinned to the existing Tiptap 3.31.3 family and Yjs 13.6.32.
 
-Web typechecking, production build and dependency-inventory verification also passed on local Node 24.19.0 / pnpm 10.15.1. Vite reports chunks over 500 kB (editor approximately 558 kB and main approximately 666 kB uncompressed); bundle optimization remains outstanding rather than hiding the warning.
+Web typechecking, production build and dependency-inventory verification also passed on local Node 24.19.0 / pnpm 10.15.1. The later production build splits React, Tiptap, ProseMirror, Yjs, icons, WebAuthn and Tauri dependencies into stable vendor chunks. Its largest chunk is approximately 441 kB uncompressed, so the prior Vite 500 kB warning is resolved without raising the warning threshold.
 
 ## Navigation guard
 

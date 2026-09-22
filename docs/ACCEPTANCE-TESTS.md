@@ -22,12 +22,12 @@ Rows below describe scoped runs, not a claim that every command was rerun agains
 | Evidence | Current result | Scope |
 | --- | --- | --- |
 | Earlier full-workspace `pnpm test` | 217 passing tests at that earlier snapshot: API 181, local worker 22, maintenance worker 2, browser bridge 2, desktop 7, web 2, client 1 | Historical baseline; not the latest test inventory |
-| Latest scoped web suite | 41 tests passed; web typecheck passed on local Node 24.19.0 / pnpm 10.15.1 | Includes two mounted Tiptap editors, opposite-order/repeated updates, local-only undo, React save lifecycle and offline cache guards; jsdom/fake IndexedDB, not a real browser/server scenario |
+| Latest scoped web suite | 88 tests passed; web typecheck passed on local Node 24.19.0 / pnpm 10.15.1 | Includes two mounted Tiptap editors, opposite-order/repeated updates, local-only undo, React save lifecycle, generated service-worker shell, authorization gates and quota-serialized offline cache writes; jsdom/fake IndexedDB, not a real browser/server scenario |
 | `pnpm typecheck` | Passed | All workspace TypeScript projects |
 | `pnpm contracts:check` | Passed at 420 implemented HTTP operations | Generated OpenAPI, generated client, and API inventory drift |
 | Master operation audit | 355 expected, 420 implemented, 0 missing | Operation names only; not an effects test |
 | `pnpm deps:check` | Passed | Dependency/license inventory drift |
-| `pnpm build` | Passed with Vite large-chunk warnings | Buildability, not installation or runtime acceptance |
+| `pnpm build` | Passed; largest JavaScript chunk 441.22 kB uncompressed with no Vite size warning | Manual vendor splitting and generated offline-shell buildability, not installation or runtime acceptance |
 | PowerShell parser checks | Passed for backup and restore scripts | Syntax/fixture validation only; no database or clean-host restore |
 
 ## Scenario ledger
