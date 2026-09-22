@@ -106,7 +106,7 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_EMBEDDING_MODEL=qwen3-embedding:0.6b
 ```
 
-4. Pull and verify Qwen3-Embedding-0.6B in Ollama. Confirm it returns exactly 1,024 finite dimensions because the database schema and worker enforce that dimension.
+4. Qwen3-Embedding-0.6B is now live-verified in Ollama at digest `ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d`; a real request returned exactly 1,024 finite dimensions. Preserve the evidence in `docs/evidence/OLLAMA-EMBEDDING-VALIDATION-2026-09-22.md` and re-run it after model/runtime changes.
 5. Resolve the Docker/host networking boundary deliberately. The native local worker talks to both model runtimes over host loopback. Do not expose either runtime to the LAN. If the containerized API cannot probe host loopback, do not broaden it casually; either use a reviewed host-gateway arrangement with firewall proof or change the health check to rely on authenticated worker-reported model presence. Retain the actual network test.
 6. After owner setup, provision one worker:
 
