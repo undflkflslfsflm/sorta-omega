@@ -71,3 +71,11 @@ Activation verification: 24 web tests pass, including trust/enrollment gating, l
 Tests using the actual Tiptap schema found two autosave blockers missed by hand-authored document fixtures: default table cells/headers emit `align: null`, and default links emit `title: null`. The contract now accepts table alignment only as null/left/center/right and a link title only as null or bounded text. Unsafe link schemes, event attributes and arbitrary alignment style strings remain rejected. Every installed block and mark's generated defaults are checked against the API contract; a Yjs table migration/reload regression verifies that default cell attributes and alignment survive serialization. These checks exercise the real schema but are not DOM interaction tests.
 
 Verification: all 27 web tests and 73 focused API contract/rich-document tests passed. Contracts build, web/API typechecking and generated OpenAPI/client checks passed on the local Node 24 toolchain.
+
+## Mounted editor checks
+
+DOM-level tests now mount the actual Tiptap collaboration plugin in jsdom, use real editor commands, persist through the local session, destroy/reopen the editor, and compare rendered text and canonical JSON. Coverage includes bold typing, tables with alignment/default attributes, checked tasks, warning callouts, and remote typing without outgoing echo. Link commands reject unsupported schemes before they enter saved content; the extension no longer re-registers built-in URL schemes and uses the API's supported URL forms.
+
+This uses jsdom plus fake IndexedDB, not a real browser or PostgreSQL. The mixed table-first fixture emits `TextSelection endpoint not pointing into a node with inline content (table)` even though content/reload assertions pass. Selection/caret behavior remains an explicit investigation item; the warning is not suppressed. The added jsdom development dependency also reports the transitive `whatwg-encoding` deprecation during installation.
+
+Verification: 31 web tests passed, web typechecking passed, and the regenerated dependency inventory passes its consistency check.

@@ -4,14 +4,14 @@
     "packageManager": "pnpm@10.15.1",
     "nodeEngine": ">=22 <23",
     "pnpmLockfile": "pnpm-lock.yaml",
-    "pnpmLockfileSha256": "ff0313b6c53de76c0ec6193066cb6c71d5aac5352951fcf3604f63eb9ee2c182",
+    "pnpmLockfileSha256": "e6a39581eae3c9fb3f45f9abff2415a8a7d4dd83706a2bdd40b062a9700e7727",
     "javascriptLicenseCommand": "pnpm licenses list --json"
   },
   "summary": {
     "workspaceManifests": 9,
-    "installedJavascriptPackages": 319,
-    "installedJavascriptPackageVersions": 331,
-    "javascriptLicenseExpressions": 11
+    "installedJavascriptPackages": 352,
+    "installedJavascriptPackageVersions": 365,
+    "javascriptLicenseExpressions": 12
   },
   "directJavascriptDependencies": [
     {
@@ -356,6 +356,11 @@
           "section": "devDependencies"
         },
         {
+          "name": "jsdom",
+          "requested": "26.1.0",
+          "section": "devDependencies"
+        },
+        {
           "name": "lucide-react",
           "requested": "^0.542.0",
           "section": "dependencies"
@@ -490,8 +495,8 @@
       },
       {
         "license": "Apache-2.0",
-        "packages": 7,
-        "versions": 7
+        "packages": 8,
+        "versions": 8
       },
       {
         "license": "Apache-2.0 OR MIT",
@@ -505,13 +510,13 @@
       },
       {
         "license": "BSD-2-Clause",
-        "packages": 1,
-        "versions": 1
+        "packages": 3,
+        "versions": 3
       },
       {
         "license": "BSD-3-Clause",
-        "packages": 6,
-        "versions": 7
+        "packages": 7,
+        "versions": 8
       },
       {
         "license": "CC-BY-4.0",
@@ -520,13 +525,18 @@
       },
       {
         "license": "ISC",
-        "packages": 17,
-        "versions": 18
+        "packages": 18,
+        "versions": 20
       },
       {
         "license": "MIT",
-        "packages": 276,
-        "versions": 285
+        "packages": 303,
+        "versions": 312
+      },
+      {
+        "license": "MIT-0",
+        "packages": 1,
+        "versions": 1
       },
       {
         "license": "Python-2.0",
@@ -535,6 +545,16 @@
       }
     ],
     "packages": [
+      {
+        "name": "@asamuzakjp/css-color",
+        "versions": [
+          "3.2.0"
+        ],
+        "license": "MIT",
+        "author": "asamuzaK",
+        "homepage": "https://github.com/asamuzaK/cssColor#readme",
+        "description": "CSS color - Resolve and convert CSS colors."
+      },
       {
         "name": "@babel/code-frame",
         "versions": [
@@ -724,6 +744,51 @@
         "author": "The Babel Team",
         "homepage": "https://babel.dev/docs/en/next/babel-types",
         "description": "Babel Types is a Lodash-esque utility library for AST nodes"
+      },
+      {
+        "name": "@csstools/color-helpers",
+        "versions": [
+          "5.1.0"
+        ],
+        "license": "MIT-0",
+        "homepage": "https://github.com/csstools/postcss-plugins/tree/main/packages/color-helpers#readme",
+        "description": "Color helpers to ease transformation between formats, gamut, etc"
+      },
+      {
+        "name": "@csstools/css-calc",
+        "versions": [
+          "2.1.4"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/csstools/postcss-plugins/tree/main/packages/css-calc#readme",
+        "description": "Solve CSS math expressions"
+      },
+      {
+        "name": "@csstools/css-color-parser",
+        "versions": [
+          "3.1.0"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/csstools/postcss-plugins/tree/main/packages/css-color-parser#readme",
+        "description": "Parse CSS color values"
+      },
+      {
+        "name": "@csstools/css-parser-algorithms",
+        "versions": [
+          "3.0.5"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/csstools/postcss-plugins/tree/main/packages/css-parser-algorithms#readme",
+        "description": "Algorithms to help you parse CSS from an array of tokens."
+      },
+      {
+        "name": "@csstools/css-tokenizer",
+        "versions": [
+          "3.0.4"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/csstools/postcss-plugins/tree/main/packages/css-tokenizer#readme",
+        "description": "Tokenize CSS"
       },
       {
         "name": "@esbuild/win32-x64",
@@ -1950,6 +2015,15 @@
         "description": "HTTP server cookie parsing and serialization"
       },
       {
+        "name": "cssstyle",
+        "versions": [
+          "4.6.0"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/jsdom/cssstyle",
+        "description": "CSSStyleDeclaration Object Model implementation"
+      },
+      {
         "name": "csstype",
         "versions": [
           "3.2.3"
@@ -1960,6 +2034,16 @@
         "description": "Strict TypeScript and Flow types for style based on MDN data"
       },
       {
+        "name": "data-urls",
+        "versions": [
+          "5.0.0"
+        ],
+        "license": "MIT",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/data-urls#readme",
+        "description": "Parses data: URLs"
+      },
+      {
         "name": "debug",
         "versions": [
           "4.4.3"
@@ -1968,6 +2052,16 @@
         "author": "Josh Junon",
         "homepage": "https://github.com/debug-js/debug#readme",
         "description": "Lightweight debugging utility for Node.js and the browser"
+      },
+      {
+        "name": "decimal.js",
+        "versions": [
+          "10.6.0"
+        ],
+        "license": "MIT",
+        "author": "Michael Mclaughlin",
+        "homepage": "https://github.com/MikeMcl/decimal.js#readme",
+        "description": "An arbitrary-precision Decimal type for JavaScript."
       },
       {
         "name": "deep-eql",
@@ -2037,6 +2131,16 @@
         "author": "Mathias Buus",
         "homepage": "https://github.com/mafintosh/end-of-stream",
         "description": "Call a callback when a readable/writable/duplex stream has completed or failed."
+      },
+      {
+        "name": "entities",
+        "versions": [
+          "6.0.1"
+        ],
+        "license": "BSD-2-Clause",
+        "author": "Felix Boehm",
+        "homepage": "https://github.com/fb55/entities#readme",
+        "description": "Encode & decode XML and HTML entities with ease & speed"
       },
       {
         "name": "es-module-lexer",
@@ -2237,6 +2341,16 @@
         "description": "the most correct and second fastest glob implementation in JavaScript"
       },
       {
+        "name": "html-encoding-sniffer",
+        "versions": [
+          "4.0.0"
+        ],
+        "license": "MIT",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/html-encoding-sniffer#readme",
+        "description": "Sniff the encoding from a HTML byte stream"
+      },
+      {
         "name": "http-errors",
         "versions": [
           "2.0.1"
@@ -2247,6 +2361,16 @@
         "description": "Create HTTP error objects"
       },
       {
+        "name": "http-proxy-agent",
+        "versions": [
+          "7.0.2"
+        ],
+        "license": "MIT",
+        "author": "Nathan Rajlich",
+        "homepage": "https://github.com/TooTallNate/proxy-agents#readme",
+        "description": "An HTTP(s) proxy `http.Agent` implementation for HTTP"
+      },
+      {
         "name": "https-proxy-agent",
         "versions": [
           "7.0.6"
@@ -2255,6 +2379,16 @@
         "author": "Nathan Rajlich",
         "homepage": "https://github.com/TooTallNate/proxy-agents#readme",
         "description": "An HTTP(s) proxy `http.Agent` implementation for HTTPS"
+      },
+      {
+        "name": "iconv-lite",
+        "versions": [
+          "0.6.3"
+        ],
+        "license": "MIT",
+        "author": "Alexander Shtuchkin",
+        "homepage": "https://github.com/ashtuchkin/iconv-lite",
+        "description": "Convert character encodings in pure javascript."
       },
       {
         "name": "index-to-position",
@@ -2284,6 +2418,16 @@
         "author": "whitequark",
         "homepage": "https://github.com/whitequark/ipaddr.js#readme",
         "description": "A library for manipulating IPv4 and IPv6 addresses in JavaScript."
+      },
+      {
+        "name": "is-potential-custom-element-name",
+        "versions": [
+          "1.0.1"
+        ],
+        "license": "MIT",
+        "author": "Mathias Bynens",
+        "homepage": "https://github.com/mathiasbynens/is-potential-custom-element-name",
+        "description": "Check whether a given string matches the `PotentialCustomElementName` production as defined in the HTML Standard."
       },
       {
         "name": "isomorphic.js",
@@ -2325,6 +2469,15 @@
         "author": "Vladimir Zapparov",
         "homepage": "https://github.com/nodeca/js-yaml#readme",
         "description": "YAML 1.2 parser and serializer"
+      },
+      {
+        "name": "jsdom",
+        "versions": [
+          "26.1.0"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/jsdom/jsdom#readme",
+        "description": "A JavaScript implementation of many web standards"
       },
       {
         "name": "jsesc",
@@ -2418,6 +2571,7 @@
       {
         "name": "lru-cache",
         "versions": [
+          "10.4.3",
           "5.1.1"
         ],
         "license": "ISC",
@@ -2515,6 +2669,16 @@
         "description": "Node.js releases data"
       },
       {
+        "name": "nwsapi",
+        "versions": [
+          "2.2.28"
+        ],
+        "license": "MIT",
+        "author": "Diego Perini",
+        "homepage": "https://javascript.nwbox.com/nwsapi/",
+        "description": "Fast CSS Selectors API Engine"
+      },
+      {
         "name": "on-exit-leak-free",
         "versions": [
           "2.1.2"
@@ -2583,6 +2747,16 @@
         "author": "Sindre Sorhus",
         "homepage": "https://github.com/sindresorhus/parse-json#readme",
         "description": "Parse JSON with more helpful errors"
+      },
+      {
+        "name": "parse5",
+        "versions": [
+          "7.3.0"
+        ],
+        "license": "MIT",
+        "author": "Ivan Nikulin",
+        "homepage": "https://parse5.js.org",
+        "description": "HTML parser and serializer."
       },
       {
         "name": "path-scurry",
@@ -2933,6 +3107,16 @@
         "description": "ProseMirror's view component"
       },
       {
+        "name": "punycode",
+        "versions": [
+          "2.3.1"
+        ],
+        "license": "MIT",
+        "author": "Mathias Bynens",
+        "homepage": "https://mths.be/punycode",
+        "description": "A robust Punycode converter that fully complies to RFC 3492 and RFC 5891, and works on nearly all JavaScript platforms."
+      },
+      {
         "name": "pvtsutils",
         "versions": [
           "1.3.6"
@@ -3090,6 +3274,16 @@
         "description": "JavaScript library for working with recurrence rules for calendar dates."
       },
       {
+        "name": "rrweb-cssom",
+        "versions": [
+          "0.8.0"
+        ],
+        "license": "MIT",
+        "author": "Nikita Vasilyev",
+        "homepage": "https://github.com/rrweb-io/CSSOM#readme",
+        "description": "CSS Object Model implementation and CSS parser"
+      },
+      {
         "name": "safe-buffer",
         "versions": [
           "5.2.1"
@@ -3118,6 +3312,26 @@
         "author": "Ruben Bridgewater",
         "homepage": "https://github.com/BridgeAR/safe-stable-stringify#readme",
         "description": "Deterministic and safely JSON.stringify to quickly serialize JavaScript objects"
+      },
+      {
+        "name": "safer-buffer",
+        "versions": [
+          "2.1.2"
+        ],
+        "license": "MIT",
+        "author": "Nikita Skovoroda",
+        "homepage": "https://github.com/ChALkeR/safer-buffer#readme",
+        "description": "Modern Buffer API polyfill without footguns"
+      },
+      {
+        "name": "saxes",
+        "versions": [
+          "6.0.0"
+        ],
+        "license": "ISC",
+        "author": "Louis-Dominique Dubeau",
+        "homepage": "https://github.com/lddubeau/saxes#readme",
+        "description": "An evented streaming XML parser in JavaScript"
       },
       {
         "name": "scheduler",
@@ -3277,6 +3491,16 @@
         "description": "Detect whether a terminal supports color"
       },
       {
+        "name": "symbol-tree",
+        "versions": [
+          "3.2.4"
+        ],
+        "license": "MIT",
+        "author": "Joris van der Wel",
+        "homepage": "https://github.com/jsdom/js-symbol-tree#symbol-tree",
+        "description": "Turn any collection of objects into its own efficient tree or linked list using Symbol"
+      },
+      {
         "name": "thread-stream",
         "versions": [
           "4.2.0"
@@ -3342,6 +3566,26 @@
         "description": "A minimal fork of nanospy, with more features"
       },
       {
+        "name": "tldts",
+        "versions": [
+          "6.1.86"
+        ],
+        "license": "MIT",
+        "author": "Rémi Berson",
+        "homepage": "https://github.com/remusao/tldts#readme",
+        "description": "Library to work against complex domain names, subdomains and URIs."
+      },
+      {
+        "name": "tldts-core",
+        "versions": [
+          "6.1.86"
+        ],
+        "license": "MIT",
+        "author": "Rémi Berson",
+        "homepage": "https://github.com/remusao/tldts#readme",
+        "description": "tldts core primitives (internal module)"
+      },
+      {
         "name": "toad-cache",
         "versions": [
           "3.7.4"
@@ -3360,6 +3604,26 @@
         "author": "Douglas Christopher Wilson",
         "homepage": "https://github.com/component/toidentifier#readme",
         "description": "Convert a string of words to a JavaScript identifier"
+      },
+      {
+        "name": "tough-cookie",
+        "versions": [
+          "5.1.2"
+        ],
+        "license": "BSD-3-Clause",
+        "author": "Jeremy Stashewsky",
+        "homepage": "https://github.com/salesforce/tough-cookie",
+        "description": "RFC6265 Cookies and Cookie Jar for node.js"
+      },
+      {
+        "name": "tr46",
+        "versions": [
+          "5.1.1"
+        ],
+        "license": "MIT",
+        "author": "Sebastian Mayr",
+        "homepage": "https://github.com/jsdom/tr46#readme",
+        "description": "An implementation of the Unicode UTS #46: Unicode IDNA Compatibility Processing"
       },
       {
         "name": "tslib",
@@ -3502,6 +3766,55 @@
         "description": "Get a KeyboardEvent.key-style string from an event"
       },
       {
+        "name": "w3c-xmlserializer",
+        "versions": [
+          "5.0.0"
+        ],
+        "license": "MIT",
+        "homepage": "https://github.com/jsdom/w3c-xmlserializer#readme",
+        "description": "A per-spec XML serializer implementation"
+      },
+      {
+        "name": "webidl-conversions",
+        "versions": [
+          "7.0.0"
+        ],
+        "license": "BSD-2-Clause",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/webidl-conversions#readme",
+        "description": "Implements the WebIDL algorithms for converting to and from JavaScript values"
+      },
+      {
+        "name": "whatwg-encoding",
+        "versions": [
+          "3.1.1"
+        ],
+        "license": "MIT",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/whatwg-encoding#readme",
+        "description": "Decode strings according to the WHATWG Encoding Standard"
+      },
+      {
+        "name": "whatwg-mimetype",
+        "versions": [
+          "4.0.0"
+        ],
+        "license": "MIT",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/whatwg-mimetype#readme",
+        "description": "Parses, serializes, and manipulates MIME types, according to the WHATWG MIME Sniffing Standard"
+      },
+      {
+        "name": "whatwg-url",
+        "versions": [
+          "14.2.0"
+        ],
+        "license": "MIT",
+        "author": "Sebastian Mayr",
+        "homepage": "https://github.com/jsdom/whatwg-url#readme",
+        "description": "An implementation of the WHATWG URL Standard's URL API and parsing machinery"
+      },
+      {
         "name": "why-is-node-running",
         "versions": [
           "2.3.0"
@@ -3530,6 +3843,26 @@
         "author": "Einar Otto Stangvik",
         "homepage": "https://github.com/websockets/ws",
         "description": "Simple to use, blazing fast and thoroughly tested websocket client and server for Node.js"
+      },
+      {
+        "name": "xml-name-validator",
+        "versions": [
+          "5.0.0"
+        ],
+        "license": "Apache-2.0",
+        "author": "Domenic Denicola",
+        "homepage": "https://github.com/jsdom/xml-name-validator#readme",
+        "description": "Validates whether a string matches the production for an XML name or qualified name"
+      },
+      {
+        "name": "xmlchars",
+        "versions": [
+          "2.2.0"
+        ],
+        "license": "MIT",
+        "author": "Louis-Dominique Dubeau",
+        "homepage": "https://github.com/lddubeau/xmlchars#readme",
+        "description": "Utilities for determining if characters belong to character classes defined by the XML specs."
       },
       {
         "name": "xtend",

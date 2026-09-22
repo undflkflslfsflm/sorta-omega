@@ -11,7 +11,8 @@ export function richEditorExtensions(document?:Y.Doc){
   if(document&&!document.share.has("prosemirror"))throw new Error("Note requires server rich-text migration");
   return [
     StarterKit.configure({...(document?{undoRedo:false as const}:{}),underline:false,
-      link:{openOnClick:false,autolink:true,linkOnPaste:true,protocols:["http","https","mailto"]}}),
+      link:{openOnClick:false,autolink:true,linkOnPaste:true,defaultProtocol:"https",
+        isAllowedUri:(url,context)=>context.defaultValidate(url)&&/^(https?:\/\/|mailto:|\/(?!\/))/i.test(url)}}),
     TaskList,TaskItem.configure({nested:true}),TableKit.configure({table:{resizable:true}}),Callout,
     Placeholder.configure({placeholder:"Write something worth finding again…"}),
     ...(document?[Collaboration.configure({document,field:"prosemirror"})]:[])
