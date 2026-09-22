@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import * as Y from "yjs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RichNoteSession, encodeNoteUpdate } from "./rich-note-session";
-import { clearOfflineReplica, localNoteDraft, pendingSyncOperations, setOfflineCaptureEnabled } from "./offline-queue";
+import { cachedNoteSnapshot, clearOfflineReplica, localNoteDraft, pendingSyncOperations, setOfflineCaptureEnabled } from "./offline-queue";
 
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)}});
@@ -18,8 +18,26 @@ function baseline(){
 function text(doc:Y.Doc){return (doc.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;}
 describe("durable rich note session",()=>{
   beforeEach(async()=>{storage.clear();await clearOfflineReplica();setOfflineCaptureEnabled(true);});
+  it("reports dirty state until the local transaction commits and unsubscribes cleanly",async()=>{
+    const session=await RichNoteSession.open(baseline(),1);
+    const states:boolean[]=[];
+    const unsubscribe=session.subscribe(()=>states.push(session.hasUnsavedChanges));
+    text(session.document).insert(5," changed");
+    expect(states).toEqual([true]);
+    const spy=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementationOnce(()=>{throw new Error("disk full");});
+    try{await expect(session.persist()).rejects.toThrow("disk full");}finally{spy.mockRestore();}
+    expect(states).toEqual([true]);
+    await session.persist();
+    expect(states).toEqual([true,false]);
+    unsubscribe();
+    text(session.document).insert(0,"Next ");
+    await session.persist();
+    expect(states).toEqual([true,false]);
+    session.close();
+  });
   it("persists real Yjs edits and restores them without queuing initialization",async()=>{
     const snapshot=baseline(),session=await RichNoteSession.open(snapshot,1);
+    expect(await cachedNoteSnapshot(noteId)).toMatchObject(snapshot);
     expect(session.hasUnsavedChanges).toBe(false);
     text(session.document).insert(5," offline");
     expect(()=>session.close()).toThrow("Persist");
@@ -59,5 +77,9 @@ describe("durable rich note session",()=>{
     const doc=new Y.Doc();doc.getText("content").insert(0,"Legacy");
     await expect(RichNoteSession.open({noteId,revisionId,updateBase64:encodeNoteUpdate(Y.encodeStateAsUpdate(doc))},1)).rejects.toThrow("migration");
     doc.destroy();
+  });
+  it("requires explicit trusted storage before opening an editable shared session",async()=>{
+    setOfflineCaptureEnabled(false);
+    await expect(RichNoteSession.open(baseline(),1)).rejects.toThrow("disabled");
   });
 });

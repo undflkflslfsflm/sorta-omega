@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import type { SyncOperation } from "@sorta/contracts";
-import { localNoteDraft, persistLocalNoteEdit, type CachedNoteSnapshot } from "./offline-queue";
+import { cacheNoteSnapshot, localNoteDraft, persistLocalNoteEdit, type CachedNoteSnapshot } from "./offline-queue";
 
 const remoteOrigin = Symbol("remote-note-update");
 export function encodeNoteUpdate(update:Uint8Array):string {
@@ -17,8 +17,11 @@ export class RichNoteSession {
   private pending:PendingWrite|null=null;
   private saving:Promise<void>|null=null;
   private closed=false;
+  private listeners=new Set<()=>void>();
+  private notify(){for(const listener of this.listeners)listener();}
+  subscribe(listener:()=>void){this.listeners.add(listener);return ()=>{this.listeners.delete(listener);};}
   private readonly observe=(update:Uint8Array,origin:unknown)=>{
-    if(origin!==remoteOrigin)this.updates.push(update.slice());
+    if(origin!==remoteOrigin){this.updates.push(update.slice());this.notify();}
   };
   private constructor(
     readonly document:Y.Doc,
@@ -36,6 +39,9 @@ export class RichNoteSession {
       if(!document.share.has("prosemirror"))throw new Error("Note requires server rich-text migration");
       const draft=await localNoteDraft(snapshot.noteId);
       if(draft)Y.applyUpdate(document,decode(draft.updateBase64),remoteOrigin);
+      // Even an initially clean session must have durable local state before
+      // the editor can truthfully display "Saved locally".
+      await cacheNoteSnapshot(snapshot);
       return new RichNoteSession(document,snapshot,baseRevision,draft?.lastOperationId??null);
     }catch(error){document.destroy();throw error;}
   }
@@ -68,6 +74,7 @@ export class RichNoteSession {
       this.lastOperationId=this.pending.operation.operationId;
       this.updates.splice(0,this.pending.count);
       this.pending=null;
+      this.notify();
     }
   }
 
@@ -75,6 +82,7 @@ export class RichNoteSession {
     if(this.saving||this.hasUnsavedChanges)throw new Error("Persist unsaved note changes before closing");
     this.closed=true;
     this.document.off("update",this.observe);
+    this.listeners.clear();
     this.document.destroy();
   }
 }
