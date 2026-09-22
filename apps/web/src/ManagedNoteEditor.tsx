@@ -3,9 +3,8 @@ import type { EditorDocument } from "@sorta/contracts";
 import * as Y from "yjs";
 import RichDocumentEditor from "./RichDocumentEditor";
 import { RichNoteSession } from "./rich-note-session";
-import { api } from "./api";
-import { loadNoteSnapshot } from "./cached-shared-note";
-import { localNoteDraft, offlineCaptureEnabled, replicaDeviceId, syncConflicts } from "./offline-queue";
+import { isNoteAccessDenied, loadNoteSnapshot } from "./cached-shared-note";
+import { localNoteDraft, offlineCaptureEnabled, replicaDeviceId, setCachedNoteAccessBlocked, syncConflicts } from "./offline-queue";
 
 // Retain failed forced-unmount saves in memory so reopening the note can recover
 // them. Normal navigation cannot discard an unpersisted shared edit.
@@ -35,6 +34,7 @@ export default function ManagedNoteEditor({noteId,revision,initialDocument,disab
 }){
   const [mode,setMode]=useState<Mode>({kind:"loading"});
   const [notice,setNotice]=useState<string|null>(null);
+  const [accessBlocked,setAccessBlocked]=useState(false);
   const [attempt,setAttempt]=useState(0);
   const refreshRunning=useRef(false);
   const refreshAgain=useRef(false);
@@ -72,15 +72,23 @@ export default function ManagedNoteEditor({noteId,revision,initialDocument,disab
     try{
       if(!offlineCaptureEnabled()||!await replicaDeviceId())throw new Error("Offline device unavailable");
       if(push)await refreshCallback.current();
-      const snapshot=await api.noteDocument(noteId,"yjs_update");
+      const snapshot=await loadNoteSnapshot(noteId);
       if(!alive.current||modeRef.current!==current)return;
       if(typeof snapshot.content!=="string")throw new Error("Invalid shared snapshot");
       current.session.applyRemote(snapshot.content);
+      if(!snapshot.offline)setAccessBlocked(false);
       const conflicts=await syncConflicts();
       if(alive.current)setNotice(conflicts.some(item=>item.operation?.type==="note_yjs_update"&&item.operation.noteId===noteId)
         ?"Some note edits need review in Settings → offline conflicts. Your local draft is retained."
         :null);
-    }catch{if(alive.current)setNotice("Server sync is unavailable. Locally saved edits remain queued; retry when connected.");}
+    }catch(error){if(alive.current){
+      if(isNoteAccessDenied(error)){
+        setAccessBlocked(true);
+        setNotice("Access to this note is no longer available. Editing and cached reopening are blocked; local unsent edits are retained.");
+        try{await setCachedNoteAccessBlocked(noteId,true);}catch{setNotice("Access is blocked in this tab, but the device could not store that restriction. Do not rely on offline reopening until storage is repaired.");}
+      }
+      else setNotice("Server sync is unavailable. Locally saved edits remain queued; retry when connected.");
+    }}
     finally{
       refreshRunning.current=false;
       if(refreshAgain.current&&alive.current){refreshAgain.current=false;void refreshShared(true);}
@@ -97,6 +105,6 @@ export default function ManagedNoteEditor({noteId,revision,initialDocument,disab
   if(mode.kind==="loading")return <div className="editor-loading">Opening canonical note…</div>;
   if(mode.kind==="error")return <div className="form-error">{notice}<button onClick={()=>setAttempt(value=>value+1)}>Retry opening note</button></div>;
   return <>{notice&&<p className="form-error">{notice}</p>}{mode.kind==="shared"&&<button className="text-button" onClick={()=>void refreshShared(true)}>Sync shared note</button>}
-    <RichDocumentEditor initialDocument={initialDocument} disabled={disabled} onSave={onSave}
+    <RichDocumentEditor initialDocument={initialDocument} disabled={disabled||accessBlocked} onSave={onSave}
       session={mode.kind==="shared"?mode.session:undefined} onLocalSaved={()=>void refreshShared(true)}/></>;
 }

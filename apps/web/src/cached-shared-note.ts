@@ -1,10 +1,13 @@
 import * as Y from "yjs";
 import { api,ApiError } from "./api";
-import { cachedNoteSnapshot,localNoteDraft,offlineCaptureEnabled,replicaDeviceId } from "./offline-queue";
+import { cachedNoteSnapshot,localNoteDraft,offlineCaptureEnabled,replicaDeviceId,setCachedNoteAccessBlocked } from "./offline-queue";
 import { sharedEditorContent } from "./rich-editor-extensions";
 
 export function canUseOfflineNote(error:unknown){
   return error instanceof TypeError||(error instanceof ApiError&&error.status>=500);
+}
+export function isNoteAccessDenied(error:unknown){
+  return error instanceof ApiError&&[401,403,404,410].includes(error.status);
 }
 
 async function trustedSnapshot(noteId:string){
@@ -13,8 +16,17 @@ async function trustedSnapshot(noteId:string){
 }
 
 export async function loadNoteSnapshot(noteId:string){
-  try{return {...await api.noteDocument(noteId,"yjs_update"),offline:false};}
+  try{
+    const snapshot=await api.noteDocument(noteId,"yjs_update");
+    await setCachedNoteAccessBlocked(noteId,false);
+    return {...snapshot,offline:false};
+  }
   catch(error){
+    if(isNoteAccessDenied(error)){
+      // The in-memory deny is immediate; persistence prevents a later offline
+      // reopen from reviving this snapshot. Unsent drafts are not destroyed.
+      try{await setCachedNoteAccessBlocked(noteId,true);}finally{throw error;}
+    }
     if(!canUseOfflineNote(error))throw error;
     const cached=await trustedSnapshot(noteId);
     if(!cached)throw error;

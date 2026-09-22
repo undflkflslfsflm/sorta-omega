@@ -623,9 +623,9 @@ function NoteEditor({ note, onClose, onSaved,onTrashed }: { note: Note; onClose:
   useEffect(() => { let cancelled=false;void Promise.all([api.labels(), api.noteLabels(note.id), api.notes(), api.relatedNotes(note.id),api.noteDocument(note.id,"editor_json"),api.noteRevisions(note.id)]).then(([available, organization, allNotes, related,representation,history]) => { if(cancelled)return;setLabels(available.items); setAssignedLabelIds(organization.labels.map(label => label.id)); setLockedLabelIds(organization.labels.filter(label => label.locked).map(label => label.id)); setOtherNotes(allNotes.items.filter(candidate => candidate.id !== note.id)); setRelationships(related.explicitLinks); setRelatedSuggestions(related.suggestedLinks); setDocument(editorDocumentSchema.parse(representation.content));setRevisions(history.items); }).catch(async caught => {
     if(cancelled)return;
     try{
-      const {canUseOfflineNote,loadCachedNoteDocument,loadNoteSnapshot}=await import("./cached-shared-note");
+      const {canUseOfflineNote,isNoteAccessDenied,loadCachedNoteDocument,loadNoteSnapshot}=await import("./cached-shared-note");
       // An ancillary request failing first must not mask a canonical-note denial.
-      if(canUseOfflineNote(caught))await loadNoteSnapshot(note.id);
+      if(canUseOfflineNote(caught)||isNoteAccessDenied(caught))await loadNoteSnapshot(note.id);
       const cached=canUseOfflineNote(caught)?await loadCachedNoteDocument(note.id):null;
       if(cancelled)return;
       if(cached){setDocument(cached);setError("Offline: showing this device's saved note. History and organization are unavailable until reconnect.");return;}

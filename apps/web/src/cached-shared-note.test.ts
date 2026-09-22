@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { api,ApiError } from "./api";
 import { loadNoteSnapshot,loadCachedNoteDocument } from "./cached-shared-note";
-import { cacheNoteSnapshot,clearOfflineReplica,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
+import { cacheNoteSnapshot,clearOfflineReplica,localNoteDraft,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
 import { RichNoteSession,encodeNoteUpdate } from "./rich-note-session";
 vi.mock("./api",async importOriginal=>({...await importOriginal<typeof import("./api")>(),api:{noteDocument:vi.fn()}}));
 const storage=new Map<string,string>();
@@ -18,6 +18,24 @@ async function seed(){
 }
 describe("offline canonical note reopening",()=>{
   beforeEach(async()=>{storage.clear();await clearOfflineReplica();vi.mocked(api.noteDocument).mockReset();});
+  it("keeps a denial blocked across later outages and module reload until authorized recovery",async()=>{
+    const snapshot=await seed(),session=await RichNoteSession.open(snapshot,1);
+    const text=(session.document.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;
+    text.insert(6," unsent");await session.persist();session.close();
+    vi.mocked(api.noteDocument).mockRejectedValue(new ApiError(403,"access_revoked"));
+    await expect(loadNoteSnapshot(noteId)).rejects.toMatchObject({status:403});
+    expect(await localNoteDraft(noteId)).not.toBeNull();
+    vi.mocked(api.noteDocument).mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(loadNoteSnapshot(noteId)).rejects.toThrow("Failed to fetch");
+    expect(await loadCachedNoteDocument(noteId)).toBeNull();
+    vi.resetModules();
+    const reloaded=await import("./offline-queue");
+    expect(await reloaded.cachedNoteSnapshot(noteId)).toBeNull();
+    vi.mocked(api.noteDocument).mockResolvedValue({format:"yjs_update",content:snapshot.updateBase64,revisionId,sourceMap:[]});
+    expect((await loadNoteSnapshot(noteId)).offline).toBe(false);
+    expect(await reloaded.cachedNoteSnapshot(noteId)).not.toBeNull();
+    expect((await loadCachedNoteDocument(noteId))?.content[0].content?.[0].text).toBe("Cached unsent");
+  });
   it("uses the trusted snapshot on transport failure and includes locally committed edits",async()=>{
     const snapshot=await seed(),session=await RichNoteSession.open(snapshot,1);
     const text=(session.document.getXmlFragment("prosemirror").get(0) as Y.XmlElement).get(0) as Y.XmlText;

@@ -89,3 +89,9 @@ The selection warning was traced to the binding's initial forced render: an empt
 Trusted, enrolled browsers can reopen a previously cached migrated note when canonical snapshot requests fail at the transport layer or return a server outage. The note-screen loading failure path now builds editor content from that snapshot plus its locally committed draft; missing history/organization are explicitly labeled unavailable. A failure in an ancillary request is followed by a canonical-note check so it cannot mask an explicit note-access denial. HTTP 401/403/404/410 and malformed responses do not trigger cached fallback. Legacy notes without a shared fragment are not silently converted for offline editing.
 
 All 35 web tests and typechecking passed, including persisted local content recovery, trust/enrollment gating, explicit denial/deletion refusal and server-outage versus malformed-response behavior. Real browser offline reload still requires acceptance testing; these tests mock network responses and IndexedDB.
+
+## Remembered access denial
+
+Explicit canonical-note 401/403/404/410 responses now record a per-note cached-access block. A later transport outage cannot reopen that cached snapshot; a fresh successful canonical response clears the block. The active shared editor disables editing on a denial and records the same restriction. Unsent drafts are retained rather than deleted. This is an application access guard, not cryptographic erasure of previously downloaded data. If storage fails, the in-memory block remains for this tab, and durable blocking cannot be claimed until storage works again.
+
+All 36 web tests pass, including denial followed by outage, persisted blocking across module reload, authorized recovery, and retained unsent content. Revocation and recovery still require real-browser acceptance.
