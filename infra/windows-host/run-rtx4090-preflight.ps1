@@ -141,13 +141,14 @@ $memoryGiB = [math]::Round($system.TotalPhysicalMemory / 1GB, 1)
 Add-Check -Name 'System memory' -Passed ($memoryGiB -ge 60) -Required $true -Detail "$memoryGiB GiB detected; at least 60 GiB usable is required"
 
 if (Test-CommandAvailable 'nvidia-smi') {
-  $gpuLine = (& nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>&1 | Select-Object -First 1).ToString()
-  $gpuExitCode = $LASTEXITCODE
+  $gpuOutput = & nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader,nounits 2>&1
+  $gpuSucceeded = $?
+  $gpuLine = ($gpuOutput | Select-Object -First 1).ToString()
   $gpuParts = $gpuLine -split ',' | ForEach-Object { $_.Trim() }
   $gpuName = if ($gpuParts.Count -ge 1) { $gpuParts[0] } else { '' }
   $gpuMemoryMiB = 0
   if ($gpuParts.Count -ge 2) { [void][int]::TryParse($gpuParts[1], [ref]$gpuMemoryMiB) }
-  Add-Check -Name 'RTX 4090 GPU' -Passed ($gpuExitCode -eq 0 -and $gpuName -like '*RTX 4090*' -and $gpuMemoryMiB -ge 24000) -Required $true -Detail "$gpuName; $gpuMemoryMiB MiB; driver $($gpuParts | Select-Object -Last 1)"
+  Add-Check -Name 'RTX 4090 GPU' -Passed ($gpuSucceeded -and $gpuName -like '*RTX 4090*' -and $gpuMemoryMiB -ge 24000) -Required $true -Detail "$gpuName; $gpuMemoryMiB MiB; driver $($gpuParts | Select-Object -Last 1)"
 } else {
   Add-Check -Name 'RTX 4090 GPU' -Passed $false -Required $true -Detail 'nvidia-smi is not installed or is not on PATH'
 }
@@ -231,9 +232,10 @@ if (Test-CommandAvailable 'node') {
 }
 
 if (Test-CommandAvailable 'pnpm') {
-  $pnpmVersion = (& pnpm --version 2>&1 | Select-Object -First 1).ToString().Trim()
-  $pnpmExitCode = $LASTEXITCODE
-  Add-Check -Name 'pnpm 10.15.1' -Passed ($pnpmExitCode -eq 0 -and $pnpmVersion -eq '10.15.1') -Required $true -Detail $pnpmVersion
+  $pnpmOutput = & pnpm --version 2>&1
+  $pnpmSucceeded = $?
+  $pnpmVersion = ($pnpmOutput | Select-Object -First 1).ToString().Trim()
+  Add-Check -Name 'pnpm 10.15.1' -Passed ($pnpmSucceeded -and $pnpmVersion -eq '10.15.1') -Required $true -Detail $pnpmVersion
 } else {
   Add-Check -Name 'pnpm 10.15.1' -Passed $false -Required $true -Detail 'pnpm is not installed or is not on PATH; enable Corepack and activate pnpm 10.15.1'
 }
