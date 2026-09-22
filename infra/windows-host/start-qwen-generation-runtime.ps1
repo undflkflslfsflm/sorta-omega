@@ -9,6 +9,20 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$localAppData = [Environment]::GetFolderPath('LocalApplicationData')
+if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
+  if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'LogDirectory is required when LocalApplicationData is unavailable.' }
+  $LogDirectory = Join-Path $localAppData 'SortaOmega\logs'
+}
+$resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
+New-Item -ItemType Directory -Force -Path $resolvedLogDirectory | Out-Null
+$failureLog = Join-Path $resolvedLogDirectory 'qwen-generation.failure.log'
+trap {
+  $failure = "[$([DateTimeOffset]::Now.ToString('o'))] $($_ | Out-String)"
+  Add-Content -LiteralPath $failureLog -Value $failure -Encoding UTF8
+  exit 1
+}
+
 $model = Get-Item -LiteralPath ([IO.Path]::GetFullPath($ModelPath)) -ErrorAction Stop
 if ($model.PSIsContainer) { throw 'ModelPath must identify a GGUF file.' }
 
@@ -25,7 +39,6 @@ if ($actualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
   throw "Generation model SHA-256 mismatch. Expected $ExpectedSha256, got $actualSha256."
 }
 
-$localAppData = [Environment]::GetFolderPath('LocalApplicationData')
 if ([string]::IsNullOrWhiteSpace($RuntimeDirectory)) {
   if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'RuntimeDirectory is required when LocalApplicationData is unavailable.' }
   $packageRoot = Join-Path $localAppData 'Microsoft\WinGet\Packages'
@@ -41,12 +54,6 @@ if (-not $server) { throw 'llama-server.exe was not found in the WinGet package 
 if (-not (Test-Path -LiteralPath $server -PathType Leaf)) { throw "llama-server.exe was not found: $server" }
 
 $runtimeDirectory = Split-Path -Parent $server
-if ([string]::IsNullOrWhiteSpace($LogDirectory)) {
-  if ([string]::IsNullOrWhiteSpace($localAppData)) { throw 'LogDirectory is required when LocalApplicationData is unavailable.' }
-  $LogDirectory = Join-Path $localAppData 'SortaOmega\logs'
-}
-$resolvedLogDirectory = [IO.Path]::GetFullPath($LogDirectory)
-New-Item -ItemType Directory -Force -Path $resolvedLogDirectory | Out-Null
 $stdoutLog = Join-Path $resolvedLogDirectory 'qwen-generation.out.log'
 $stderrLog = Join-Path $resolvedLogDirectory 'qwen-generation.err.log'
 
