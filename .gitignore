@@ -9,4 +9,6 @@ coverage/
 apps/web/.vite/
 apps/web/vite.config.js
 apps/web/vite.config.d.ts
+apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/target/
 data/
