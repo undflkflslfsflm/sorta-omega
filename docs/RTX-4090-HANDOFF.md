@@ -132,7 +132,7 @@ Store the one-time token in the Windows service secret environment, set `OMEGA_W
 1. Follow `infra/remote-access/REMOTE-ACCESS.md`. Default to Tailscale Serve HTTPS; never use Funnel, router port forwarding, a public dev server or firewall disablement.
 2. Prove an unauthorized tailnet identity is denied and only the app is reachable. Confirm PostgreSQL, Ollama, the OpenAI-compatible server, worker endpoints and debug ports are not reachable from the second PC.
 3. Enroll the second client with the final canonical origin and test passkey login, PWA install, upload recovery, host restart, reconnect and powered-off-host behavior.
-4. Run true two-client Yjs/offline convergence tests. Current rich notes store canonical Yjs snapshots, but realtime CRDT update transport and concurrent merge behavior are still incomplete. Finish that behavior plus structured-event/task conflicts and broader offline mutation coverage rather than recording the scenarios as passed.
+4. Run true two-client Yjs/offline convergence tests. Rich notes now persist incremental Yjs drafts, merge remote snapshots without echoing them, promote acknowledged drafts atomically and retain conflicting later edits; mounted two-editor convergence/undo and offline-reopen fixtures pass. Live two-client execution, structured-event/task conflicts and broader offline mutation coverage remain and must not be recorded as passed before the complete scenarios run.
 5. Run keyboard-only and phone-sized primary-workflow accessibility checks.
 
 ## Phase 6 — backup and clean-host restore
@@ -170,7 +170,7 @@ pnpm --filter @sorta/browser-bridge start -- --provider inschool --profile "<abs
 
 - Real Microsoft/Google provider fetch, delivery and lost-response reconciliation executors.
 - Live Teams/InSchool selector/account validation.
-- True realtime Yjs convergence and broader offline edits/conflicts.
+- Live two-client Yjs convergence plus broader offline edits/conflicts; mounted-editor convergence/undo and offline-reopen fixtures already pass.
 - The remaining native command set (including event-source navigation, folder watches, model/worker/audio/export/backup/update/focus operations) and installed runtime behavior. Calendar view, exact calendar-event and exact commitment navigation compile through a doubly validated renderer event, but still require an installed runtime test.
 - Clean-host replacement restore evidence.
 - Full security/privacy review: renderer/log/cache/backup inspection, CSP/origin checks, secret scanning, dependency/container/Rust/model licenses and attack tests.
