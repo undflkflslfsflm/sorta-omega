@@ -1,9 +1,41 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { initializeRichDocument } from "./rich-document.js";
+import { restoreDocumentRevision } from "./note-document.js";
 import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, migrateDocumentToRich, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
 
 describe("canonical note documents", () => {
+  it("restores legacy content without downgrading a migrated document or rewinding history", () => {
+    const historical=createDocumentState("Earlier");
+    const migrated=migrateDocumentToRich(historical).state;
+    const current=replaceDocumentText(migrated,"Current");
+    const original=Buffer.from(current);
+    const restored=restoreDocumentRevision(current,historical,"Current","Earlier");
+    expect(restored.text).toBe("Earlier");
+    const before=new Y.Doc(),after=new Y.Doc();
+    Y.applyUpdate(before,current);Y.applyUpdate(after,restored.state);
+    expect(after.share.has("prosemirror")).toBe(true);
+    const clocks=Y.decodeStateVector(Y.encodeStateVector(after));
+    for(const [client,clock] of Y.decodeStateVector(Y.encodeStateVector(before)))expect(clocks.get(client)).toBeGreaterThanOrEqual(clock);
+    const replay=mergeDocumentUpdate(restored.state,current.toString("base64"));
+    expect(replay.text).toBe("Earlier");
+    expect(replay.state).toEqual(restored.state);
+    Y.applyUpdate(before,restored.state);
+    expect(readDocumentText(Y.encodeStateAsUpdate(before))).toBe("Earlier");
+    expect(current).toEqual(original);
+    expect(readDocumentText(historical)).toBe("Earlier");
+    before.destroy();after.destroy();
+  });
+
+  it("restores rich formatting as new shared content and keeps text-only historical fallback", () => {
+    const editor={type:"doc",content:[{type:"heading",attrs:{level:2},content:[{type:"text",text:"Title",marks:[{type:"bold",attrs:{}}]}]}]};
+    const historical=replaceEditorDocument(migrateDocumentToRich(createDocumentState("Start")).state,editor).state;
+    const current=replaceDocumentText(historical,"Later");
+    const restored=restoreDocumentRevision(current,historical);
+    expect(readEditorDocument(restored.state)).toEqual(editor);
+    expect(editorDocumentToMarkdown(restored.document)).toBe("## **Title**");
+    expect(restoreDocumentRevision(restored.state,null,"","Ancient text").text).toBe("Ancient text");
+  });
   it("migrates once without changing prior snapshots or losing formatted content", () => {
     const editor = { type: "doc", content: [{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Keep", marks: [{ type: "bold", attrs: {} }] }] }] };
     const legacy = replaceEditorDocument(createDocumentState("Old"), editor).state;

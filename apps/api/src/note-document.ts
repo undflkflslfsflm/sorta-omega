@@ -160,6 +160,16 @@ export function replaceDocumentText(state: Uint8Array | Buffer | null, text: str
   return replaceEditorDocument(state, toEditorJson(text), fallback).state;
 }
 
+// Restore content, never an old causal history. The caller locks the current
+// note and fences this whole-document edit with its expected revision.
+export function restoreDocumentRevision(currentState: Uint8Array | Buffer | null, historicalState: Uint8Array | Buffer | null, currentFallback = "", historicalFallback = "") {
+  const historical = readEditorDocument(historicalState, historicalFallback);
+  const restored = replaceEditorDocument(currentState, historical, currentFallback);
+  if (restored.text.length > 200_000) throw new Error("merged_document_text_too_large");
+  if (restored.state.length > 2_000_000) throw new Error("merged_document_too_large");
+  return restored;
+}
+
 export function appendDocumentText(state: Uint8Array | Buffer | null, markdown: string, fallback = ""): { state: Buffer; text: string } {
   const current = readEditorDocument(state, fallback);
   const appended = toEditorJson(markdown);

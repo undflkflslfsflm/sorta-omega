@@ -327,7 +327,7 @@ import {
 import { config } from "./config.js";
 import { pool, query, transaction } from "./db.js";
 import { getOwnerSession, getVaultListAccess, hasCurrentVaultReadAccess, hasRecentStrongAuthentication, registerAuthRoutes, requireOwner, requireVaultOwner, syncDeviceMatchesRequest } from "./auth.js";
-import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument } from "./note-document.js";
+import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, restoreDocumentRevision } from "./note-document.js";
 import { commitmentPrepText, commitmentTransitionError, matchesEvent } from "./commitment-matcher.js";
 import { buildExcerpt } from "./search.js";
 import { configuredModelProfiles } from "./ollama.js";
@@ -1494,9 +1494,10 @@ app.post("/api/v1/vaults/:vaultId/notes/:noteId/revisions/:revisionId/restore",a
     if(note.revision!==input.expectedCurrentRevision)return "stale_revision" as const;
     const historical=await client.query("SELECT * FROM note_revisions WHERE note_id=$1 AND id=$2",[noteId,revisionId]);
     const source=historical.rows[0];if(!source)return "note_revision_not_found" as const;
+    const restored=restoreDocumentRevision(note.yjs_state,source.yjs_state,note.body,source.body);
     const nextRevision=note.revision+1;
-    await client.query("UPDATE notes SET title=$3,body=$4,yjs_state=$5,revision=$6,status='saved',classified_revision=NULL,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,noteId,source.title,source.body,source.yjs_state,nextRevision]);
-    const inserted=await client.query("INSERT INTO note_revisions(note_id,revision,title,body,yjs_state,actor_kind) VALUES ($1,$2,$3,$4,$5,'restore') RETURNING *",[noteId,nextRevision,source.title,source.body,source.yjs_state]);
+    await client.query("UPDATE notes SET title=$3,body=$4,yjs_state=$5,revision=$6,status='saved',classified_revision=NULL,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,noteId,source.title,restored.text,restored.state,nextRevision]);
+    const inserted=await client.query("INSERT INTO note_revisions(note_id,revision,title,body,yjs_state,actor_kind) VALUES ($1,$2,$3,$4,$5,'restore') RETURNING *",[noteId,nextRevision,source.title,restored.text,restored.state]);
     const jobId=randomUUID();const jobInput={type:"note_processing",noteId,sourceId:note.source_id,revision:nextRevision,stages:["classify"]};const serialized=JSON.stringify(jobInput);
     await client.query("INSERT INTO jobs(id,vault_id,kind,status,stage,input,input_hash) VALUES ($1,$2,'note_process','waiting_for_worker','awaiting_local_worker',$3::jsonb,$4)",[jobId,vaultId,serialized,createHash("sha256").update(serialized).digest("hex")]);
     await client.query("INSERT INTO job_events(job_id,sequence,kind,data) VALUES ($1,1,'accepted',$2::jsonb)",[jobId,JSON.stringify({status:"waiting_for_worker",restoredFromRevisionId:revisionId})]);
