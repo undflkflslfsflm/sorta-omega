@@ -54,9 +54,21 @@ function Invoke-NativeCheck {
   }
 
   try {
-    $rawOutput = & $File @Arguments 2>&1
+    $command = Get-Command -Name $File -ErrorAction Stop
+    $invocationFile = $File
+    if ($command.CommandType -eq [System.Management.Automation.CommandTypes]::ExternalScript) {
+      $commandShim = [System.IO.Path]::ChangeExtension($command.Source, '.cmd')
+      if (Test-Path -LiteralPath $commandShim -PathType Leaf) {
+        $invocationFile = $commandShim
+      } else {
+        $invocationFile = $command.Source
+      }
+    }
+
+    $rawOutput = & $invocationFile @Arguments 2>&1
     $commandSucceeded = $?
-    $exitCode = if ($commandSucceeded) { 0 } elseif ($null -ne $LASTEXITCODE) { $LASTEXITCODE } else { 1 }
+    $nativeExitCode = $LASTEXITCODE
+    $exitCode = if ($null -ne $nativeExitCode) { $nativeExitCode } elseif ($commandSucceeded) { 0 } else { 1 }
     $output = (($rawOutput | Out-String) -replace [char]0, '').Trim()
   } catch {
     Add-Check -Name $Name -Passed $false -Required $Required -Detail $_.Exception.Message
