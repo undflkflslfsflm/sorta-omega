@@ -95,3 +95,7 @@ All 35 web tests and typechecking passed, including persisted local content reco
 Explicit canonical-note 401/403/404/410 responses now record a per-note cached-access block. A later transport outage cannot reopen that cached snapshot; a fresh successful canonical response clears the block. The active shared editor disables editing on a denial and records the same restriction. Unsent drafts are retained rather than deleted. This is an application access guard, not cryptographic erasure of previously downloaded data. If storage fails, the in-memory block remains for this tab, and durable blocking cannot be claimed until storage works again.
 
 All 36 web tests pass, including denial followed by outage, persisted blocking across module reload, authorized recovery, and retained unsent content. Revocation and recovery still require real-browser acceptance.
+
+## React editor lifecycle checks
+
+Tests now render `RichDocumentEditor` itself with React DOM in jsdom, drive editor commands and click its actual save button. They verify that newer edits remain dirty when an older save finishes, an incoming legacy revision does not overwrite unsaved text, blocked access disables the contenteditable surface and save button, and failed local persistence does not announce success or allow navigation. Retrying that shared save commits the outbox, announces local-only success and releases navigation protection without calling the legacy replacement API. All 40 web tests pass. This extends component coverage but does not replace real-browser or database-backed acceptance.
