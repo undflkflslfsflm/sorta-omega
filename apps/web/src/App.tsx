@@ -563,7 +563,14 @@ function IntegrationSettingsWorkspace(){
 }
 
 function OfflineSettingsWorkspace(props:{pendingCount:number;onPendingCount:(count:number)=>void}){
-  return <><OfflineSettingsControls {...props}/><OfflineConflictReview/></>;
+  return <>{desktopBridge&&<DesktopSettingsWorkspace/>}<OfflineSettingsControls {...props}/><OfflineConflictReview/></>;
+}
+function DesktopSettingsWorkspace(){
+  const [status,setStatus]=useState<Awaited<ReturnType<NonNullable<typeof desktopBridge>["status"]>>|null>(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[notice,setNotice]=useState<string|null>(null);
+  useEffect(()=>{void desktopBridge!.status().then(setStatus).catch(()=>setError("Windows desktop status is unavailable."));},[]);
+  async function change(enabled:boolean){setBusy(true);setError(null);setNotice(null);try{await desktopBridge!.setStartAtLogin(enabled);const next=await desktopBridge!.status();setStatus(next);setNotice(next.startAtLogin===enabled?(enabled?"Sorta will start when you sign in to Windows.":"Sorta will no longer start automatically."):"Windows did not apply the requested startup setting.");}catch{setError("Windows could not change the start-at-login setting.");}finally{setBusy(false);}}
+  return <><PageTitle eyebrow="Windows desktop" title="Native settings" copy="These controls affect only this installed Windows application."/><section className="settings-panel offline-settings"><label><input type="checkbox" checked={status?.startAtLogin??false} disabled={busy||!status} onChange={event=>void change(event.target.checked)}/><span><strong>Start Sorta when I sign in</strong><small>Explicitly enables or disables Windows start-at-login. It is off by default and does not change the local host service configuration.</small></span></label><div><span>{status?`${status.shortcutRegistered?"Active":"Unavailable"} quick-capture shortcut · ${status.shortcut}`:"Reading native status…"}</span></div>{error&&<p className="form-error">{error}</p>}{notice&&<p className="success-banner">{notice}</p>}</section></>;
 }
 function OfflineSettingsControls({pendingCount,onPendingCount}:{pendingCount:number;onPendingCount:(count:number)=>void}){
   const [enabled,setEnabled]=useState(()=>offlineCaptureEnabled());const [notice,setNotice]=useState<string|null>(null);const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState(false);const [deviceId,setDeviceId]=useState<string|null>(null);const [queued,setQueued]=useState(0);const [conflicts,setConflicts]=useState(0);

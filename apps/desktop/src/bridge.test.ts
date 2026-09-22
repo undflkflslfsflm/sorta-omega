@@ -55,6 +55,14 @@ describe("desktop native bridge", () => {
     expect(invoke).toHaveBeenCalledTimes(3);
   });
 
+  it("reads and changes explicit Windows startup state",async()=>{
+    const invoke=vi.fn(async(command:string)=>command==="desktop_status"?{shortcut:"Ctrl+Shift+Space",shortcutRegistered:true,startAtLogin:false,platform:"windows"}:undefined);
+    const bridge=createDesktopBridge(invoke);
+    await expect(bridge.status()).resolves.toMatchObject({startAtLogin:false,shortcutRegistered:true});
+    await bridge.setStartAtLogin(true);
+    expect(invoke).toHaveBeenLastCalledWith("set_start_at_login",{enabled:true});
+  });
+
   it("rejects malformed native results", async () => {
     const bridge = createDesktopBridge(async () => ({ text: "secret", mimeType: "text/html" }));
     await expect(bridge.captureClipboardSelection()).rejects.toThrow();

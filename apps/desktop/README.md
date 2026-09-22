@@ -11,6 +11,7 @@ This package is the Windows Tauri 2 shell for the same application served by the
 - Workspace navigation accepts a closed workspace enum and an optional UUID. It cannot open arbitrary URLs or execute native commands.
 - `launch_calendar_view`, `open_calendar_event`, and `open_commitment` emit the same validated navigation event. The renderer validates it again, respects unsaved-editor guards, and focuses the exact loaded calendar/commitment record; requested notes are loaded through the authenticated API.
 - Start-at-login is an explicit native setting. It is not enabled by default.
+- Native Settings displays the registered quick-capture shortcut and the actual Windows start-at-login state; changes are reread from the native layer before the UI reports their result.
 - Main and quick-capture windows have separate capability manifests, both limited to the loopback production origin.
 
 The production windows load `http://127.0.0.1:3210`, so WebAuthn origin and strict session cookies remain aligned with the local host. A later canonical-origin change must update and retest the API configuration, passkeys, desktop capability URL and client caches together.
