@@ -1,6 +1,6 @@
 import { editorDocumentSchema, type EditorMarkInput, type EditorNodeInput } from "@sorta/contracts";
 import * as Y from "yjs";
-import { readRichDocument, replaceRichDocument, richDocumentFragmentName } from "./rich-document.js";
+import { initializeRichDocument, readRichDocument, replaceRichDocument, richDocumentFragmentName } from "./rich-document.js";
 
 const textName = "content";
 const editorMapName = "editor";
@@ -106,6 +106,24 @@ export function createDocumentState(text: string): Buffer {
   const document = new Y.Doc();
   applyEditorDocument(document, toEditorJson(text), text);
   return Buffer.from(Y.encodeStateAsUpdate(document));
+}
+
+export function migrateDocumentToRich(state: Uint8Array | Buffer | null, fallback = "") {
+  const document = loadDocument(state, fallback);
+  if (document.share.has(richDocumentFragmentName)) {
+    const editor = readRichDocument(document);
+    return { migrated: false, state: Buffer.from(state!), text: editorDocumentToText(editor) };
+  }
+  const text = document.getText(textName).toString();
+  if (text.length > 200_000) throw new Error("merged_document_text_too_large");
+  const stored = document.getMap<string>(editorMapName).get(editorDocumentKey);
+  // Do not silently discard malformed or divergent legacy rich content.
+  const editor = stored === undefined ? toEditorJson(text) : editorDocumentSchema.parse(JSON.parse(stored));
+  if (editorDocumentToText(editor) !== text.trimEnd()) throw new Error("legacy_document_projection_mismatch");
+  initializeRichDocument(document, editor);
+  const nextState = Buffer.from(Y.encodeStateAsUpdate(document));
+  if (nextState.length > 2_000_000) throw new Error("merged_document_too_large");
+  return { migrated: true, state: nextState, text: editorDocumentToText(editor) };
 }
 
 export function readDocumentText(state: Uint8Array | Buffer | null, fallback = ""): string {

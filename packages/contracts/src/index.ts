@@ -210,7 +210,7 @@ export const noteRevisionSchema = z.object({
   revision: z.number().int().positive(),
   title: z.string(),
   text: z.string(),
-  actorKind: z.enum(["owner", "capture", "restore"]),
+  actorKind: z.enum(["owner", "capture", "restore", "ai", "import", "migration"]),
   createdAt: z.string().datetime()
 });
 

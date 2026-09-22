@@ -26855,7 +26855,10 @@
             "enum": [
               "owner",
               "capture",
-              "restore"
+              "restore",
+              "ai",
+              "import",
+              "migration"
             ]
           },
           "createdAt": {
@@ -26906,7 +26909,10 @@
                   "enum": [
                     "owner",
                     "capture",
-                    "restore"
+                    "restore",
+                    "ai",
+                    "import",
+                    "migration"
                   ]
                 },
                 "createdAt": {

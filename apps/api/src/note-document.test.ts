@@ -1,9 +1,29 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { initializeRichDocument } from "./rich-document.js";
-import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
+import { appendDocumentText, createDocumentState, editorDocumentToMarkdown, mergeDocumentUpdate, migrateDocumentToRich, readDocumentText, readEditorDocument, replaceDocumentText, replaceEditorDocument, toEditorJson } from "./note-document.js";
 
 describe("canonical note documents", () => {
+  it("migrates once without changing prior snapshots or losing formatted content", () => {
+    const editor = { type: "doc", content: [{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Keep", marks: [{ type: "bold", attrs: {} }] }] }] };
+    const legacy = replaceEditorDocument(createDocumentState("Old"), editor).state;
+    const original = Buffer.from(legacy);
+    const changed = migrateDocumentToRich(legacy);
+    expect(changed.migrated).toBe(true);
+    expect(readEditorDocument(changed.state)).toEqual(editor);
+    expect(legacy).toEqual(original);
+    const repeated = migrateDocumentToRich(changed.state);
+    expect(repeated.migrated).toBe(false);
+    expect(repeated.state).toEqual(changed.state);
+  });
+
+  it("fails migration rather than discarding divergent legacy content", () => {
+    const doc = new Y.Doc();
+    Y.applyUpdate(doc, createDocumentState("Original"));
+    doc.getText("content").insert(0, "Unsynced ");
+    expect(() => migrateDocumentToRich(Y.encodeStateAsUpdate(doc))).toThrow("legacy_document_projection_mismatch");
+  });
+
   function richState() {
     const doc = new Y.Doc();
     Y.applyUpdate(doc, createDocumentState("Stale legacy projection"));

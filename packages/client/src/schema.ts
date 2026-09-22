@@ -5635,7 +5635,7 @@ export interface components {
             title: string;
             text: string;
             /** @enum {string} */
-            actorKind: "owner" | "capture" | "restore";
+            actorKind: "owner" | "capture" | "restore" | "ai" | "import" | "migration";
             /** Format: date-time */
             createdAt: string;
         };
@@ -5649,7 +5649,7 @@ export interface components {
                 title: string;
                 text: string;
                 /** @enum {string} */
-                actorKind: "owner" | "capture" | "restore";
+                actorKind: "owner" | "capture" | "restore" | "ai" | "import" | "migration";
                 /** Format: date-time */
                 createdAt: string;
             }[];

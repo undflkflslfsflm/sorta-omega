@@ -17,3 +17,11 @@ Current verification: canonical document, contract and route registry suites pas
 Additional local verification: 19 document tests pass, including the production merge path in both delivery orders, replay, preserved marks, fragment-based replacement/clear, rejection of legacy edits after migration and rejection of client-initiated migration. API typecheck passes. Executed with Node 24.19.0 and pnpm 10.15.1; this is not pinned Node 22 release validation. Concurrent insertion at a formatting boundary may inherit that mark according to Yjs ordering; tests require identical replicas and preserved explicit marks rather than assuming a particular boundary inheritance.
 
 Full API regression after this change: 42 test files / 193 tests passed with the single-worker test command. No Docker, GPU or live-provider acceptance is implied by this result.
+
+## Explicit migration command (not yet live-validated)
+
+After applying SQL migrations through `0094`, an operator can run `pnpm --filter @sorta/api notes:migrate-rich <vault-id> <note-id> <expected-revision>` against the configured database. This is a database-administrator operation, not a browser endpoint. It uses the normal transaction wrapper, locks a vault-scoped active note, checks the expected revision for first migration, updates its canonical snapshot and appends a new `migration` revision. Old revisions are never rewritten. Repeating it for an already migrated note is a no-op. Invalid or divergent legacy editor content fails instead of being silently flattened. The CLI logs identifiers and outcome only, not note content or credentials.
+
+Do not bulk-migrate production notes yet: browser rich-text binding, durable offline updates, restore behavior and actual PostgreSQL concurrency/rollback acceptance remain to be verified. In particular, old offline text edits against a migrated note are rejected and need explicit recovery. New-note creation remains legacy until the complete client rollout is ready.
+
+Migration verification: 91 focused document, migration and contract tests passed; contracts build, generated-artifact checks and dependency-inventory checks passed. Migration query tests use a mock client and prove query ordering/error propagation, not actual PostgreSQL locking or rollback. The migration command has not been run against a live database.

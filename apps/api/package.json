@@ -11,6 +11,7 @@
     "test": "vitest run --maxWorkers=1 --no-file-parallelism",
     "test:parallel": "vitest run",
     "db:migrate": "tsx src/migrate.ts",
+    "notes:migrate-rich": "tsx src/migrate-rich-note.ts",
     "worker:provision": "tsx src/provision-worker.ts"
   },
   "dependencies": {
