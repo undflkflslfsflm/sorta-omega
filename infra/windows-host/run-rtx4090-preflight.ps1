@@ -65,9 +65,18 @@ function Invoke-NativeCheck {
       }
     }
 
-    $rawOutput = & $invocationFile @Arguments 2>&1
-    $commandSucceeded = $?
-    $nativeExitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+      # Native programs commonly use stderr for diagnostics even when they exit
+      # successfully. Do not let the script-wide Stop preference turn those
+      # records into a terminating PowerShell error before the exit code is read.
+      $ErrorActionPreference = 'Continue'
+      $rawOutput = & $invocationFile @Arguments 2>&1
+      $commandSucceeded = $?
+      $nativeExitCode = $LASTEXITCODE
+    } finally {
+      $ErrorActionPreference = $previousErrorActionPreference
+    }
     $exitCode = if ($null -ne $nativeExitCode) { $nativeExitCode } elseif ($commandSucceeded) { 0 } else { 1 }
     $output = (($rawOutput | Out-String) -replace [char]0, '').Trim()
   } catch {
