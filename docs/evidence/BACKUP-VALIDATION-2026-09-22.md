@@ -25,6 +25,14 @@ The supplied `infra/backup/backup.ps1` script produced a PostgreSQL custom-forma
 
 The zero-blob result is expected for the current pre-bootstrap deployment and does not exercise representative original-file restoration.
 
+The same dump was then restored with `pg_restore --clean --if-exists --exit-on-error` into a newly created disposable `pgvector/pgvector:pg16` container with no production volume or port. Queries against the restored database found:
+
+- `137` public tables
+- `94` schema migration records
+- `1` vault record
+
+The disposable container was removed after the queries. This proves that the captured database can be restored into an isolated empty PostgreSQL instance; it still does not exercise the application/blob replacement phase of the production restore script.
+
 ## Remaining release gate
 
 Run an isolated clean-host restore after owner bootstrap and representative content creation. Verify database objects, source/citation continuity, immutable blob bytes and hashes, provider-send safety locks, application readiness, and post-restore authentication. That future run—not this archive-readability check—is the evidence required for `NOTE-14`, `OPS-04`, and `OMEGA-51`.

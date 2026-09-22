@@ -30,7 +30,7 @@ Rows below describe scoped runs, not a claim that every command was rerun agains
 | `pnpm build` | Passed; largest JavaScript chunk 441.22 kB uncompressed with no Vite size warning | Manual vendor splitting and generated offline-shell buildability, not installation or runtime acceptance |
 | Real Chromium host-off startup | Passed at commit `b4f7478` in the Codex in-app Chromium browser, 1280×720 CSS px at DPR 2 | With Vite available but the API/database unavailable and no enrolled cache, only the locked “Home host unavailable” screen rendered; retry remained locked and the browser console contained no warnings/errors. This is a scoped startup boundary, not NOTE-04/OPS-02 or phone/PWA acceptance. |
 | PowerShell parser checks | Passed for backup and restore scripts | Syntax/fixture validation only; no database or clean-host restore |
-| Live RTX 4090 backup validation | Passed at commit `a8f7357`; retained in `docs/evidence/BACKUP-VALIDATION-2026-09-22.md` | The production PostgreSQL custom archive and zero-blob manifest passed hash and `pg_restore --list` validation without applying a restore. This is not the required representative clean-host restore. |
+| Live RTX 4090 backup validation | Passed at commit `a8f7357`; retained in `docs/evidence/BACKUP-VALIDATION-2026-09-22.md` | The production PostgreSQL custom archive and zero-blob manifest passed hash/readability validation, then restored into an isolated empty PostgreSQL container with 137 public tables, 94 migration records and one vault. Production was unchanged. This is not the required representative clean-host application/blob restore. |
 
 ## Scenario ledger
 
