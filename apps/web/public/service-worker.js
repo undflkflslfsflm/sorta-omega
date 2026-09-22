@@ -16,13 +16,15 @@ self.addEventListener("fetch", (event) => {
   // the explicitly enrolled IndexedDB replica, never this generic cache.
   if (request.method !== "GET" || url.origin !== self.location.origin || url.search) return;
   const shell = SHELL.includes(url.pathname);
-  const asset = /^\/assets\/[^/]+\.(?:js|css|woff2?|svg|png|webp|ico)$/.test(url.pathname);
-  if (!shell && !asset) return;
+  if (!shell) return;
   const responsePromise = (async () => {
     // Serve the installed build consistently while a newer worker waits. A
     // network-first index could reference new chunks absent from this cache.
     if (shell) {
-      const installed = await (await caches.open(CACHE)).match(request);
+      // Public build assets are invariant across Origin headers. Precache GETs
+      // and module/CSS requests can differ there when the server sends Vary:
+      // Origin; respecting it would miss valid offline bytes on a real reload.
+      const installed = await (await caches.open(CACHE)).match(request, { ignoreVary: true });
       if (installed) return installed;
     }
     return fetch(request).then(async (response) => {
@@ -32,7 +34,7 @@ self.addEventListener("fetch", (event) => {
     }
     return response;
   }).catch(async () => {
-    const cached = await (await caches.open(CACHE)).match(request);
+    const cached = await (await caches.open(CACHE)).match(request, { ignoreVary: true });
     // Never return HTML for a missing script, stylesheet, or image.
     return cached ?? Response.error();
     });

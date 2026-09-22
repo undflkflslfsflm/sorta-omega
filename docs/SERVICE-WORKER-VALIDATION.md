@@ -36,7 +36,43 @@ was added.
 
 ## Still open
 
-Real browser install/update/offline-reload evidence is still needed before
-declaring the offline shell complete. Private IndexedDB enrollment,
-authentication and note reopening require full browser/backend validation.
-No acceptance scenario is promoted to passed by these tests.
+Browser update lifecycle, interrupted installation, private IndexedDB enrollment,
+authentication and note reopening require further browser/backend validation.
+No complete acceptance scenario is promoted to passed by these scoped tests.
+
+## Real browser stopped-host check (2026-09-22)
+
+Environment: Codex in-app Chromium browser, production Vite preview bound only to
+127.0.0.1, Node 24.19.0, pnpm 10.15.1. Base commit `1bab583` plus the worker fixes
+recorded with this evidence. No authenticated vault or provider account was used.
+
+The initial build failed a real stopped-server reload: the root HTML loaded but
+script and stylesheet requests reported `net::ERR_FAILED`, leaving the root
+empty. Cached resources had `Vary: Origin`. Worker cache matching now ignores
+Vary only for the exact public build allowlist. Unlisted asset URLs are no longer
+intercepted/cached; the earlier wildcard could store preview HTML fallback as a
+successful missing-script response.
+
+Retest actions/results:
+
+1. Built production output; TypeScript and Vite passed (existing large-chunk
+   warnings). The focused worker/build suites passed 10 tests.
+2. Opened a fresh origin, `http://127.0.0.1:4174/`. Confirmed worker activated and
+   controlling the page, cache `sorta-shell-a399c9edbd2cd50d11981f4f` present.
+3. Disabled the browser HTTP cache, then stopped the actual preview process.
+   This matters: page-level network emulation alone did not reliably prevent
+   the worker from reaching the running preview server in the initial test.
+4. Reloaded. The app rendered `Home host unavailable` with its retry button and
+   explicit warning that uncached private data cannot be opened. No blank root.
+5. Fetched cached lazy resources while the server remained stopped:
+   `ManagedNoteEditor-2jlNzQdH.js`: HTTP 200, 28,294 bytes;
+   `cached-shared-note-CXNWRjHe.js`: HTTP 200, 539,770 bytes.
+6. `/api/v1/auth/session` and `/assets/not-in-build.js` both failed with network
+   errors, rather than receiving app HTML.
+7. Restored temporary browser network/cache settings and closed the test tabs.
+   Both preview processes were stopped. Public service-worker caches remain in
+   the test browser for the local test origins; no private records were created.
+
+This is real-browser evidence for first installation and public-shell reload
+with the host stopped. It is not evidence of NOTE-15 completion: authenticated
+private read/edit/search and unavailable-AI behavior remain to be exercised.

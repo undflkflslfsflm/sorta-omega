@@ -9,7 +9,8 @@ function worker() {
   const caches = { open: vi.fn(async () => cache), keys: vi.fn(async () => ["sorta-shell-v1", "sorta-shell-v2", "unrelated-cache"]), delete: vi.fn(async () => true) };
   const fetch = vi.fn(async () => new Response("asset"));
   const self = { location: { origin: "https://omega.test" }, addEventListener: (name, handler) => { handlers[name] = handler; }, clients: { claim: vi.fn(async () => {}) } };
-  runInNewContext(source, { self, caches, fetch, URL, Response });
+  const builtSource = source.replace('const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];', 'const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/assets/app-123.js"];');
+  runInNewContext(builtSource, { self, caches, fetch, URL, Response });
   function request(path, method = "GET") {
     const event = { request: new Request(new URL(path, self.location.origin), { method }), respondWith: vi.fn(), waitUntil: vi.fn() };
     handlers.fetch(event);
@@ -28,7 +29,7 @@ describe("public-only service worker cache", () => {
 
   it("does not intercept private, query-bearing, cross-origin, or write requests", () => {
     const w = worker();
-    for (const path of ["/api", "/api/notes", "/health", "/exports/private.pdf", "/?token=secret", "/assets/app.js?token=secret", "https://other.test/assets/app.js"]) {
+    for (const path of ["/api", "/api/notes", "/health", "/exports/private.pdf", "/assets/not-in-build.js", "/?token=secret", "/assets/app.js?token=secret", "https://other.test/assets/app.js"]) {
       expect(w.request(path).respondWith).not.toHaveBeenCalled();
     }
     expect(w.request("/", "POST").respondWith).not.toHaveBeenCalled();
@@ -61,9 +62,10 @@ describe("public-only service worker cache", () => {
   it("returns a network error for an uncached asset instead of HTML", async () => {
     const w = worker();
     w.fetch.mockRejectedValue(new TypeError("offline"));
-    const response = await w.request("/assets/missing.js").respondWith.mock.calls[0][0];
+    const response = await w.request("/assets/app-123.js").respondWith.mock.calls[0][0];
     expect(response.type).toBe("error");
-    expect(w.cache.match).toHaveBeenCalledOnce();
+    expect(w.cache.match).toHaveBeenCalledTimes(2);
+    expect(w.cache.match.mock.calls.every(([, options]) => options.ignoreVary === true)).toBe(true);
   });
 
   it("keeps online responses usable when cache storage is full", async () => {
