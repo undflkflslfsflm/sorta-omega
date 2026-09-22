@@ -8,6 +8,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const checkOnly = process.argv.includes("--check");
 const slash = (value) => value.replaceAll("\\", "/");
 const read = (path) => readFileSync(join(root, path), "utf8");
+const normalizeLineEndings = (value) => value.replaceAll("\r\n", "\n");
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 
 function workspaceManifestPaths() {
@@ -269,7 +270,7 @@ let drift = false;
 for (const [path, content] of outputs) {
   const absolute = join(root, path);
   if (checkOnly) {
-    if (!existsSync(absolute) || readFileSync(absolute, "utf8") !== content) {
+    if (!existsSync(absolute) || normalizeLineEndings(readFileSync(absolute, "utf8")) !== content) {
       console.error(`${path} is out of date; run pnpm deps:inventory`);
       drift = true;
     }
