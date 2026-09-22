@@ -28,6 +28,7 @@ Rows below describe scoped runs, not a claim that every command was rerun agains
 | Master operation audit | 355 expected, 420 implemented, 0 missing | Operation names only; not an effects test |
 | `pnpm deps:check` | Passed | Dependency/license inventory drift |
 | `pnpm build` | Passed; largest JavaScript chunk 441.22 kB uncompressed with no Vite size warning | Manual vendor splitting and generated offline-shell buildability, not installation or runtime acceptance |
+| Real Chromium host-off startup | Passed at commit `b4f7478` in the Codex in-app Chromium browser, 1280×720 CSS px at DPR 2 | With Vite available but the API/database unavailable and no enrolled cache, only the locked “Home host unavailable” screen rendered; retry remained locked and the browser console contained no warnings/errors. This is a scoped startup boundary, not NOTE-04/OPS-02 or phone/PWA acceptance. |
 | PowerShell parser checks | Passed for backup and restore scripts | Syntax/fixture validation only; no database or clean-host restore |
 
 ## Scenario ledger
