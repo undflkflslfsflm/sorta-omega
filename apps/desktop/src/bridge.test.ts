@@ -29,6 +29,32 @@ describe("desktop native bridge", () => {
     expect(invoke).toHaveBeenCalledWith("app_open_workspace", { target: { workspace: "calendar", recordId } });
   });
 
+  it("validates native navigation events before exposing them to the renderer",async()=>{
+    let emit:(payload:unknown)=>void=()=>undefined;
+    const stop=vi.fn();
+    const listen=vi.fn(async(_event:string,handler:(payload:unknown)=>void)=>{emit=handler;return stop;});
+    const handler=vi.fn();
+    const bridge=createDesktopBridge(vi.fn(),listen);
+    const unlisten=await bridge.onNavigate(handler);
+    emit({workspace:"calendar",recordId:"00000000-0000-4000-8000-000000000042"});
+    expect(handler).toHaveBeenCalledWith({workspace:"calendar",recordId:"00000000-0000-4000-8000-000000000042"});
+    expect(()=>emit({workspace:"https://attacker.example",recordId:null})).toThrow();
+    unlisten();expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("exposes finite record-navigation commands with validated ids",async()=>{
+    const invoke=vi.fn(async()=>undefined),bridge=createDesktopBridge(invoke);
+    const id="00000000-0000-4000-8000-000000000042";
+    await bridge.launchCalendarView();await bridge.openCalendarEvent(id);await bridge.openCommitment(id);
+    expect(invoke.mock.calls).toEqual([
+      ["launch_calendar_view"],
+      ["open_calendar_event",{eventId:id}],
+      ["open_commitment",{commitmentId:id}]
+    ]);
+    await expect(bridge.openCalendarEvent("not-an-id")).rejects.toThrow();
+    expect(invoke).toHaveBeenCalledTimes(3);
+  });
+
   it("rejects malformed native results", async () => {
     const bridge = createDesktopBridge(async () => ({ text: "secret", mimeType: "text/html" }));
     await expect(bridge.captureClipboardSelection()).rejects.toThrow();

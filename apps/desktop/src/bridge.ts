@@ -1,4 +1,5 @@
 import {
+  idSchema,
   nativeClipboardCaptureSchema,
   nativeDesktopStatusSchema,
   nativePickedFileSchema,
@@ -20,8 +21,9 @@ import {
 } from "@sorta/contracts";
 
 export type NativeInvoke = (command: string, arguments_?: Record<string, unknown>) => Promise<unknown>;
+export type NativeListen = (event: string, handler: (payload: unknown) => void) => Promise<() => void>;
 
-export function createDesktopBridge(invoke: NativeInvoke) {
+export function createDesktopBridge(invoke: NativeInvoke,listen?:NativeListen) {
   return {
     openCapture: async () => { await invoke("capture_open"); },
     async captureClipboardSelection(): Promise<NativeClipboardCapture> {
@@ -34,6 +36,19 @@ export function createDesktopBridge(invoke: NativeInvoke) {
     async openWorkspace(target: NativeWorkspaceTarget): Promise<void> {
       const validated = nativeWorkspaceTargetSchema.parse(target);
       await invoke("app_open_workspace", { target: validated });
+    },
+    launchCalendarView:async()=>{await invoke("launch_calendar_view");},
+    async openCalendarEvent(eventId:string):Promise<void>{
+      const id=idSchema.parse(eventId);
+      await invoke("open_calendar_event",{eventId:id});
+    },
+    async openCommitment(commitmentId:string):Promise<void>{
+      const id=idSchema.parse(commitmentId);
+      await invoke("open_commitment",{commitmentId:id});
+    },
+    async onNavigate(handler:(target:NativeWorkspaceTarget)=>void):Promise<()=>void>{
+      if(!listen)throw new Error("Native event listener is unavailable");
+      return listen("desktop:navigate",payload=>handler(nativeWorkspaceTargetSchema.parse(payload)));
     },
     async status(): Promise<NativeDesktopStatus> {
       return nativeDesktopStatusSchema.parse(await invoke("desktop_status"));

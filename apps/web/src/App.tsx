@@ -154,7 +154,7 @@ function friendlyDate(value: string) {
 function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promise<void>;onAuthenticationRequired:()=>void }) {
   const [view, updateView] = useState<View>(initialView);
   const currentView=useRef(view);currentView.current=view;
-  function setView(next:View){if(next===currentView.current||allowEditorNavigation()){currentView.current=next;updateView(next);}}
+  function setView(next:View){if(next===currentView.current||allowEditorNavigation()){currentView.current=next;updateView(next);return true;}return false;}
   const [today, setToday] = useState<Today | null>(null);
   const [nextActions, setNextActions] = useState<NextActionSet | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -176,6 +176,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const [error, setError] = useState<string | null>(null);
   const [pendingCount,setPendingCount]=useState(0);
   const [replicaCursorReady,setReplicaCursorReady]=useState<string|null>(null);
+  const pendingNativeRecord=useRef<{workspace:"calendar"|"life";recordId:string}|null>(null);
   const realtimeRefreshRunning=useRef(false);
   const searchNavigationRequest=useRef(0);
   async function openSearchResult(item:Pick<SearchItem,"kind"|"id">){
@@ -220,6 +221,26 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   }
 
   useEffect(() => { void pendingCaptures().then(items=>setPendingCount(items.length));void refresh();const reconnect=()=>void refresh();window.addEventListener("online",reconnect);return()=>window.removeEventListener("online",reconnect); }, []);
+  useEffect(()=>{
+    if(!desktopBridge)return;
+    let disposed=false,unsubscribe:(()=>void)|undefined;
+    void desktopBridge.onNavigate(target=>{
+      if(disposed||!setView(target.workspace))return;
+      if(!target.recordId)return;
+      if(target.workspace==="brain"){void api.note(target.recordId).then(note=>{if(!disposed){setSelectedNote(note);}}).catch(()=>setError("The requested note is unavailable or access was denied."));return;}
+      if(target.workspace==="calendar"||target.workspace==="life")pendingNativeRecord.current={workspace:target.workspace,recordId:target.recordId};
+    }).then(stop=>{if(disposed)stop();else unsubscribe=stop;}).catch(()=>setError("Desktop navigation is unavailable."));
+    return()=>{disposed=true;unsubscribe?.();};
+  },[]);
+  useEffect(()=>{
+    const target=pendingNativeRecord.current;if(!target||target.workspace!==view)return;
+    const records=target.workspace==="calendar"?events:commitments;
+    const index=records.findIndex(item=>item.id===target.recordId);if(index<0)return;
+    pendingNativeRecord.current=null;
+    const selector=target.workspace==="calendar"?".calendar-list > .calendar-event":".commitment-list > article";
+    const frame=requestAnimationFrame(()=>{const element=document.querySelectorAll<HTMLElement>(selector)[index];if(!element)return;element.tabIndex=-1;element.focus({preventScroll:true});element.scrollIntoView({block:"center"});});
+    return()=>cancelAnimationFrame(frame);
+  },[view,events,commitments]);
   useEffect(()=>{if(!replicaCursorReady)return;let cancelled=false,source:EventSource|null=null,socket:WebSocket|null=null,fallbackTimer:number|undefined;const triggerRefresh=()=>{if(realtimeRefreshRunning.current)return;realtimeRefreshRunning.current=true;void refresh().finally(()=>{realtimeRefreshRunning.current=false;});};const startSse=()=>{if(cancelled||source)return;source=new EventSource(api.syncEventsUrl(replicaCursorReady),{withCredentials:true});source.addEventListener("change",triggerRefresh);source.addEventListener("access_revoked",()=>{source?.close();onAuthenticationRequired();});};void replicaDeviceId().then(deviceId=>{if(!deviceId||cancelled)return startSse();socket=new WebSocket(api.syncSocketUrl());fallbackTimer=window.setTimeout(()=>{socket?.close();startSse();},4000);socket.onopen=()=>socket?.send(JSON.stringify({type:"hello",protocolVersion:1,deviceId,cursor:replicaCursorReady,mode:"read_write"}));socket.onmessage=event=>{let parsed;try{parsed=syncSocketServerFrameSchema.parse(JSON.parse(String(event.data)));}catch{socket?.close();return startSse();}if(parsed.type==="hello_ack"){if(fallbackTimer)window.clearTimeout(fallbackTimer);return;}if(parsed.type==="changes"){void setSyncCursor(parsed.nextCursor).then(()=>{if(cancelled)return;setReplicaCursorReady(parsed.nextCursor);triggerRefresh();});return;}if(parsed.type==="resync_required"){socket?.close();triggerRefresh();return;}if(parsed.type==="error"&&parsed.code==="access_revoked"){socket?.close();onAuthenticationRequired();}};socket.onerror=()=>{socket?.close();startSse();};socket.onclose=()=>{if(!cancelled)startSse();};});return()=>{cancelled=true;if(fallbackTimer)window.clearTimeout(fallbackTimer);socket?.close();source?.close();};},[replicaCursorReady]);
   useEffect(() => registerOmegaTools(refresh), []);
   useEffect(() => {

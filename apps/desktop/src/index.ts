@@ -1,1 +1,1 @@
-export { createDesktopBridge, type NativeInvoke } from "./bridge.js";
+export { createDesktopBridge, type NativeInvoke, type NativeListen } from "./bridge.js";

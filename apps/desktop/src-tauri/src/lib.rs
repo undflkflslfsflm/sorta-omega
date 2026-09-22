@@ -81,8 +81,29 @@ fn app_open_workspace(app: AppHandle, target: WorkspaceTarget) -> Result<(), Str
     if !WORKSPACES.contains(&target.workspace.as_str()) || target.record_id.as_deref().is_some_and(|id| !valid_record_id(id)) {
         return Err("workspace_target_invalid".to_string());
     }
+    emit_navigation(&app, target)
+}
+
+fn emit_navigation(app: &AppHandle, target: WorkspaceTarget) -> Result<(), String> {
     show_window(&app, "main")?;
     app.emit_to("main", "desktop:navigate", target).map_err(|_| "desktop_navigation_failed".to_string())
+}
+
+#[tauri::command]
+fn launch_calendar_view(app: AppHandle) -> Result<(), String> {
+    emit_navigation(&app, WorkspaceTarget { workspace: "calendar".to_string(), record_id: None })
+}
+
+#[tauri::command]
+fn open_calendar_event(app: AppHandle, event_id: String) -> Result<(), String> {
+    if !valid_record_id(&event_id) { return Err("calendar_event_id_invalid".to_string()); }
+    emit_navigation(&app, WorkspaceTarget { workspace: "calendar".to_string(), record_id: Some(event_id) })
+}
+
+#[tauri::command]
+fn open_commitment(app: AppHandle, commitment_id: String) -> Result<(), String> {
+    if !valid_record_id(&commitment_id) { return Err("commitment_id_invalid".to_string()); }
+    emit_navigation(&app, WorkspaceTarget { workspace: "life".to_string(), record_id: Some(commitment_id) })
 }
 
 #[tauri::command]
@@ -126,7 +147,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import_pick, app_open_workspace, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import_pick, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }

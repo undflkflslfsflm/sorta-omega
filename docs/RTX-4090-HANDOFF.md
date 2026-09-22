@@ -169,7 +169,7 @@ pnpm --filter @sorta/browser-bridge start -- --provider inschool --profile "<abs
 - Real Microsoft/Google provider fetch, delivery and lost-response reconciliation executors.
 - Live Teams/InSchool selector/account validation.
 - True realtime Yjs convergence and broader offline edits/conflicts.
-- The remaining native command set and compiled installer behavior.
+- The remaining native command set (including event-source navigation, folder watches, model/worker/audio/export/backup/update/focus operations) and compiled installer behavior. Calendar view, exact calendar-event and exact commitment navigation are implemented through a doubly validated renderer event, but still require a native build/runtime test.
 - Clean-host replacement restore evidence.
 - Full security/privacy review: renderer/log/cache/backup inspection, CSP/origin checks, secret scanning, dependency/container/Rust/model licenses and attack tests.
 - Complete Appendix C route-effects and acceptance runs. `docs/ACCEPTANCE-TESTS.md` currently records all 133 scenarios honestly; update a row only after the complete scenario executes.
