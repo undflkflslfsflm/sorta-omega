@@ -31,3 +31,20 @@ host, reopening results, permission lifecycle and reconnect need end-to-end
 evidence. Uncached and unlisted records, unsaved editor text, pending captures
 not yet represented as notes, and non-core domains are not searched. Search
 does not silently claim complete-vault coverage or local AI availability.
+
+## Search-result navigation follow-up
+
+The previous click handler silently ignored note results outside the currently
+loaded note list. Result opening now resolves the note by ID from the API,
+falling back only to the requested trusted/enrolled cached record on network or
+5xx failure. A 401/403/404/410 records the existing persistent note-access block
+and never opens the cached copy. Authorized success clears that block. Missing
+cache and other failures display an error instead of leaving the click inert.
+An asynchronous result does not redirect away from another workspace or replace
+a newer search-result click. Task/calendar results retain workspace navigation.
+
+Evidence: the complete web suite passed 64 tests on Node 24.19.0 / pnpm 10.15.1.
+Six new resolver tests use fake IndexedDB and controlled API replies to cover
+server-only results, outages, persistent denial, authorized recovery, malformed
+responses and required trust/enrollment/record presence. The full click-to-editor
+browser workflow, pagination and navigation-race UI checks remain unverified.

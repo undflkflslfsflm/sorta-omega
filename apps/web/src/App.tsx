@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { OfflineConflictReview } from "./OfflineConflictReview";
 import { searchWithOfflineFallback } from "./offline-search";
+import { openSearchNote } from "./open-search-note";
 import { cacheNoteSnapshot } from "./offline-queue";
 import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
@@ -155,6 +156,19 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const [pendingCount,setPendingCount]=useState(0);
   const [replicaCursorReady,setReplicaCursorReady]=useState<string|null>(null);
   const realtimeRefreshRunning=useRef(false);
+  const searchNavigationRequest=useRef(0);
+  async function openSearchResult(item:Pick<SearchItem,"kind"|"id">){
+    const request=++searchNavigationRequest.current;
+    if(item.kind!=="note"){setView(item.kind==="task"?"tasks":"calendar");return;}
+    try{
+      const note=await openSearchNote(item.id);
+      if(request!==searchNavigationRequest.current||currentView.current!=="search")return;
+      setSelectedNote(note);setView("brain");
+    }catch(caught){
+      if(request!==searchNavigationRequest.current||currentView.current!=="search")return;
+      setError(caught instanceof ApiError&&[401,403,404,410].includes(caught.status)?"This note is unavailable or access has been denied. Its cached copy was not opened.":"This note could not be opened. It may not be cached on this trusted device; reconnect and try again.");
+    }
+  }
 
   async function establishReplicaCursor(deviceId:string){const handle=await api.createSyncSnapshot(deviceId);const job=await api.job(handle.id);if(job.result?.type!=="sync_snapshot")throw new Error("sync_snapshot_result_missing");await setSyncCursor(job.result.watermarkCursor);setReplicaCursorReady(job.result.watermarkCursor);return job.result.watermarkCursor;}
   async function synchronizeReplica(){if(!offlineCaptureEnabled())return;const deviceId=await replicaDeviceId();if(!deviceId)return;let cursor=await syncCursor();if(!cursor)cursor=await establishReplicaCursor(deviceId);else setReplicaCursorReady(cursor);try{await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}catch(caught){if(!(caught instanceof ApiError)||caught.code!=="sync_snapshot_required")throw caught;cursor=await establishReplicaCursor(deviceId);await flushSyncOperations((operations,lastCursor)=>api.pushSync(deviceId,operations,lastCursor));}cursor=await syncCursor()??cursor;for(let batch=0;batch<40;batch++){const pulled=await api.pullSync(cursor);if(pulled.snapshotRequired){await establishReplicaCursor(deviceId);break;}if(pulled.nextCursor){cursor=pulled.nextCursor;await setSyncCursor(cursor);setReplicaCursorReady(cursor);}if(!pulled.hasMore)break;if(batch===39)await establishReplicaCursor(deviceId);}}
@@ -272,7 +286,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         {view === "calendar" && <><CalendarDailyBrief/><CalendarSourcesWorkspace/><CalendarImportWorkspace/><CalendarExportWorkspace/><CalendarView events={events} people={entities.filter(entity => entity.kind === "person")} createEvent={createLocalEvent}/><PreparationPlanWorkspace tasks={tasks} events={events}/><CalendarReminderWorkspace events={events}/><CalendarProjection eventCount={events.length}/><ProviderCalendarOutboxWorkspace events={events}/></>}
         {view === "brain" && <>{recentlyTrashed&&<p className="pending-banner">“{recentlyTrashed.title}” is in trash. <button className="text-button" disabled={busy} onClick={()=>void undoRecentTrash()}>Undo trash</button></p>}{selectedNote ? <NoteEditor note={selectedNote} onClose={() => setSelectedNote(null)} onTrashed={trashed=>{setRecentlyTrashed(trashed);setSelectedNote(null);void refresh();}} onSaved={async () => { await refresh(); const latest=await api.note(selectedNote.id); setSelectedNote(latest); }}/> : <><PageTitle eyebrow="Notes and sources" title="Brain" copy="Find the idea and open its original evidence."/><button className="primary" disabled={busy} onClick={()=>void createBlankNote()}><Plus size={17}/> New note</button><NoteList notes={notes} onOpen={setSelectedNote}/></>}</>}
         {view === "collection" && activeCollection && <><PageTitle eyebrow={activeCollection.collection.system ? "System collection" : "Saved collection"} title={activeCollection.collection.name} copy={`${activeCollection.items.length} matching note${activeCollection.items.length === 1 ? "" : "s"} · ${activeCollection.collection.sort.replace("_", " ")}`}/><NoteList notes={activeCollection.items} onOpen={note => { setSelectedNote(note); setView("brain"); }}/></>}
-        {view === "search" && <SearchWorkspace onOpen={(item) => { if (item.kind === "note") { const note = notes.find(candidate => candidate.id === item.id); if (note) { setSelectedNote(note); setView("brain"); } } else setView(item.kind === "task" ? "tasks" : "calendar"); }}/>}
+        {view === "search" && <SearchWorkspace onOpen={item=>void openSearchResult(item)}/>}
         {view === "settings" && <><OfflineSettingsWorkspace pendingCount={pendingCount} onPendingCount={setPendingCount}/><OwnerPreferencesWorkspace/><DeviceAccessWorkspace/><VaultExportWorkspace/><IntegrationSettingsWorkspace/><CalendarAutomationPolicyWorkspace/><SchedulerPreferencesWorkspace/><SettingsWorkspace/></>}
         {view === "school" && <><SchoolWorkspace/><SchoolLessonsWorkspace/><SchoolAssignmentsWorkspace/><SchoolAssessmentsWorkspace/><AttendanceWorkspace/><PerformanceWorkspace/><StudyPlansWorkspace/><StudyPracticeWorkspace/><StudySessionsWorkspace/><KnowledgeGapsWorkspace/><FlashcardsWorkspace/></>}
         {view === "life" && <><LifeWorkspace/><PersonalDataWorkspace/><InterestsWorkspace/><InsightsWorkspace/></>}
