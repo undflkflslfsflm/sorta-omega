@@ -120,9 +120,10 @@ export async function persistLocalNoteEdit(
 }
 export async function cachedNoteSnapshot(noteId:string):Promise<CachedNoteSnapshot|null>{
   if(!offlineCaptureEnabled())return null;
-  if(blockedNoteAccess.has(noteId)||await get(META_STORE,`note-access-blocked:${noteId}`))return null;
+  if(await cachedNoteAccessBlocked(noteId))return null;
   return (await get<CachedNoteSnapshot>(META_STORE,`note-snapshot:${noteId}`))??null;
 }
+export async function cachedNoteAccessBlocked(noteId:string){return blockedNoteAccess.has(noteId)||Boolean(await get(META_STORE,`note-access-blocked:${noteId}`));}
 export async function setCachedNoteAccessBlocked(noteId:string,blocked:boolean){
   if(blocked){
     blockedNoteAccess.add(noteId);
