@@ -3343,6 +3343,7 @@ name = "sorta-desktop"
 version = "0.1.0"
 dependencies = [
  "arboard",
+ "chrono",
  "keyring",
  "reqwest 0.12.28",
  "serde",

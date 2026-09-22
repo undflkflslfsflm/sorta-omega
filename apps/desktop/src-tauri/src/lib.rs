@@ -286,7 +286,8 @@ async fn generation_capability_test(client: &reqwest::Client) -> ModelCapability
         "model": MODEL,
         "messages": [{"role": "user", "content": "Reply with exactly OMEGA_OK and nothing else."}],
         "temperature": 0,
-        "max_tokens": 16
+        "max_tokens": 16,
+        "chat_template_kwargs": {"enable_thinking": false}
     });
     let response = match client.post("http://127.0.0.1:8000/v1/chat/completions").header("accept", "application/json").json(&body).send().await {
         Ok(response) if response.status().is_success() && response.content_length().is_none_or(|length| length <= 1_048_576) => response,
