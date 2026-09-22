@@ -85,6 +85,17 @@ describe("desktop native bridge", () => {
     await expect(createDesktopBridge(async()=>({...await invoke(),mutationsApplied:true})).hostPreflight()).rejects.toThrow();
   });
 
+  it("accepts only bounded fixed-loopback model inspection results",async()=>{
+    const result={runtimes:[
+      {backend:"openai_compatible",endpoint:"http://127.0.0.1:8000/v1/models",status:"available",models:[{id:"Qwen/Qwen3.8-Flash-Next",digest:null}],limitation:"Listing proves presence, not capability."},
+      {backend:"ollama",endpoint:"http://127.0.0.1:11434/api/tags",status:"available",models:[{id:"qwen3-embedding:0.6b",digest:"a".repeat(64)}],limitation:"Listing proves presence, not capability."}
+    ],mutationsApplied:false,credentialsSent:false};
+    const invoke=vi.fn(async()=>result),bridge=createDesktopBridge(invoke);
+    await expect(bridge.inspectModels()).resolves.toEqual(result);
+    expect(invoke).toHaveBeenCalledWith("model_inspect");
+    await expect(createDesktopBridge(async()=>({...result,runtimes:[{...result.runtimes[0],endpoint:"http://192.168.1.2:8000/v1/models"},result.runtimes[1]]})).inspectModels()).rejects.toThrow();
+  });
+
   it("rejects malformed native results", async () => {
     const bridge = createDesktopBridge(async () => ({ text: "secret", mimeType: "text/html" }));
     await expect(bridge.captureClipboardSelection()).rejects.toThrow();

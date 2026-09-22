@@ -51,6 +51,11 @@ description = "Allows a read-only, redacted check of bounded Windows host prereq
 commands.allow = ["host_preflight"]
 
 [[permission]]
+identifier = "allow-model-inspect"
+description = "Allows read-only model listing probes against two fixed loopback runtime endpoints."
+commands.allow = ["model_inspect"]
+
+[[permission]]
 identifier = "allow-set-start-at-login"
 description = "Allows the owner to explicitly change start-at-login state."
 commands.allow = ["set_start_at_login"]

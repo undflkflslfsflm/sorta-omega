@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{env, path::{Path, PathBuf}};
+use std::{env, path::{Path, PathBuf}, time::Duration};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -58,6 +58,31 @@ struct HostPreflight {
     checks: Vec<HostPreflightCheck>,
     mutations_applied: bool,
     secrets_included: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelSummary {
+    id: String,
+    digest: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelRuntimeInspection {
+    backend: &'static str,
+    endpoint: &'static str,
+    status: &'static str,
+    models: Vec<ModelSummary>,
+    limitation: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelInspection {
+    runtimes: Vec<ModelRuntimeInspection>,
+    mutations_applied: bool,
+    credentials_sent: bool,
 }
 
 fn path_has_executable(file_names: &[&str], fixed_candidates: &[PathBuf]) -> bool {
@@ -194,6 +219,41 @@ fn host_preflight() -> HostPreflight {
     }
 }
 
+async fn inspect_model_runtime(client: &reqwest::Client, backend: &'static str, endpoint: &'static str) -> ModelRuntimeInspection {
+    const LIMITATION: &str = "A model listing proves runtime presence only; capability, quality, digest trust and resource use require a real test.";
+    let response=match client.get(endpoint).header("accept","application/json").send().await {
+        Ok(response) if response.status().is_success()=>response,
+        _=>return ModelRuntimeInspection { backend,endpoint,status:"unavailable",models:Vec::new(),limitation:LIMITATION },
+    };
+    let bytes=match response.bytes().await {
+        Ok(bytes) if bytes.len()<=1_048_576=>bytes,
+        _=>return ModelRuntimeInspection { backend,endpoint,status:"invalid_response",models:Vec::new(),limitation:LIMITATION },
+    };
+    let value:serde_json::Value=match serde_json::from_slice(&bytes) {
+        Ok(value)=>value,
+        Err(_)=>return ModelRuntimeInspection { backend,endpoint,status:"invalid_response",models:Vec::new(),limitation:LIMITATION },
+    };
+    let entries=if backend=="ollama" { value.get("models") } else { value.get("data") }.and_then(|item| item.as_array());
+    let Some(entries)=entries else { return ModelRuntimeInspection { backend,endpoint,status:"invalid_response",models:Vec::new(),limitation:LIMITATION }; };
+    let models=entries.iter().filter_map(|item| {
+        let id=if backend=="ollama" { item.get("name") } else { item.get("id") }?.as_str()?;
+        if id.is_empty()||id.len()>300{return None;}
+        let digest=item.get("digest").and_then(|value| value.as_str()).filter(|value| !value.is_empty()&&value.len()<=300).map(str::to_string);
+        Some(ModelSummary { id:id.to_string(),digest })
+    }).take(200).collect();
+    ModelRuntimeInspection { backend,endpoint,status:"available",models,limitation:LIMITATION }
+}
+
+#[tauri::command]
+async fn model_inspect() -> Result<ModelInspection, String> {
+    let client=reqwest::Client::builder().timeout(Duration::from_secs(3)).redirect(reqwest::redirect::Policy::none()).build().map_err(|_| "model_inspection_client_unavailable".to_string())?;
+    let (generation,embedding)=tokio::join!(
+        inspect_model_runtime(&client,"openai_compatible","http://127.0.0.1:8000/v1/models"),
+        inspect_model_runtime(&client,"ollama","http://127.0.0.1:11434/api/tags")
+    );
+    Ok(ModelInspection { runtimes:vec![generation,embedding],mutations_applied:false,credentials_sent:false })
+}
+
 #[tauri::command]
 fn set_start_at_login(app: AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
@@ -225,7 +285,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, host_preflight, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, host_preflight, model_inspect, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }

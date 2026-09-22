@@ -4,5 +4,5 @@
   "description": "The primary owner interface can call only the declared Sorta native commands.",
   "windows": ["main"],
   "remote": { "urls": ["http://127.0.0.1:3210/*"] },
-  "permissions": ["core:default", "allow-app-open-workspace", "allow-launch-calendar-view", "allow-open-calendar-event", "allow-open-commitment", "allow-navigate-to-event-source", "allow-capture-open", "allow-desktop-status", "allow-host-preflight", "allow-file-import", "allow-set-start-at-login", "allow-native-pairing-begin", "allow-native-pairing-poll", "allow-native-auth-status", "allow-native-api-request", "allow-native-unpair"]
+  "permissions": ["core:default", "allow-app-open-workspace", "allow-launch-calendar-view", "allow-open-calendar-event", "allow-open-commitment", "allow-navigate-to-event-source", "allow-capture-open", "allow-desktop-status", "allow-host-preflight", "allow-model-inspect", "allow-file-import", "allow-set-start-at-login", "allow-native-pairing-begin", "allow-native-pairing-poll", "allow-native-auth-status", "allow-native-api-request", "allow-native-unpair"]
 }
