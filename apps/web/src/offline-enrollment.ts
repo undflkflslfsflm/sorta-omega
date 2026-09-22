@@ -13,6 +13,12 @@ function policyAllowsOmega(policy:CachePolicy){
     &&policy.latestPurge?.status!=="requested"&&(!expiry||Date.parse(expiry)>Date.now());
 }
 async function rememberPolicy(policy:CachePolicy){await setOfflineClearOnLogout(policy.clearOnLogout);setOfflinePolicyExpiry(policyExpiry(policy));}
+async function invalidateLocalReplica(){
+  try{await clearOfflinePrivateDataForLogout();}finally{
+    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);
+    try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
+  }
+}
 
 export async function approvePersistentOfflineCache(deviceId:string){
   const current=await api.deviceCachePolicy(deviceId);
@@ -27,20 +33,22 @@ export async function approvePersistentOfflineCache(deviceId:string){
 }
 
 export async function verifyPersistentOfflineCache(deviceId:string){
-  const policy=await api.deviceCachePolicy(deviceId);
-  if(policyAllowsOmega(policy)){await rememberPolicy(policy);return policy;}
-  try{await clearOfflinePrivateDataForLogout();}finally{
-    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);
-    try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
+  let policy:CachePolicy;
+  try{policy=await api.deviceCachePolicy(deviceId);}
+  catch(error){
+    if(error instanceof ApiError&&[404,410].includes(error.status)){
+      await invalidateLocalReplica();
+      throw new ApiError(403,"offline_replica_device_revoked");
+    }
+    throw error;
   }
+  if(policyAllowsOmega(policy)){await rememberPolicy(policy);return policy;}
+  await invalidateLocalReplica();
   throw new ApiError(403,policy.latestPurge?.status==="requested"?"offline_cache_purge_requested":"offline_cache_policy_unavailable");
 }
 
 export async function enforceLocalOfflinePolicyExpiry(){
   if(!offlinePolicyExpired())return false;
-  try{await clearOfflinePrivateDataForLogout();}finally{
-    setOfflineCaptureEnabled(false);setOfflinePolicyExpiry(null);
-    try{await setCachedCoreAccessBlocked(true);}catch{/* The in-memory block is immediate. */}
-  }
+  await invalidateLocalReplica();
   return true;
 }

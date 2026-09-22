@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import type { DeviceCachePolicy } from "@sorta/contracts";
-import { api,VAULT_ID } from "./api";
+import { api,ApiError,VAULT_ID } from "./api";
 import { approvePersistentOfflineCache,enforceLocalOfflinePolicyExpiry,verifyPersistentOfflineCache } from "./offline-enrollment";
 import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,offlineCaptureEnabled,offlineClearOnLogout,offlinePolicyExpiry,setOfflineCaptureEnabled,setOfflinePolicyExpiry,setReplicaDeviceId } from "./offline-queue";
 
@@ -60,6 +60,18 @@ describe("persistent offline enrollment",()=>{
     vi.spyOn(api,"deviceCachePolicy").mockResolvedValue(configured);
     expect(await verifyPersistentOfflineCache(deviceId)).toEqual(configured);
     expect(await cachedCoreRecords()).not.toBeNull();
+  });
+  it("clears a replica when its server-side device grant is gone",async()=>{
+    setOfflineCaptureEnabled(true);await setReplicaDeviceId(deviceId);await cacheCoreRecords({notes:[],tasks:[],events:[]});
+    vi.spyOn(api,"deviceCachePolicy").mockRejectedValue(new ApiError(404,"device_not_found"));
+    await expect(verifyPersistentOfflineCache(deviceId)).rejects.toMatchObject({status:403,code:"offline_replica_device_revoked"});
+    expect(offlineCaptureEnabled()).toBe(false);expect(await cachedCoreRecords()).toBeNull();
+  });
+  it("does not destroy retained data for a transient policy-check failure",async()=>{
+    setOfflineCaptureEnabled(true);await cacheCoreRecords({notes:[],tasks:[],events:[]});
+    const failure=new TypeError("offline");vi.spyOn(api,"deviceCachePolicy").mockRejectedValue(failure);
+    await expect(verifyPersistentOfflineCache(deviceId)).rejects.toBe(failure);
+    expect(offlineCaptureEnabled()).toBe(true);expect(await cachedCoreRecords()).not.toBeNull();
   });
   it("actively removes expired private bytes before an online policy request",async()=>{
     const request=vi.spyOn(api,"deviceCachePolicy");

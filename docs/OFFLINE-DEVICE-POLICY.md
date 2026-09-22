@@ -59,3 +59,11 @@ device identity and policy metadata for later authenticated renewal, disables
 new caching, removes the local expiry marker and applies the core cache block.
 Focused tests prove expired private bytes are removed without issuing a policy
 request, in addition to the synchronous read-disable boundary.
+
+Policy verification also treats server-side device absence (`404`/`410`) as
+revocation: it clears and disables the local replica, then surfaces a local 403
+so the workspace removes displayed cached data. Authentication failures and
+transient network/server outages are not reclassified as revocation; retained
+data remains locked or eligible for the normal, still-valid offline fallback.
+Two focused tests distinguish revoked-device cleanup from a network failure that
+must preserve the cache.
