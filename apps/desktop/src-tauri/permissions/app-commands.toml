@@ -56,6 +56,11 @@ description = "Allows read-only model listing probes against two fixed loopback 
 commands.allow = ["model_inspect"]
 
 [[permission]]
+identifier = "allow-model-test"
+description = "Allows a fixed, read-only generation and embedding capability test against two loopback runtimes."
+commands.allow = ["model_test"]
+
+[[permission]]
 identifier = "allow-set-start-at-login"
 description = "Allows the owner to explicitly change start-at-login state."
 commands.allow = ["set_start_at_login"]

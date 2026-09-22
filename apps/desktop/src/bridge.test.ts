@@ -96,6 +96,17 @@ describe("desktop native bridge", () => {
     await expect(createDesktopBridge(async()=>({...result,runtimes:[{...result.runtimes[0],endpoint:"http://192.168.1.2:8000/v1/models"},result.runtimes[1]]})).inspectModels()).rejects.toThrow();
   });
 
+  it("runs only the closed native model capability test and validates measured results",async()=>{
+    const result={tests:[
+      {backend:"openai_compatible",capability:"generation",model:"Qwen/Qwen3.8-Flash-Next",status:"passed",durationMs:420,outputTokens:3,embeddingDimensions:null,detail:"Returned the fixed capability marker."},
+      {backend:"ollama",capability:"embedding",model:"qwen3-embedding:0.6b",status:"passed",durationMs:90,outputTokens:null,embeddingDimensions:1024,detail:"Returned the required embedding dimensions."}
+    ],measuredAt:"2026-09-22T18:00:00.000Z",mutationsApplied:false,credentialsSent:false,resourceLimitation:"Latency is measured; GPU and RAM use are not available to this bounded command."};
+    const invoke=vi.fn(async()=>result),bridge=createDesktopBridge(invoke);
+    await expect(bridge.testModels()).resolves.toEqual(result);
+    expect(invoke).toHaveBeenCalledWith("model_test");
+    await expect(createDesktopBridge(async()=>({...result,tests:[{...result.tests[0],model:"arbitrary/model"},result.tests[1]]})).testModels()).rejects.toThrow();
+  });
+
   it("rejects malformed native results", async () => {
     const bridge = createDesktopBridge(async () => ({ text: "secret", mimeType: "text/html" }));
     await expect(bridge.captureClipboardSelection()).rejects.toThrow();

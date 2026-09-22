@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{env, path::{Path, PathBuf}, time::Duration};
+use std::{env, path::{Path, PathBuf}, time::{Duration, Instant}};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -83,6 +83,29 @@ struct ModelInspection {
     runtimes: Vec<ModelRuntimeInspection>,
     mutations_applied: bool,
     credentials_sent: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelCapabilityTest {
+    backend: &'static str,
+    capability: &'static str,
+    model: &'static str,
+    status: &'static str,
+    duration_ms: u64,
+    output_tokens: Option<u64>,
+    embedding_dimensions: Option<usize>,
+    detail: &'static str,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModelTestReport {
+    tests: Vec<ModelCapabilityTest>,
+    measured_at: String,
+    mutations_applied: bool,
+    credentials_sent: bool,
+    resource_limitation: &'static str,
 }
 
 fn path_has_executable(file_names: &[&str], fixed_candidates: &[PathBuf]) -> bool {
@@ -252,6 +275,74 @@ async fn model_inspect() -> Result<ModelInspection, String> {
     Ok(ModelInspection { runtimes:vec![generation,embedding],mutations_applied:false,credentials_sent:false })
 }
 
+fn bounded_duration_ms(started: Instant) -> u64 {
+    started.elapsed().as_millis().min(300_000) as u64
+}
+
+async fn generation_capability_test(client: &reqwest::Client) -> ModelCapabilityTest {
+    const MODEL: &str = "Qwen/Qwen3.8-Flash-Next";
+    let started = Instant::now();
+    let body = serde_json::json!({
+        "model": MODEL,
+        "messages": [{"role": "user", "content": "Reply with exactly OMEGA_OK and nothing else."}],
+        "temperature": 0,
+        "max_tokens": 16
+    });
+    let response = match client.post("http://127.0.0.1:8000/v1/chat/completions").header("accept", "application/json").json(&body).send().await {
+        Ok(response) if response.status().is_success() && response.content_length().is_none_or(|length| length <= 1_048_576) => response,
+        _ => return ModelCapabilityTest { backend: "openai_compatible", capability: "generation", model: MODEL, status: "unavailable", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The fixed loopback generation request was unavailable." },
+    };
+    let bytes = match response.bytes().await {
+        Ok(bytes) if bytes.len() <= 1_048_576 => bytes,
+        _ => return ModelCapabilityTest { backend: "openai_compatible", capability: "generation", model: MODEL, status: "failed", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The generation response exceeded the bound or could not be read." },
+    };
+    let value: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(value) => value,
+        Err(_) => return ModelCapabilityTest { backend: "openai_compatible", capability: "generation", model: MODEL, status: "failed", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The generation response was not valid JSON." },
+    };
+    let content = value.pointer("/choices/0/message/content").and_then(|item| item.as_str());
+    let output_tokens = value.pointer("/usage/completion_tokens").and_then(|item| item.as_u64()).filter(|count| *count <= 10_000);
+    let passed = content.is_some_and(|text| text.trim() == "OMEGA_OK");
+    ModelCapabilityTest { backend: "openai_compatible", capability: "generation", model: MODEL, status: if passed { "passed" } else { "failed" }, duration_ms: bounded_duration_ms(started), output_tokens, embedding_dimensions: None, detail: if passed { "The fixed prompt returned the exact capability marker." } else { "The generation response did not return the exact capability marker." } }
+}
+
+async fn embedding_capability_test(client: &reqwest::Client) -> ModelCapabilityTest {
+    const MODEL: &str = "qwen3-embedding:0.6b";
+    let started = Instant::now();
+    let body = serde_json::json!({"model": MODEL, "input": ["omega capability check"]});
+    let response = match client.post("http://127.0.0.1:11434/api/embed").header("accept", "application/json").json(&body).send().await {
+        Ok(response) if response.status().is_success() && response.content_length().is_none_or(|length| length <= 1_048_576) => response,
+        _ => return ModelCapabilityTest { backend: "ollama", capability: "embedding", model: MODEL, status: "unavailable", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The fixed loopback embedding request was unavailable." },
+    };
+    let bytes = match response.bytes().await {
+        Ok(bytes) if bytes.len() <= 1_048_576 => bytes,
+        _ => return ModelCapabilityTest { backend: "ollama", capability: "embedding", model: MODEL, status: "failed", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The embedding response exceeded the bound or could not be read." },
+    };
+    let value: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(value) => value,
+        Err(_) => return ModelCapabilityTest { backend: "ollama", capability: "embedding", model: MODEL, status: "failed", duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: None, detail: "The embedding response was not valid JSON." },
+    };
+    let vector = value.pointer("/embeddings/0").and_then(|item| item.as_array());
+    let dimensions = vector.map(Vec::len).filter(|count| *count <= 100_000);
+    let finite = vector.is_some_and(|items| items.iter().all(|item| item.as_f64().is_some_and(f64::is_finite)));
+    let passed = dimensions == Some(1024) && finite;
+    ModelCapabilityTest { backend: "ollama", capability: "embedding", model: MODEL, status: if passed { "passed" } else { "failed" }, duration_ms: bounded_duration_ms(started), output_tokens: None, embedding_dimensions: dimensions, detail: if passed { "The fixed input returned 1,024 finite embedding dimensions." } else { "The embedding response did not contain 1,024 finite dimensions." } }
+}
+
+#[tauri::command]
+async fn model_test() -> Result<ModelTestReport, String> {
+    let client = reqwest::Client::builder().timeout(Duration::from_secs(60)).redirect(reqwest::redirect::Policy::none()).build().map_err(|_| "model_test_client_unavailable".to_string())?;
+    let generation = generation_capability_test(&client).await;
+    let embedding = embedding_capability_test(&client).await;
+    Ok(ModelTestReport {
+        tests: vec![generation, embedding],
+        measured_at: chrono::Utc::now().to_rfc3339(),
+        mutations_applied: false,
+        credentials_sent: false,
+        resource_limitation: "Wall-clock latency is measured; this bounded command does not claim GPU, VRAM or RAM measurements.",
+    })
+}
+
 #[tauri::command]
 fn set_start_at_login(app: AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
@@ -283,7 +374,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, host_preflight, model_inspect, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, navigate_to_event_source, desktop_status, host_preflight, model_inspect, model_test, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }
