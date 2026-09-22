@@ -65,3 +65,9 @@ The note screen now chooses the shared editor before showing editable content wh
 Shared edits must commit locally before ordinary navigation. Forced unmount attempts local persistence; a failure retains the live session in memory for reopening and warns against closing the browser. That memory fallback does not survive a process crash. Restore/trash actions are blocked while this note has queued updates or stored conflicts. Real browser lifecycle, authentication-revocation, offline-open, multi-tab and database-backed acceptance are still required; unit tests and a production bundle are not proof of those workflows.
 
 Activation verification: 24 web tests pass, including trust/enrollment gating, legacy-mode preservation, migrated-session selection, initialization failure propagation, and non-discardable shared-edit navigation. Web typechecking and a production build passed locally; large-chunk warnings remain. No live notes were migrated as part of this change.
+
+## Editor defaults contract regression
+
+Tests using the actual Tiptap schema found two autosave blockers missed by hand-authored document fixtures: default table cells/headers emit `align: null`, and default links emit `title: null`. The contract now accepts table alignment only as null/left/center/right and a link title only as null or bounded text. Unsafe link schemes, event attributes and arbitrary alignment style strings remain rejected. Every installed block and mark's generated defaults are checked against the API contract; a Yjs table migration/reload regression verifies that default cell attributes and alignment survive serialization. These checks exercise the real schema but are not DOM interaction tests.
+
+Verification: all 27 web tests and 73 focused API contract/rich-document tests passed. Contracts build, web/API typechecking and generated OpenAPI/client checks passed on the local Node 24 toolchain.

@@ -3,6 +3,16 @@ import * as Y from "yjs";
 import { initializeRichDocument, readRichDocument, richDocumentFragmentName } from "./rich-document.js";
 
 describe("shared rich-text representation", () => {
+  it("retains editor-generated table defaults and alignment through migration and reload", () => {
+    const input={type:"doc",content:[{type:"table",content:[{type:"tableRow",content:[
+      {type:"tableHeader",attrs:{colspan:1,rowspan:1,colwidth:null,align:"center"},content:[{type:"paragraph",content:[{type:"text",text:"Header"}]}]},
+      {type:"tableCell",attrs:{colspan:1,rowspan:1,colwidth:[120],align:null},content:[{type:"paragraph",content:[{type:"text",text:"Cell"}]}]}
+    ]}]}]};
+    const doc=new Y.Doc();initializeRichDocument(doc,input);
+    const reloaded=new Y.Doc();Y.applyUpdate(reloaded,Y.encodeStateAsUpdate(doc));
+    expect(readRichDocument(reloaded)).toEqual(input);
+    doc.destroy();reloaded.destroy();
+  });
   it("initializes formatted blocks once and preserves adjacent marked text order", () => {
     const document = new Y.Doc();
     const input = { type:"doc", content:[
