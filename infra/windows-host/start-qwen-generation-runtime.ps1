@@ -69,8 +69,18 @@ try {
     '--n-gpu-layers', 'auto',
     '--metrics'
   )
-  & $server @serverArguments 1>> $stdoutLog 2>> $stderrLog
-  if ($LASTEXITCODE -ne 0) { throw "llama-server exited with code $LASTEXITCODE." }
+  $previousErrorActionPreference = $ErrorActionPreference
+  try {
+    # Windows PowerShell 5.1 wraps ordinary native stderr as NativeCommandError
+    # when ErrorActionPreference is Stop. llama-server logs normal startup status
+    # to stderr, so use its process exit code as the authoritative failure signal.
+    $ErrorActionPreference = 'Continue'
+    & $server @serverArguments 1>> $stdoutLog 2>> $stderrLog
+    $serverExitCode = $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+  }
+  if ($serverExitCode -ne 0) { throw "llama-server exited with code $serverExitCode." }
 } finally {
   Pop-Location
 }
