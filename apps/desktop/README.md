@@ -7,7 +7,7 @@ This package is the Windows Tauri 2 shell for the same application served by the
 - `Ctrl+Shift+Space` opens the hidden quick-capture window.
 - The tray menu opens Sorta, opens quick capture, or exits.
 - Clipboard text is read only after the visible **Paste clipboard** action invokes `clipboard_capture_selection`; there is no clipboard watcher.
-- File selection uses an owner-visible native picker and returns only the selected path and display name. Reading/importing it still belongs to the canonical capture service and is not claimed by this picker alone.
+- `file_import` uses an owner-visible native picker, streams the selected file through the canonical resumable upload contract, verifies per-part and whole-file SHA-256, and returns only the immutable blob record to the renderer. Local paths and native credentials never enter renderer state; failed open uploads receive a bounded cancellation attempt.
 - Workspace navigation accepts a closed workspace enum and an optional UUID. It cannot open arbitrary URLs or execute native commands.
 - `launch_calendar_view`, `open_calendar_event`, and `open_commitment` emit the same validated navigation event. The renderer validates it again, respects unsaved-editor guards, and focuses the exact loaded calendar/commitment record; requested notes are loaded through the authenticated API.
 - Start-at-login is an explicit native setting. It is not enabled by default.

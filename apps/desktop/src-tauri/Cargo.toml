@@ -18,8 +18,9 @@ keyring = { version = "3.6.3", default-features = false, features = ["windows-na
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-autostart = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-global-shortcut = "2"
-tokio = { version = "1", features = ["sync"] }
+tokio = { version = "1", features = ["fs", "io-util", "sync"] }

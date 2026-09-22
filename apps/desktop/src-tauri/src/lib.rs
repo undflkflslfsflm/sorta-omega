@@ -7,7 +7,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 mod native_auth;
-use native_auth::{native_api_request, native_auth_status, native_pairing_begin, native_pairing_poll, native_unpair, NativeClient};
+use native_auth::{native_api_request, native_auth_status, native_pairing_begin, native_pairing_poll, native_unpair, upload_file, NativeClient};
 
 const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+Space";
 
@@ -16,12 +16,6 @@ const DEFAULT_SHORTCUT: &str = "Ctrl+Shift+Space";
 struct ClipboardCapture {
     text: String,
     mime_type: &'static str,
-}
-
-#[derive(Serialize)]
-struct PickedFile {
-    path: String,
-    name: String,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -62,11 +56,10 @@ fn clipboard_capture_selection() -> Result<ClipboardCapture, String> {
 }
 
 #[tauri::command]
-async fn file_import_pick(app: AppHandle) -> Result<Option<PickedFile>, String> {
+async fn file_import(app: AppHandle, state: tauri::State<'_, NativeClient>, vault_id: String) -> Result<Option<serde_json::Value>, String> {
     let selected = app.dialog().file().blocking_pick_file();
     let Some(path) = selected.and_then(|file| file.into_path().ok()) else { return Ok(None); };
-    let name = path.file_name().and_then(|value| value.to_str()).ok_or_else(|| "selected_file_name_invalid".to_string())?.to_string();
-    Ok(Some(PickedFile { path: path.to_string_lossy().into_owned(), name }))
+    upload_file(&state, &vault_id, &path).await.map(Some)
 }
 
 fn valid_record_id(value: &str) -> bool {
@@ -147,7 +140,7 @@ pub fn run() {
             app.global_shortcut().register(DEFAULT_SHORTCUT)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import_pick, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
+        .invoke_handler(tauri::generate_handler![capture_open, clipboard_capture_selection, file_import, app_open_workspace, launch_calendar_view, open_calendar_event, open_commitment, desktop_status, set_start_at_login, native_pairing_begin, native_pairing_poll, native_auth_status, native_api_request, native_unpair])
         .run(tauri::generate_context!())
         .expect("Sorta desktop runtime failed");
 }

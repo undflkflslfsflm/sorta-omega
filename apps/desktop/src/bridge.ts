@@ -1,8 +1,8 @@
 import {
   idSchema,
+  blobSummarySchema,
   nativeClipboardCaptureSchema,
   nativeDesktopStatusSchema,
-  nativePickedFileSchema,
   nativePairingChallengeSchema,
   nativePairingStatusSchema,
   nativeAuthStatusSchema,
@@ -16,7 +16,7 @@ import {
   type NativeDesktopStatus,
   type NativePairingChallenge,
   type NativePairingStatus,
-  type NativePickedFile,
+  type BlobSummary,
   type NativeWorkspaceTarget
 } from "@sorta/contracts";
 
@@ -29,9 +29,10 @@ export function createDesktopBridge(invoke: NativeInvoke,listen?:NativeListen) {
     async captureClipboardSelection(): Promise<NativeClipboardCapture> {
       return nativeClipboardCaptureSchema.parse(await invoke("clipboard_capture_selection"));
     },
-    async pickImportFile(): Promise<NativePickedFile | null> {
-      const value = await invoke("file_import_pick");
-      return value === null ? null : nativePickedFileSchema.parse(value);
+    async importFile(vaultId: string): Promise<BlobSummary | null> {
+      const validatedVaultId = idSchema.parse(vaultId);
+      const value = await invoke("file_import", { vaultId: validatedVaultId });
+      return value === null ? null : blobSummarySchema.parse(value);
     },
     async openWorkspace(target: NativeWorkspaceTarget): Promise<void> {
       const validated = nativeWorkspaceTargetSchema.parse(target);

@@ -3990,6 +3990,11 @@
         "section": "dependencies"
       },
       {
+        "name": "sha2",
+        "requested": "\"0.10\"",
+        "section": "dependencies"
+      },
+      {
         "name": "tauri",
         "requested": "{ version = \"2\", features = [\"tray-icon\"] }",
         "section": "dependencies"
@@ -4016,7 +4021,7 @@
       },
       {
         "name": "tokio",
-        "requested": "{ version = \"1\", features = [\"sync\"] }",
+        "requested": "{ version = \"1\", features = [\"fs\", \"io-util\", \"sync\"] }",
         "section": "dependencies"
       }
     ]

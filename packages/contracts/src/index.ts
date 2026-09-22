@@ -1075,7 +1075,6 @@ export const providerCalendarActionSchema=z.object({id:idSchema,vaultId:vaultIdS
 export const nativeWorkspaceSchema=z.enum(["inbox","today","calendar","tasks","brain","search","settings","school","life"]);
 export const nativeWorkspaceTargetSchema=z.object({workspace:nativeWorkspaceSchema,recordId:idSchema.nullable().default(null)}).strict();
 export const nativeClipboardCaptureSchema=z.object({text:z.string().max(1_000_000),mimeType:z.literal("text/plain")}).strict();
-export const nativePickedFileSchema=z.object({path:z.string().min(1).max(32_768),name:z.string().min(1).max(1_024)}).strict();
 export const nativeDesktopStatusSchema=z.object({shortcut:z.string().min(1).max(100),shortcutRegistered:z.boolean(),startAtLogin:z.boolean(),platform:z.literal("windows")}).strict();
 export const nativePairingChallengeSchema=z.object({pairingId:idSchema,userCode:z.string().regex(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/),expiresAt:z.string().datetime()}).strict();
 export const nativePairingStatusSchema=z.discriminatedUnion("status",[
@@ -1167,6 +1166,6 @@ export type SchedulePreviewResult = z.infer<typeof schedulePreviewResultSchema>;
 export type ScheduleExplanation = z.infer<typeof scheduleExplanationSchema>;
 export type Proposal = z.infer<typeof proposalSchema>;
 export type ProviderCalendarAction=z.infer<typeof providerCalendarActionSchema>;
-export type NativeWorkspace=z.infer<typeof nativeWorkspaceSchema>; export type NativeWorkspaceTarget=z.infer<typeof nativeWorkspaceTargetSchema>; export type NativeClipboardCapture=z.infer<typeof nativeClipboardCaptureSchema>; export type NativePickedFile=z.infer<typeof nativePickedFileSchema>; export type NativeDesktopStatus=z.infer<typeof nativeDesktopStatusSchema>; export type NativePairingChallenge=z.infer<typeof nativePairingChallengeSchema>; export type NativePairingStatus=z.infer<typeof nativePairingStatusSchema>; export type NativeAuthStatus=z.infer<typeof nativeAuthStatusSchema>; export type NativeApiRequest=z.infer<typeof nativeApiRequestSchema>; export type NativeApiResponse=z.infer<typeof nativeApiResponseSchema>;
+export type NativeWorkspace=z.infer<typeof nativeWorkspaceSchema>; export type NativeWorkspaceTarget=z.infer<typeof nativeWorkspaceTargetSchema>; export type NativeClipboardCapture=z.infer<typeof nativeClipboardCaptureSchema>; export type NativeDesktopStatus=z.infer<typeof nativeDesktopStatusSchema>; export type NativePairingChallenge=z.infer<typeof nativePairingChallengeSchema>; export type NativePairingStatus=z.infer<typeof nativePairingStatusSchema>; export type NativeAuthStatus=z.infer<typeof nativeAuthStatusSchema>; export type NativeApiRequest=z.infer<typeof nativeApiRequestSchema>; export type NativeApiResponse=z.infer<typeof nativeApiResponseSchema>;
 export type DeviceScope=z.infer<typeof deviceScopeSchema>; export type DeviceSummary=z.infer<typeof deviceSummarySchema>; export type TokenPair=z.infer<typeof tokenPairSchema>; export type ApiTokenSummary=z.infer<typeof apiTokenSummarySchema>;
 export type DeviceCachePolicy=z.infer<typeof deviceCachePolicySchema>;

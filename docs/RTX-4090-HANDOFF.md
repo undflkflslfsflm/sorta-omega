@@ -121,7 +121,7 @@ Store the one-time token in the Windows service secret environment, set `OMEGA_W
 1. Run `pnpm --filter @sorta/desktop native:info`, then `native:build`. Resolve and lock Rust dependencies; regenerate the dependency/license inventory afterward.
 2. Build both NSIS and MSI, but call them signed only if an actual trusted signing certificate was used and verified.
 3. Test install, upgrade, rollback and uninstall while preserving data unless separate removal is confirmed.
-4. Verify Windows Credential Manager storage/rotation, one-time pairing, replay revocation, tray actions, shortcut conflict behavior, start-at-login, deliberate clipboard read and owner file picker.
+4. Verify Windows Credential Manager storage/rotation, one-time pairing, replay revocation, tray actions, shortcut conflict behavior, start-at-login and deliberate clipboard read. Exercise `file_import` with a small file, a file above the browser's 64 MiB limit, a changed-during-read file, cancellation, host loss between parts and a rejected/revoked `capture:write` grant; prove the renderer never receives a local path and the completed immutable blob hash matches the selected original.
 5. Measure quick-capture appearance against the under-500-ms target.
 6. The full Appendix A.4 native command set is not yet implemented. Finish commands only through validated shared domain behavior—especially local vault/sync controls, folder watches, model controls, audio, authorized export save, backup/restore, local reminder delivery, update, calendar/commitment/source navigation, focus control and personal-export import. Do not add name-only IPC stubs or arbitrary path/URL/command execution.
 

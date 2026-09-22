@@ -12,6 +12,14 @@ describe("desktop native bridge", () => {
     expect(invoke).toHaveBeenCalledWith("clipboard_capture_selection");
   });
 
+  it("imports a picker-selected file without exposing its local path", async () => {
+    const blob={id:"00000000-0000-4000-8000-000000000042",vaultId:"00000000-0000-4000-8000-000000000001",filename:"archive.zip",mediaType:"application/zip",byteLength:70_000_000,sha256:"a".repeat(64),createdAt:"2026-09-22T12:00:00.000Z"};
+    const invoke=vi.fn(async()=>blob),bridge=createDesktopBridge(invoke);
+    await expect(bridge.importFile(blob.vaultId)).resolves.toEqual(blob);
+    expect(invoke).toHaveBeenCalledWith("file_import",{vaultId:blob.vaultId});
+    expect(JSON.stringify(await bridge.importFile(blob.vaultId))).not.toContain(":\\\\");
+  });
+
   it("rejects arbitrary workspaces before native IPC", async () => {
     const invoke = vi.fn(async () => undefined);
     const bridge = createDesktopBridge(invoke);

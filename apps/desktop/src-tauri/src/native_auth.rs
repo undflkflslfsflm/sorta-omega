@@ -1,10 +1,12 @@
-use std::time::{Duration, Instant};
+use std::{path::Path, time::{Duration, Instant}};
 
 use keyring::Entry;
 use reqwest::{Client, Method, StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use tauri::State;
+use tokio::{fs::File, io::AsyncReadExt};
 use tokio::sync::Mutex;
 
 const CREDENTIAL_SERVICE: &str = "app.sorta.omega";
@@ -12,6 +14,8 @@ const CREDENTIAL_ACCOUNT: &str = "native-device-refresh";
 const MAX_REQUEST_BYTES: usize = 1_000_000;
 const MAX_RESPONSE_BYTES: u64 = 5_000_000;
 const ACCESS_REFRESH_AFTER: Duration = Duration::from_secs(14 * 60);
+const MAX_IMPORT_BYTES: u64 = 2_147_483_648;
+const MAX_UPLOAD_PART_BYTES: usize = 16 * 1024 * 1024;
 
 pub struct NativeClient {
     client: Client,
@@ -58,6 +62,13 @@ struct TokenPairWire {
     refresh_expires_at: String,
     vault_ids: Vec<String>,
     scopes: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct UploadSessionWire {
+    upload_id: String,
+    part_size: usize,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -231,6 +242,88 @@ async fn ensure_access(client: &NativeClient) -> Result<String, String> {
     };
     install_token_pair(&mut auth, &pair)?;
     Ok(pair.access_token)
+}
+
+fn import_media_type(path: &Path) -> &'static str {
+    match path.extension().and_then(|value| value.to_str()).unwrap_or_default().to_ascii_lowercase().as_str() {
+        "pdf" => "application/pdf", "json" => "application/json", "zip" => "application/zip", "tar" => "application/x-tar",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "txt" => "text/plain", "md" | "markdown" => "text/markdown", "csv" => "text/csv", "ics" => "text/calendar",
+        "jpg" | "jpeg" => "image/jpeg", "png" => "image/png", "gif" => "image/gif", "webp" => "image/webp", "heic" => "image/heic", "heif" => "image/heif",
+        "mp3" => "audio/mpeg", "m4a" => "audio/mp4", "ogg" => "audio/ogg", "wav" => "audio/wav", "mp4" => "video/mp4", "webm" => "video/webm",
+        _ => "application/octet-stream",
+    }
+}
+
+async fn response_error(response: reqwest::Response, fallback: &str) -> String {
+    response.json::<Value>().await.ok()
+        .and_then(|body| body.get("error").and_then(Value::as_str).map(str::to_owned))
+        .unwrap_or_else(|| fallback.to_string())
+}
+
+pub async fn upload_file(client: &NativeClient, vault_id: &str, path: &Path) -> Result<Value, String> {
+    if !super::valid_record_id(vault_id) { return Err("vault_id_invalid".to_string()); }
+    let metadata = tokio::fs::metadata(path).await.map_err(|_| "selected_file_unavailable".to_string())?;
+    if !metadata.is_file() { return Err("selected_path_not_file".to_string()); }
+    let byte_length = metadata.len();
+    if byte_length == 0 || byte_length > MAX_IMPORT_BYTES { return Err("selected_file_size_invalid".to_string()); }
+    let filename = path.file_name().and_then(|value| value.to_str()).ok_or_else(|| "selected_file_name_invalid".to_string())?;
+    if filename.chars().count() > 255 || filename.chars().any(|value| value.is_control()) { return Err("selected_file_name_invalid".to_string()); }
+
+    let mut source = File::open(path).await.map_err(|_| "selected_file_unavailable".to_string())?;
+    let mut hasher = Sha256::new();
+    let mut hash_buffer = vec![0u8; 1024 * 1024];
+    loop {
+        let read = source.read(&mut hash_buffer).await.map_err(|_| "selected_file_read_failed".to_string())?;
+        if read == 0 { break; }
+        hasher.update(&hash_buffer[..read]);
+    }
+    let whole_hash = format!("{:x}", hasher.finalize());
+    let access = ensure_access(client).await?;
+    let create = client.client.post(format!("{}/api/v1/vaults/{}/uploads", client.origin, vault_id)).bearer_auth(access).json(&json!({
+        "filename": filename, "mediaType": import_media_type(path), "byteLength": byte_length, "sha256": whole_hash
+    })).send().await.map_err(|_| "native_api_unreachable".to_string())?;
+    if create.status() != StatusCode::CREATED { return Err(response_error(create, "native_upload_create_rejected").await); }
+    let session: UploadSessionWire = create.json().await.map_err(|_| "native_upload_session_invalid".to_string())?;
+    if !super::valid_record_id(&session.upload_id) || session.part_size == 0 || session.part_size > MAX_UPLOAD_PART_BYTES || byte_length.div_ceil(session.part_size as u64) > 512 {
+        return Err("native_upload_session_invalid".to_string());
+    }
+
+    let upload_path = format!("/api/v1/vaults/{}/uploads/{}", vault_id, session.upload_id);
+    let outcome = async {
+        let mut file = File::open(path).await.map_err(|_| "selected_file_unavailable".to_string())?;
+        let mut offset = 0u64;
+        let mut part_number = 1u64;
+        while offset < byte_length {
+            let expected = usize::try_from((byte_length - offset).min(session.part_size as u64)).map_err(|_| "native_upload_part_invalid".to_string())?;
+            let mut bytes = vec![0u8; expected];
+            file.read_exact(&mut bytes).await.map_err(|_| "selected_file_changed_during_import".to_string())?;
+            let part_hash = format!("{:x}", Sha256::digest(&bytes));
+            let access = ensure_access(client).await?;
+            let response = client.client.put(format!("{}{}{}", client.origin, upload_path, format!("/parts/{}", part_number)))
+                .bearer_auth(access)
+                .header("content-type", "application/octet-stream")
+                .header("content-range", format!("bytes {}-{}/{}", offset, offset + expected as u64 - 1, byte_length))
+                .header("x-part-sha256", part_hash)
+                .body(bytes).send().await.map_err(|_| "native_api_unreachable".to_string())?;
+            if response.status() != StatusCode::NO_CONTENT { return Err(response_error(response, "native_upload_part_rejected").await); }
+            offset += expected as u64;
+            part_number += 1;
+        }
+        let access = ensure_access(client).await?;
+        let complete = client.client.post(format!("{}{}{}", client.origin, upload_path, "/complete")).bearer_auth(access)
+            .json(&json!({"sha256": whole_hash, "partCount": part_number - 1})).send().await.map_err(|_| "native_api_unreachable".to_string())?;
+        if complete.status() != StatusCode::CREATED { return Err(response_error(complete, "native_upload_complete_rejected").await); }
+        complete.json::<Value>().await.map_err(|_| "native_upload_result_invalid".to_string())
+    }.await;
+    if outcome.is_err() {
+        if let Ok(access) = ensure_access(client).await {
+            let _ = client.client.delete(format!("{}{}", client.origin, upload_path)).bearer_auth(access).send().await;
+        }
+    }
+    outcome
 }
 
 #[tauri::command]

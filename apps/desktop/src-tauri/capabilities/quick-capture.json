@@ -4,5 +4,5 @@
   "description": "Quick capture can open itself and read text only after an explicit clipboard action.",
   "windows": ["quick-capture"],
   "remote": { "urls": ["http://127.0.0.1:3210/*"] },
-  "permissions": ["core:default", "allow-capture-open", "allow-clipboard-capture-selection", "allow-file-import-pick", "allow-native-auth-status", "allow-native-api-request"]
+  "permissions": ["core:default", "allow-capture-open", "allow-clipboard-capture-selection", "allow-file-import", "allow-native-auth-status", "allow-native-api-request"]
 }

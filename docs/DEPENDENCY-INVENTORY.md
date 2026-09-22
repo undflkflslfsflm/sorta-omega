@@ -54,12 +54,13 @@ Resolution status: declared only; Cargo is unavailable here, so transitive versi
 | `reqwest` | dependencies | `{ version = "0.12", default-features = false, features = ["json", "rustls-tls"] }` |
 | `serde` | dependencies | `{ version = "1", features = ["derive"] }` |
 | `serde_json` | dependencies | `"1"` |
+| `sha2` | dependencies | `"0.10"` |
 | `tauri` | dependencies | `{ version = "2", features = ["tray-icon"] }` |
 | `tauri-build` | build-dependencies | `{ version = "2", features = [] }` |
 | `tauri-plugin-autostart` | dependencies | `"2"` |
 | `tauri-plugin-dialog` | dependencies | `"2"` |
 | `tauri-plugin-global-shortcut` | dependencies | `"2"` |
-| `tokio` | dependencies | `{ version = "1", features = ["sync"] }` |
+| `tokio` | dependencies | `{ version = "1", features = ["fs", "io-util", "sync"] }` |
 
 ## Container images
 
