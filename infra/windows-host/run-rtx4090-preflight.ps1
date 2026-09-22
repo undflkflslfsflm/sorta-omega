@@ -68,8 +68,8 @@ function Test-SafeStoragePath {
   param([AllowEmptyString()][string]$PathValue)
 
   if ([string]::IsNullOrWhiteSpace($PathValue)) { return $false }
-  if (-not [System.IO.Path]::IsPathFullyQualified($PathValue)) { return $false }
-  $fullPath = [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\')
+  if (-not [System.IO.Path]::IsPathRooted($PathValue) -or $PathValue -notmatch '^[A-Za-z]:[\\/]') { return $false }
+  try { $fullPath = [System.IO.Path]::GetFullPath($PathValue).TrimEnd('\') } catch { return $false }
   $root = [System.IO.Path]::GetPathRoot($fullPath).TrimEnd('\')
   return $fullPath -ne $root
 }
