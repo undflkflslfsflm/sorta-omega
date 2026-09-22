@@ -4,6 +4,7 @@ import * as Y from "yjs";
 import RichDocumentEditor from "./RichDocumentEditor";
 import { RichNoteSession } from "./rich-note-session";
 import { api } from "./api";
+import { loadNoteSnapshot } from "./cached-shared-note";
 import { localNoteDraft, offlineCaptureEnabled, replicaDeviceId, syncConflicts } from "./offline-queue";
 
 // Retain failed forced-unmount saves in memory so reopening the note can recover
@@ -16,13 +17,13 @@ export async function openManagedNoteSession(noteId:string,revision:number):Prom
     if(recoverySessions.has(noteId)||await localNoteDraft(noteId))throw new Error("Restore trusted device access to recover the shared draft");
     return;
   }
-  const snapshot=await api.noteDocument(noteId,"yjs_update");
+  const snapshot=await loadNoteSnapshot(noteId);
   if(typeof snapshot.content!=="string")throw new Error("Invalid shared snapshot");
   const probe=new Y.Doc();
   let migrated=false;
   try{Y.applyUpdate(probe,Uint8Array.from(atob(snapshot.content),c=>c.charCodeAt(0)));migrated=probe.share.has("prosemirror");}
   finally{probe.destroy();}
-  if(!migrated)return;
+  if(!migrated){if(snapshot.offline)throw new Error("Legacy note is not available for shared offline editing");return;}
   const retained=recoverySessions.get(noteId);
   if(retained){retained.applyRemote(snapshot.content);recoverySessions.delete(noteId);return retained;}
   return RichNoteSession.open({noteId,revisionId:snapshot.revisionId,updateBase64:snapshot.content},revision);

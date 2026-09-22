@@ -5,7 +5,7 @@ import { openManagedNoteSession } from "./ManagedNoteEditor";
 import { api } from "./api";
 import { clearOfflineReplica,setOfflineCaptureEnabled,setReplicaDeviceId } from "./offline-queue";
 import { encodeNoteUpdate } from "./rich-note-session";
-vi.mock("./api",()=>({api:{noteDocument:vi.fn()},ApiError:class extends Error{}}));
+vi.mock("./api",async importOriginal=>({...await importOriginal<typeof import("./api")>(),api:{noteDocument:vi.fn()}}));
 const storage=new Map<string,string>();
 Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>storage.get(key)??null,setItem:(key:string,value:string)=>storage.set(key,value)}});
 const noteId="00000000-0000-4000-8000-000000000711",revisionId="00000000-0000-4000-8000-000000000712";

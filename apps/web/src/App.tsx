@@ -620,7 +620,18 @@ function NoteEditor({ note, onClose, onSaved,onTrashed }: { note: Note; onClose:
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(()=>{expectedRevision.current=Math.max(expectedRevision.current,note.revision);},[note.revision]);
-  useEffect(() => { void Promise.all([api.labels(), api.noteLabels(note.id), api.notes(), api.relatedNotes(note.id),api.noteDocument(note.id,"editor_json"),api.noteRevisions(note.id)]).then(([available, organization, allNotes, related,representation,history]) => { setLabels(available.items); setAssignedLabelIds(organization.labels.map(label => label.id)); setLockedLabelIds(organization.labels.filter(label => label.locked).map(label => label.id)); setOtherNotes(allNotes.items.filter(candidate => candidate.id !== note.id)); setRelationships(related.explicitLinks); setRelatedSuggestions(related.suggestedLinks); setDocument(editorDocumentSchema.parse(representation.content));setRevisions(history.items); }).catch(() => setError("Could not load the canonical note document, history, and organization.")); }, [note.id]);
+  useEffect(() => { let cancelled=false;void Promise.all([api.labels(), api.noteLabels(note.id), api.notes(), api.relatedNotes(note.id),api.noteDocument(note.id,"editor_json"),api.noteRevisions(note.id)]).then(([available, organization, allNotes, related,representation,history]) => { if(cancelled)return;setLabels(available.items); setAssignedLabelIds(organization.labels.map(label => label.id)); setLockedLabelIds(organization.labels.filter(label => label.locked).map(label => label.id)); setOtherNotes(allNotes.items.filter(candidate => candidate.id !== note.id)); setRelationships(related.explicitLinks); setRelatedSuggestions(related.suggestedLinks); setDocument(editorDocumentSchema.parse(representation.content));setRevisions(history.items); }).catch(async caught => {
+    if(cancelled)return;
+    try{
+      const {canUseOfflineNote,loadCachedNoteDocument,loadNoteSnapshot}=await import("./cached-shared-note");
+      // An ancillary request failing first must not mask a canonical-note denial.
+      if(canUseOfflineNote(caught))await loadNoteSnapshot(note.id);
+      const cached=canUseOfflineNote(caught)?await loadCachedNoteDocument(note.id):null;
+      if(cancelled)return;
+      if(cached){setDocument(cached);setError("Offline: showing this device's saved note. History and organization are unavailable until reconnect.");return;}
+    }catch{/* Keep initialization failures visible without replacing local data. */}
+    if(!cancelled)setError("Could not load the canonical note document, history, and organization.");
+  });return()=>{cancelled=true;}; }, [note.id]);
   useEffect(()=>{if(!note.sourceId){setAttachments([]);return;}void api.captureDetails(note.sourceId).then(value=>setAttachments(value.blobs)).catch(()=>setAttachments([]));},[note.sourceId]);
   async function saveDocument(next: EditorDocument) {
     setBusy(true);

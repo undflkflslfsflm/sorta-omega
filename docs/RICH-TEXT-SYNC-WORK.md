@@ -83,3 +83,9 @@ Verification: 31 web tests passed, web typechecking passed, and the regenerated 
 ## Table-first cursor correction
 
 The selection warning was traced to the binding's initial forced render: an empty paragraph's cursor offset was copied into the canonical table node. Shared editor views now start with JSON projected from the existing Yjs fragment, rather than an empty paragraph. This does not initialize or replace Yjs history. The regression asserts a valid inline cursor, no selection warning, unchanged encoded canonical state, and no unsaved update after mounting the table-first document. All 31 web tests and web typechecking pass after the correction. This resolves the jsdom reproduction above; real-browser caret/navigation acceptance is still required.
+
+## Offline reopening
+
+Trusted, enrolled browsers can reopen a previously cached migrated note when canonical snapshot requests fail at the transport layer or return a server outage. The note-screen loading failure path now builds editor content from that snapshot plus its locally committed draft; missing history/organization are explicitly labeled unavailable. A failure in an ancillary request is followed by a canonical-note check so it cannot mask an explicit note-access denial. HTTP 401/403/404/410 and malformed responses do not trigger cached fallback. Legacy notes without a shared fragment are not silently converted for offline editing.
+
+All 35 web tests and typechecking passed, including persisted local content recovery, trust/enrollment gating, explicit denial/deletion refusal and server-outage versus malformed-response behavior. Real browser offline reload still requires acceptance testing; these tests mock network responses and IndexedDB.
