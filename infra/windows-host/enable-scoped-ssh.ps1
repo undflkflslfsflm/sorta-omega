@@ -69,6 +69,21 @@ if ($scopedRule) {
     New-NetFirewallRule -Name $ruleName -DisplayName 'Sorta scoped SSH' -Enabled True -Direction Inbound -Action Allow -Protocol TCP -LocalPort 22 -RemoteAddress $AllowedRemoteAddress -Profile Any | Out-Null
 }
 
+$tailscaleAdapter = Get-NetAdapter -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -like '*Tailscale*' -or $_.InterfaceDescription -like '*Tailscale*' } |
+    Select-Object -First 1
+$tailscaleBlockRuleName = 'Sorta-Block-SSH-Tailscale'
+if ($tailscaleAdapter) {
+    $tailscaleBlockRule = Get-NetFirewallRule -Name $tailscaleBlockRuleName -ErrorAction SilentlyContinue
+    if ($tailscaleBlockRule) {
+        Set-NetFirewallRule -Name $tailscaleBlockRuleName -Enabled True -Direction Inbound -Action Block -Profile Any | Out-Null
+        $tailscaleBlockRule | Get-NetFirewallInterfaceFilter |
+            Set-NetFirewallInterfaceFilter -InterfaceAlias $tailscaleAdapter.Name | Out-Null
+    } elseif ($PSCmdlet.ShouldProcess("TCP 22 on $($tailscaleAdapter.Name)", 'Create Tailscale SSH block rule')) {
+        New-NetFirewallRule -Name $tailscaleBlockRuleName -DisplayName 'Sorta block SSH on Tailscale' -Enabled True -Direction Inbound -Action Block -Protocol TCP -LocalPort 22 -InterfaceAlias $tailscaleAdapter.Name -Profile Any | Out-Null
+    }
+}
+
 Set-Service -Name sshd -StartupType Automatic
 Start-Service -Name sshd
 
@@ -92,4 +107,6 @@ $hostKeyFingerprints = @(Get-ChildItem -LiteralPath (Join-Path $env:ProgramData 
     PublicKeyFingerprint = $fingerprint
     HostKeyFingerprints = $hostKeyFingerprints
     DefaultBroadFirewallRuleDisabled = [bool]$defaultRule
+    TailscaleInterface = $tailscaleAdapter.Name
+    TailscaleSshBlocked = [bool]($tailscaleAdapter -and (Get-NetFirewallRule -Name $tailscaleBlockRuleName -ErrorAction SilentlyContinue).Enabled -eq 'True')
 }
