@@ -7,7 +7,7 @@ import { ApiError } from "./api";
 import { type CalloutKind } from "./Callout";
 import type { RichNoteSession } from "./rich-note-session";
 
-export default function RichDocumentEditor({ initialDocument, disabled, onSave, session }: { initialDocument: EditorDocument; disabled: boolean; onSave: (document: EditorDocument) => Promise<void>; session?: RichNoteSession }) {
+export default function RichDocumentEditor({ initialDocument, disabled, onSave, session, onLocalSaved }: { initialDocument: EditorDocument; disabled: boolean; onSave: (document: EditorDocument) => Promise<void>; session?: RichNoteSession; onLocalSaved?:()=>void }) {
   const [editVersion, setEditVersion] = useState(0);
   const receivedDocument = useRef(initialDocument);
   const revisionConflict = useRef(false);
@@ -27,6 +27,7 @@ export default function RichDocumentEditor({ initialDocument, disabled, onSave, 
       if(session){
         await session.persist();
         setDirty(session.hasUnsavedChanges);
+        onLocalSaved?.();
       }else{
         await onSave(parsed.data);
         savedSignature.current=JSON.stringify(editorDocumentSchema.parse(parsed.data));
@@ -41,6 +42,7 @@ export default function RichDocumentEditor({ initialDocument, disabled, onSave, 
     if(changeVersion.current===0)savedSignature.current=JSON.stringify(editor.getJSON());
     return registerEditorNavigation(() => ({
       saving: savingRef.current,
+      canDiscard: !session,
       dirty: session ? session.hasUnsavedChanges : JSON.stringify(editor.getJSON()) !== savedSignature.current
     }));
   }, [editor, session]);

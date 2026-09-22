@@ -2,6 +2,16 @@ import { describe,expect,it,vi } from "vitest";
 import { allowEditorNavigation,registerEditorNavigation } from "./editor-navigation";
 
 describe("editor navigation protection",()=>{
+  it("does not offer discard for shared edits that are not durably saved",()=>{
+    const confirm=vi.fn().mockReturnValue(true),alert=vi.fn();
+    vi.stubGlobal("window",{confirm,alert});
+    const unregister=registerEditorNavigation(()=>({dirty:true,saving:false,canDiscard:false}));
+    try{
+      expect(allowEditorNavigation()).toBe(false);
+      expect(confirm).not.toHaveBeenCalled();
+      expect(alert).toHaveBeenCalledOnce();
+    }finally{unregister();vi.unstubAllGlobals();}
+  });
   it("reads the latest state and requires an explicit discard decision",()=>{
     const confirm=vi.fn().mockReturnValue(false),alert=vi.fn();
     vi.stubGlobal("window",{confirm,alert});
