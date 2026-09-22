@@ -1,5 +1,6 @@
 import "fake-indexeddb/auto";
 import { dismissSyncConflict } from "./offline-queue";
+import { localNoteDraft, persistLocalNoteEdit } from "./offline-queue";
 import { cacheNoteSnapshot, cachedNoteSnapshot, removeCachedNoteSnapshot } from "./offline-queue";
 import { beforeEach,describe,expect,it,vi } from "vitest";
 import { cacheCoreRecords,cachedCoreRecords,clearOfflineReplica,clearPendingCaptures,flushSyncOperations,offlineCaptureEnabled,pendingSyncOperations,queueSyncOperation,setOfflineCaptureEnabled,setReplicaDeviceId,setSyncCursor,syncConflicts,syncCursor } from "./offline-queue";
@@ -9,6 +10,62 @@ Object.defineProperty(globalThis,"localStorage",{value:{getItem:(key:string)=>st
 
 describe("trusted browser replica",()=>{
   beforeEach(async()=>{storage.clear();await clearPendingCaptures();await clearOfflineReplica();});
+
+  const noteSnapshot={noteId:"00000000-0000-4000-8000-000000000511",revisionId:"00000000-0000-4000-8000-000000000512",updateBase64:"AAA="};
+  const noteOperation={type:"note_yjs_update" as const,operationId:"00000000-0000-4000-8000-000000000513",noteId:noteSnapshot.noteId,baseRevision:1,updateBase64:"AAA="};
+
+  it("commits a local note and outbox together, preserves it across remote refresh and retries",async()=>{
+    await expect(persistLocalNoteEdit(noteSnapshot,noteOperation,null)).rejects.toThrow("disabled");
+    setOfflineCaptureEnabled(true);
+    await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    expect((await pendingSyncOperations()).map(row=>row.operation)).toEqual([noteOperation]);
+    await cacheNoteSnapshot({...noteSnapshot,updateBase64:"AQI="});
+    expect(await localNoteDraft(noteSnapshot.noteId)).toMatchObject({...noteSnapshot,lastOperationId:noteOperation.operationId});
+    await setSyncCursor("before");
+    await flushSyncOperations(async()=>({acceptedOperationIds:[noteOperation.operationId],conflicts:[],cursor:"after"}));
+    await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    expect(await pendingSyncOperations()).toEqual([]);
+    await expect(persistLocalNoteEdit(noteSnapshot,{...noteOperation,baseRevision:2},null)).rejects.toThrow("cannot be reused");
+    setOfflineCaptureEnabled(false);
+    expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+    setOfflineCaptureEnabled(true);
+    await clearOfflineReplica();
+    expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+  });
+
+  it("rejects competing stale editors instead of overwriting their local snapshot",async()=>{
+    setOfflineCaptureEnabled(true);
+    const second={...noteOperation,operationId:"00000000-0000-4000-8000-000000000514"};
+    const results=await Promise.allSettled([
+      persistLocalNoteEdit(noteSnapshot,noteOperation,null),
+      persistLocalNoteEdit({...noteSnapshot,updateBase64:"AQI="},second,null)
+    ]);
+    expect(results.map(result=>result.status).sort()).toEqual(["fulfilled","rejected"]);
+    expect(await pendingSyncOperations()).toHaveLength(1);
+    const draft=(await localNoteDraft(noteSnapshot.noteId))!;
+    expect((await pendingSyncOperations())[0].id).toBe(draft.lastOperationId);
+    const next={...noteOperation,operationId:"00000000-0000-4000-8000-000000000515",updateBase64:"AQI="};
+    await persistLocalNoteEdit({...noteSnapshot,updateBase64:"AQI="},next,draft.lastOperationId);
+    expect((await pendingSyncOperations()).map(row=>row.id)).toEqual([draft.lastOperationId,next.operationId]);
+    expect((await localNoteDraft(noteSnapshot.noteId))?.lastOperationId).toBe(next.operationId);
+  });
+
+  it("rolls back both local note and outbox when snapshot persistence aborts",async()=>{
+    setOfflineCaptureEnabled(true);
+    const original=IDBObjectStore.prototype.put;
+    const spy=vi.spyOn(IDBObjectStore.prototype,"put").mockImplementation(function(this:IDBObjectStore,value:unknown,key?:IDBValidKey){
+      const request=original.call(this,value,key);
+      if(this.name==="sync-meta")request.addEventListener("success",()=>this.transaction.abort());
+      return request;
+    });
+    try{await expect(persistLocalNoteEdit(noteSnapshot,noteOperation,null)).rejects.toThrow();}
+    finally{spy.mockRestore();}
+    expect(await localNoteDraft(noteSnapshot.noteId)).toBeNull();
+    expect(await pendingSyncOperations()).toEqual([]);
+    await persistLocalNoteEdit(noteSnapshot,noteOperation,null);
+    expect(await pendingSyncOperations()).toHaveLength(1);
+  });
 
   it("retains canonical snapshots only for trusted use and erases them with the replica",async()=>{
     const snapshot={noteId:"00000000-0000-4000-8000-000000000411",revisionId:"00000000-0000-4000-8000-000000000412",updateBase64:"AAA="};

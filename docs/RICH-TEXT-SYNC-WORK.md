@@ -25,3 +25,9 @@ After applying SQL migrations through `0094`, an operator can run `pnpm --filter
 Do not bulk-migrate production notes yet: browser rich-text binding, durable offline updates, restore behavior and actual PostgreSQL concurrency/rollback acceptance remain to be verified. In particular, old offline text edits against a migrated note are rejected and need explicit recovery. New-note creation remains legacy until the complete client rollout is ready.
 
 Migration verification: 91 focused document, migration and contract tests passed; contracts build, generated-artifact checks and dependency-inventory checks passed. Migration query tests use a mock client and prove query ordering/error propagation, not actual PostgreSQL locking or rollback. The migration command has not been run against a live database.
+
+## Durable browser edit storage
+
+`persistLocalNoteEdit` atomically commits an edited canonical snapshot and its incremental sync operation to IndexedDB. It resolves only after transaction completion, preserves operation IDs across retries, and compares the previous local operation ID to reject competing stale tabs. The local draft is separate from the remote snapshot cache, so background refresh cannot replace unacknowledged work. Explicit trusted storage is required, and replica erasure clears drafts too. A local commit means saved on this device, not accepted by the server. The Tiptap binding still needs to call this storage path with actual Yjs updates; it is not enabled in the current editor yet.
+
+Verification: all 10 web storage tests and web typechecking passed locally. New tests cover snapshot/outbox atomic rollback, retries before and after server acknowledgement, operation-ID payload reuse rejection, stale competing editors, ordered subsequent edits, remote refresh isolation and trusted-replica erasure. These use fake IndexedDB; browser crash/reload and real multi-tab tests remain outstanding.

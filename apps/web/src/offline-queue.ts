@@ -1,8 +1,10 @@
 import type { CalendarEvent, Note, SyncAck, SyncConflict, SyncOperation, Task } from "@sorta/contracts";
+import { syncOperationSchema } from "@sorta/contracts";
 
 export type PendingCapture = { id: string; text: string; createdAt: string; attempts: number; lastError: string | null };
 export type CachedCoreRecords = { id: "core"; notes: Note[]; tasks: Task[]; events: CalendarEvent[]; cachedAt: string };
 export type CachedNoteSnapshot = { noteId:string; revisionId:string; updateBase64:string; cachedAt:string };
+export type LocalNoteDraft = CachedNoteSnapshot & { lastOperationId: string; lastOperation: Extract<SyncOperation,{type:"note_yjs_update"}> };
 type PendingSyncOperation = { id: string; operation: SyncOperation; createdAt: string };
 export type StoredSyncConflict = SyncConflict & { id: string; recordedAt: string; operation?: SyncOperation };
 
@@ -52,12 +54,68 @@ export async function setReplicaDeviceId(deviceId:string){await put(META_STORE,{
 export async function replicaDeviceId(){return (await get<{id:string;value:string}>(META_STORE,"device-id"))?.value??null;}
 export async function setSyncCursor(cursor:string){await put(META_STORE,{id:"cursor",value:cursor});}
 export async function syncCursor(){return (await get<{id:string;value:string}>(META_STORE,"cursor"))?.value??null;}
-export async function cacheNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
+function validateNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
   if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
   const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if(!uuid.test(snapshot.noteId)||!uuid.test(snapshot.revisionId))throw new Error("Invalid note snapshot identity");
   if(snapshot.updateBase64.length<4||snapshot.updateBase64.length>2_666_668||snapshot.updateBase64.length%4!==0||! /^[A-Za-z0-9+/]*={0,2}$/.test(snapshot.updateBase64))throw new Error("Invalid note snapshot encoding");
+}
+export async function cacheNoteSnapshot(snapshot:Omit<CachedNoteSnapshot,"cachedAt">){
+  validateNoteSnapshot(snapshot);
   await put(META_STORE,{id:`note-snapshot:${snapshot.noteId}`,...snapshot,cachedAt:new Date().toISOString()});
+}
+export async function localNoteDraft(noteId:string):Promise<LocalNoteDraft|null>{
+  if(!offlineCaptureEnabled())return null;
+  return (await get<LocalNoteDraft>(META_STORE,`note-draft:${noteId}`))??null;
+}
+
+// The draft and outgoing update commit together. Remote snapshot refreshes use
+// a separate key and cannot overwrite unsent local work. Callers serialize their
+// own edits and reload/merge if another tab changes the expected draft version.
+export async function persistLocalNoteEdit(
+  snapshot:Omit<CachedNoteSnapshot,"cachedAt">,
+  input:Extract<SyncOperation,{type:"note_yjs_update"}>,
+  expectedLocalOperationId:string|null
+){
+  validateNoteSnapshot(snapshot);
+  const operation=syncOperationSchema.parse(input);
+  if(operation.type!=="note_yjs_update"||operation.noteId!==snapshot.noteId)throw new Error("Note update identity mismatch");
+  const db=await database();
+  await new Promise<void>((resolve,reject)=>{
+    let tx:IDBTransaction;
+    try{tx=db.transaction([META_STORE,SYNC_STORE],"readwrite");}
+    catch(error){db.close();reject(error);return;}
+    let failure:unknown;
+    const fail=(error:unknown)=>{failure=error;tx.abort();};
+    tx.oncomplete=()=>{db.close();resolve();};
+    tx.onabort=()=>{db.close();reject(failure??tx.error??new Error("Note persistence transaction aborted"));};
+    const meta=tx.objectStore(META_STORE),queue=tx.objectStore(SYNC_STORE);
+    const request=meta.get(`note-draft:${snapshot.noteId}`);
+    request.onsuccess=()=>{
+      try{
+        if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
+        const draft=request.result as LocalNoteDraft|undefined;
+        if(draft?.lastOperationId===operation.operationId){
+          if(draft.updateBase64!==snapshot.updateBase64||draft.revisionId!==snapshot.revisionId||JSON.stringify(draft.lastOperation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
+        }else if((draft?.lastOperationId??null)!==expectedLocalOperationId)throw new Error("Local note changed in another editor");
+        const rowsRequest=queue.getAll();
+        rowsRequest.onsuccess=()=>{
+          try{
+            if(!offlineCaptureEnabled())throw new Error("Trusted offline storage is disabled");
+            const rows=rowsRequest.result as PendingSyncOperation[];
+            const prior=rows.find(row=>row.id===operation.operationId);
+            if(prior&&JSON.stringify(prior.operation)!==JSON.stringify(operation))throw new Error("Queued operation ID cannot be reused for different content");
+            // A retry after acknowledgement must not queue the accepted edit again.
+            if(draft?.lastOperationId===operation.operationId)return;
+            if(prior)throw new Error("Queued operation ID is already in use");
+            const last=rows.reduce((latest,row)=>Math.max(latest,Date.parse(row.createdAt)||0),0);
+            queue.add({id:operation.operationId,operation,createdAt:new Date(Math.max(Date.now(),last+1)).toISOString()});
+            meta.put({id:`note-draft:${snapshot.noteId}`,...snapshot,lastOperationId:operation.operationId,lastOperation:operation,cachedAt:new Date().toISOString()});
+          }catch(error){fail(error);}
+        };
+      }catch(error){fail(error);}
+    };
+  });
 }
 export async function cachedNoteSnapshot(noteId:string):Promise<CachedNoteSnapshot|null>{
   if(!offlineCaptureEnabled())return null;
