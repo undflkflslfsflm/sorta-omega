@@ -74059,7 +74059,6 @@
           },
           "constraintsRevision": {
             "type": "integer",
-            "exclusiveMinimum": true,
             "minimum": 0
           },
           "availableMinutes": {
