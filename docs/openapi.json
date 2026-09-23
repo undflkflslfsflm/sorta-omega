@@ -15891,6 +15891,64 @@
         }
       }
     },
+    "/api/v1/vaults/{vaultId}/school/import-apply": {
+      "post": {
+        "operationId": "applySchoolImport",
+        "tags": [
+          "School"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplySchoolImport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobHandle"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/vaults/{vaultId}/school/connections/{connectionId}/readiness": {
       "get": {
         "operationId": "getSchoolConnectionReadiness",
@@ -44064,6 +44122,7 @@
                   "import_plan",
                   "import_apply",
                   "school_import_preview",
+                  "school_import_apply",
                   "social_time_proposal",
                   "note_purge"
                 ]
@@ -44822,6 +44881,7 @@
                   "import_plan",
                   "import_apply",
                   "school_import_preview",
+                  "school_import_apply",
                   "social_time_proposal",
                   "note_purge"
                 ]
@@ -45143,6 +45203,7 @@
               "import_plan",
               "import_apply",
               "school_import_preview",
+              "school_import_apply",
               "social_time_proposal",
               "note_purge"
             ]
@@ -47318,6 +47379,170 @@
                   "type": {
                     "type": "string",
                     "enum": [
+                      "school_import_apply"
+                    ]
+                  },
+                  "previewJobId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "sourceTimestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "counts": {
+                    "type": "object",
+                    "properties": {
+                      "subject": {
+                        "type": "object",
+                        "properties": {
+                          "created": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "updated": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "linked": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "unchanged": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "stale": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "created",
+                          "updated",
+                          "linked",
+                          "unchanged",
+                          "stale"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "course": {
+                        "type": "object",
+                        "properties": {
+                          "created": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "updated": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "linked": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "unchanged": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "stale": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "created",
+                          "updated",
+                          "linked",
+                          "unchanged",
+                          "stale"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "lesson": {
+                        "type": "object",
+                        "properties": {
+                          "created": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "updated": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "linked": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "unchanged": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "stale": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "created",
+                          "updated",
+                          "linked",
+                          "unchanged",
+                          "stale"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "required": [
+                      "subject",
+                      "course",
+                      "lesson"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "snapshotOnly": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "liveConnectionCreated": {
+                    "type": "boolean",
+                    "enum": [
+                      false
+                    ]
+                  },
+                  "writesApplied": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "limitations": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "type",
+                  "previewJobId",
+                  "sourceTimestamp",
+                  "counts",
+                  "snapshotOnly",
+                  "liveConnectionCreated",
+                  "writesApplied",
+                  "limitations"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": [
                       "social_time_proposal"
                     ]
                   },
@@ -47716,6 +47941,7 @@
               "import_plan",
               "import_apply",
               "school_import_preview",
+              "school_import_apply",
               "social_time_proposal",
               "note_purge"
             ]
@@ -47795,6 +48021,7 @@
                     "import_plan",
                     "import_apply",
                     "school_import_preview",
+                    "school_import_apply",
                     "social_time_proposal",
                     "note_purge"
                   ]
@@ -49961,6 +50188,170 @@
                         "snapshotOnly",
                         "liveConnectionCreated",
                         "writesApplied"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "school_import_apply"
+                          ]
+                        },
+                        "previewJobId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceTimestamp": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "counts": {
+                          "type": "object",
+                          "properties": {
+                            "subject": {
+                              "type": "object",
+                              "properties": {
+                                "created": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "linked": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "unchanged": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "stale": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "created",
+                                "updated",
+                                "linked",
+                                "unchanged",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "course": {
+                              "type": "object",
+                              "properties": {
+                                "created": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "linked": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "unchanged": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "stale": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "created",
+                                "updated",
+                                "linked",
+                                "unchanged",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "lesson": {
+                              "type": "object",
+                              "properties": {
+                                "created": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "linked": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "unchanged": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "stale": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "created",
+                                "updated",
+                                "linked",
+                                "unchanged",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "subject",
+                            "course",
+                            "lesson"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "snapshotOnly": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "liveConnectionCreated": {
+                          "type": "boolean",
+                          "enum": [
+                            false
+                          ]
+                        },
+                        "writesApplied": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        },
+                        "limitations": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "type",
+                        "previewJobId",
+                        "sourceTimestamp",
+                        "counts",
+                        "snapshotOnly",
+                        "liveConnectionCreated",
+                        "writesApplied",
+                        "limitations"
                       ],
                       "additionalProperties": false
                     },
@@ -54672,6 +55063,19 @@
           "format",
           "sourceTimestamp",
           "timezone"
+        ],
+        "additionalProperties": false
+      },
+      "ApplySchoolImport": {
+        "type": "object",
+        "properties": {
+          "previewJobId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "previewJobId"
         ],
         "additionalProperties": false
       },
@@ -74931,6 +75335,7 @@
                 "import_plan",
                 "import_apply",
                 "school_import_preview",
+                "school_import_apply",
                 "social_time_proposal",
                 "note_purge"
               ]
@@ -75010,6 +75415,7 @@
                   "import_plan",
                   "import_apply",
                   "school_import_preview",
+                  "school_import_apply",
                   "social_time_proposal",
                   "note_purge"
                 ]
@@ -75085,6 +75491,7 @@
               "import_plan",
               "import_apply",
               "school_import_preview",
+              "school_import_apply",
               "social_time_proposal",
               "note_purge"
             ]
@@ -78455,6 +78862,170 @@
                       "type": {
                         "type": "string",
                         "enum": [
+                          "school_import_apply"
+                        ]
+                      },
+                      "previewJobId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sourceTimestamp": {
+                        "type": "string",
+                        "format": "date-time"
+                      },
+                      "counts": {
+                        "type": "object",
+                        "properties": {
+                          "subject": {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "linked": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unchanged": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "stale": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "linked",
+                              "unchanged",
+                              "stale"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "course": {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "linked": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unchanged": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "stale": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "linked",
+                              "unchanged",
+                              "stale"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "lesson": {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "linked": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unchanged": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "stale": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "linked",
+                              "unchanged",
+                              "stale"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "subject",
+                          "course",
+                          "lesson"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "snapshotOnly": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "liveConnectionCreated": {
+                        "type": "boolean",
+                        "enum": [
+                          false
+                        ]
+                      },
+                      "writesApplied": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "limitations": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "previewJobId",
+                      "sourceTimestamp",
+                      "counts",
+                      "snapshotOnly",
+                      "liveConnectionCreated",
+                      "writesApplied",
+                      "limitations"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string",
+                        "enum": [
                           "social_time_proposal"
                         ]
                       },
@@ -79418,6 +79989,7 @@
                 "import_plan",
                 "import_apply",
                 "school_import_preview",
+                "school_import_apply",
                 "social_time_proposal",
                 "note_purge"
               ]
@@ -79570,6 +80142,7 @@
                       "import_plan",
                       "import_apply",
                       "school_import_preview",
+                      "school_import_apply",
                       "social_time_proposal",
                       "note_purge"
                     ]
@@ -79711,6 +80284,7 @@
                 "import_plan",
                 "import_apply",
                 "school_import_preview",
+                "school_import_apply",
                 "social_time_proposal",
                 "note_purge"
               ]

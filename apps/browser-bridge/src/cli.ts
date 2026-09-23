@@ -50,7 +50,7 @@ try{
       lessonType: element.getAttribute('tttype') ?? '',
     })))()` ) as InSchoolVisibleLesson[];
     if(!items.length)throw new Error("inschool_lesson_elements_not_found_layout_review_required");
-    const capturedAt=new Date().toISOString(),snapshot=inSchoolTimetableSnapshot(items,capturedAt);
+    const capturedAt=new Date().toISOString(),snapshot={...inSchoolTimetableSnapshot(items,capturedAt),source_origin:origin.origin};
     if(!snapshot.records.some(record=>record.kind==="lesson"))throw new Error("inschool_lesson_times_not_parsed_layout_review_required");
     await writeNewArtifact(snapshot);
     console.log(JSON.stringify({provider:"inschool",format:"omega_school_json_v1",visibleElementCount:items.length,itemCount:snapshot.records.length,itemLimit:1000,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:"This capture covers the currently visible timetable week only. Absence and grade details are not yet included."}));

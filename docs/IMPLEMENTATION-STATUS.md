@@ -118,7 +118,7 @@ This file records verified implementation state. Planned routes in the specifica
 
 ## Tested with fixtures
 
-- The current workspace run passes 350 executable tests: 214 API, 26 local-worker, two maintenance-worker, four browser-bridge normalization, 14 desktop bridge, 89 web and one generated-client test.
+- The current workspace run passes 354 executable tests: 218 API, 26 local-worker, two maintenance-worker, four browser-bridge normalization, 14 desktop bridge, 89 web and one generated-client test.
 - Contract validation rejects empty captures.
 - Calendar validation rejects an end time before its start time.
 - Yjs document round-trip, replace, append and editor projection tests pass.

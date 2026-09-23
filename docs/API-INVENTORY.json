@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 421,
+  "operationCount": 422,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -2962,6 +2962,16 @@
       "authentication": "required",
       "success": 202,
       "requestSchema": "PreviewSchoolImport",
+      "responseSchema": "JobHandle"
+    },
+    {
+      "operationId": "applySchoolImport",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/school/import-apply",
+      "tag": "School",
+      "authentication": "required",
+      "success": 202,
+      "requestSchema": "ApplySchoolImport",
       "responseSchema": "JobHandle"
     },
     {

@@ -3552,6 +3552,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vaultId}/school/import-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["applySchoolImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vaultId}/school/connections/{connectionId}/readiness": {
         parameters: {
             query?: never;
@@ -9748,7 +9764,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
             /** @enum {string} */
             status: "queued" | "waiting_for_worker" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
             /** Format: date-time */
@@ -9956,7 +9972,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
                 /** @enum {string} */
                 status: "queued" | "waiting_for_worker" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
                 /** Format: date-time */
@@ -10026,7 +10042,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
             /** @enum {string} */
             status: "queued" | "waiting_for_worker" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
             /** Format: date-time */
@@ -10515,6 +10531,43 @@ export interface components {
                 writesApplied: false;
             } | {
                 /** @enum {string} */
+                type: "school_import_apply";
+                /** Format: uuid */
+                previewJobId: string;
+                /** Format: date-time */
+                sourceTimestamp: string;
+                counts: {
+                    subject: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    course: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    lesson: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                };
+                /** @enum {boolean} */
+                snapshotOnly: true;
+                /** @enum {boolean} */
+                liveConnectionCreated: false;
+                /** @enum {boolean} */
+                writesApplied: true;
+                limitations: string[];
+            } | {
+                /** @enum {string} */
                 type: "social_time_proposal";
                 /** Format: uuid */
                 personId: string;
@@ -10595,7 +10648,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
             /** @enum {string} */
             status: "queued" | "waiting_for_worker" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
             /** Format: date-time */
@@ -10606,7 +10659,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
                 /** @enum {string} */
                 status: "queued" | "waiting_for_worker" | "running" | "succeeded" | "failed" | "cancelled" | "superseded";
                 /** Format: date-time */
@@ -11093,6 +11146,43 @@ export interface components {
                     liveConnectionCreated: false;
                     /** @enum {boolean} */
                     writesApplied: false;
+                } | {
+                    /** @enum {string} */
+                    type: "school_import_apply";
+                    /** Format: uuid */
+                    previewJobId: string;
+                    /** Format: date-time */
+                    sourceTimestamp: string;
+                    counts: {
+                        subject: {
+                            created: number;
+                            updated: number;
+                            linked: number;
+                            unchanged: number;
+                            stale: number;
+                        };
+                        course: {
+                            created: number;
+                            updated: number;
+                            linked: number;
+                            unchanged: number;
+                            stale: number;
+                        };
+                        lesson: {
+                            created: number;
+                            updated: number;
+                            linked: number;
+                            unchanged: number;
+                            stale: number;
+                        };
+                    };
+                    /** @enum {boolean} */
+                    snapshotOnly: true;
+                    /** @enum {boolean} */
+                    liveConnectionCreated: false;
+                    /** @enum {boolean} */
+                    writesApplied: true;
+                    limitations: string[];
                 } | {
                     /** @enum {string} */
                     type: "social_time_proposal";
@@ -12218,6 +12308,10 @@ export interface components {
                 from: string;
                 to: string;
             } | null;
+        };
+        ApplySchoolImport: {
+            /** Format: uuid */
+            previewJobId: string;
         };
         AiStatus: {
             /** @enum {string} */
@@ -17016,7 +17110,7 @@ export interface components {
             configRevision: number;
         };
         ClaimWorkerJobRequest: {
-            supportedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge")[];
+            supportedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge")[];
             availableCapacity: number;
         };
         WorkerLease: {
@@ -17029,7 +17123,7 @@ export interface components {
             expiresAt: string;
             inputManifest: {
                 /** @enum {string} */
-                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+                kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
                 inputHash: string;
             };
         };
@@ -17039,7 +17133,7 @@ export interface components {
             /** Format: uuid */
             vaultId: string;
             /** @enum {string} */
-            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge";
+            kind: "note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge";
             inputHash: string;
             payload: {
                 /** @enum {string} */
@@ -17778,6 +17872,43 @@ export interface components {
                 writesApplied: false;
             } | {
                 /** @enum {string} */
+                type: "school_import_apply";
+                /** Format: uuid */
+                previewJobId: string;
+                /** Format: date-time */
+                sourceTimestamp: string;
+                counts: {
+                    subject: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    course: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    lesson: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                };
+                /** @enum {boolean} */
+                snapshotOnly: true;
+                /** @enum {boolean} */
+                liveConnectionCreated: false;
+                /** @enum {boolean} */
+                writesApplied: true;
+                limitations: string[];
+            } | {
+                /** @enum {string} */
                 type: "social_time_proposal";
                 /** Format: uuid */
                 personId: string;
@@ -17956,7 +18087,7 @@ export interface components {
             /** @enum {string} */
             role: "model" | "scheduler" | "connector";
             vaultIds: string[];
-            allowedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge")[];
+            allowedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge")[];
             paused: boolean;
             /** @enum {string} */
             resourcePolicy: "balanced" | "low_resource" | "gaming";
@@ -17984,7 +18115,7 @@ export interface components {
                 /** @enum {string} */
                 role: "model" | "scheduler" | "connector";
                 vaultIds: string[];
-                allowedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge")[];
+                allowedJobTypes: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge")[];
                 paused: boolean;
                 /** @enum {string} */
                 resourcePolicy: "balanced" | "low_resource" | "gaming";
@@ -18007,7 +18138,7 @@ export interface components {
         };
         ConfigureWorker: {
             vaultIds?: string[];
-            allowedJobTypes?: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "social_time_proposal" | "note_purge")[];
+            allowedJobTypes?: ("note_process" | "hybrid_search" | "semantic_search" | "ai_setup_test" | "index_rebuild" | "answer_generation" | "schedule_preview" | "proposal_apply" | "calendar_policy_dry_run" | "commitment_rematch" | "calendar_context_refresh" | "calendar_brief_refresh" | "calendar_import_preview" | "export_generate" | "study_plan_generate" | "study_exercise_generate" | "study_attempt_feedback" | "catch_up_plan" | "insight_generate" | "profile_refresh" | "sync_snapshot" | "domain_tool_run" | "source_refresh" | "transcript_analysis" | "url_capture" | "artifact_generate" | "performance_recommendations" | "task_breakdown" | "natural_language_command" | "connection_probe" | "profile_rebuild" | "personal_data_sync" | "import_plan" | "import_apply" | "school_import_preview" | "school_import_apply" | "social_time_proposal" | "note_purge")[];
             paused?: boolean;
             /** @enum {string} */
             resourcePolicy?: "balanced" | "low_resource" | "gaming";
@@ -25987,6 +26118,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PreviewSchoolImport"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobHandle"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    applySchoolImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplySchoolImport"];
             };
         };
         responses: {

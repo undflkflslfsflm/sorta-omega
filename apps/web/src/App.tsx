@@ -347,7 +347,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         {view === "collection" && activeCollection && <><PageTitle eyebrow={activeCollection.collection.system ? "System collection" : "Saved collection"} title={activeCollection.collection.name} copy={`${activeCollection.items.length} matching note${activeCollection.items.length === 1 ? "" : "s"} · ${activeCollection.collection.sort.replace("_", " ")}`}/><NoteList notes={activeCollection.items} onOpen={note => { setSelectedNote(note); setView("brain"); }}/></>}
         {view === "search" && <SearchWorkspace onOpen={item=>void openSearchResult(item)}/>}
         {view === "settings" && <><OfflineSettingsWorkspace pendingCount={pendingCount} onPendingCount={setPendingCount}/><OwnerPreferencesWorkspace/><DeviceAccessWorkspace/><VaultExportWorkspace/><IntegrationSettingsWorkspace/><CalendarAutomationPolicyWorkspace/><SchedulerPreferencesWorkspace/><SettingsWorkspace/></>}
-        {view === "school" && <><SchoolWorkspace/><SchoolLessonsWorkspace/><SchoolAssignmentsWorkspace/><SchoolAssessmentsWorkspace/><AttendanceWorkspace/><PerformanceWorkspace/><StudyPlansWorkspace/><StudyPracticeWorkspace/><StudySessionsWorkspace/><KnowledgeGapsWorkspace/><FlashcardsWorkspace/></>}
+        {view === "school" && <><PageTitle eyebrow="School" title="What is coming up" copy="Tests, lessons, and source-backed preparation in one place."/><SchoolImportWorkspace/><SchoolAssessmentsWorkspace/><details className="advanced-workspace"><summary>Other school records and study tools</summary><SchoolWorkspace/><SchoolLessonsWorkspace/><SchoolAssignmentsWorkspace/><AttendanceWorkspace/><PerformanceWorkspace/><StudyPlansWorkspace/><StudyPracticeWorkspace/><StudySessionsWorkspace/><KnowledgeGapsWorkspace/><FlashcardsWorkspace/></details></>}
         {view === "life" && <><LifeWorkspace/><PersonalDataWorkspace/><InterestsWorkspace/><InsightsWorkspace/></>}
       </section>
     </main>
@@ -355,6 +355,41 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
 }
 
 function PageTitle({ eyebrow, title, copy }: { eyebrow: string; title: string; copy: string }) { return <div className="page-heading simple"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{copy}</p></div></div>; }
+
+function SchoolImportWorkspace() {
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState<string|null>(null);
+  const [preview,setPreview]=useState<{jobId:string;counts:Record<string,number>;warnings:string[]}|null>(null);
+  const [applied,setApplied]=useState<string|null>(null);
+  async function select(file:File){
+    setBusy(true);setError(null);setPreview(null);setApplied(null);
+    try{
+      if(!file.name.toLowerCase().endsWith(".json")||file.size>20*1024*1024)throw new Error("invalid_school_snapshot_file");
+      const header=JSON.parse(await file.text()) as Record<string,unknown>;
+      if(header.version!=="omega_school_json_v1"||typeof header.source_timestamp!=="string"||typeof header.source_origin!=="string")throw new Error("invalid_school_snapshot_header");
+      const blob=await api.uploadFile(file);
+      const handle=await api.previewSchoolImport(blob.id,header.source_timestamp);
+      const job=await api.job(handle.id);
+      if(job.result?.type!=="school_import_preview")throw new Error("school_snapshot_preview_not_ready");
+      setPreview({jobId:handle.id,counts:job.result.counts,warnings:job.result.warnings});
+    }catch{setError("The InSchool snapshot could not be previewed. No school records were changed.");}
+    finally{setBusy(false);}
+  }
+  async function apply(){
+    if(!preview)return;
+    setBusy(true);setError(null);
+    try{
+      const handle=await api.applySchoolImport(preview.jobId),job=await api.job(handle.id);
+      if(job.result?.type!=="school_import_apply")throw new Error("school_snapshot_apply_not_ready");
+      const counts=job.result.counts;
+      setApplied(`${counts.subject.created} subjects, ${counts.course.created} courses and ${counts.lesson.created} lessons added; ${counts.lesson.updated} lessons updated. This remains a dated snapshot, not live sync.`);
+      setPreview(null);
+      window.dispatchEvent(new Event("school-snapshot-applied"));
+    }catch{setError("The snapshot was not applied. Existing school records were left unchanged.");}
+    finally{setBusy(false);}
+  }
+  return <section className="settings-panel school-assignments"><div className="card-label"><CalendarDays size={16}/> InSchool timetable import</div><p className="panel-copy">A signed-in Edge capture can supply a dated timetable snapshot. Review the counts before applying it; this is not continuous account sync and does not include attendance or grades.</p><label className="text-button file-button">{busy?"Checking snapshot…":"Choose InSchool snapshot"}<input type="file" accept=".json,application/json" disabled={busy} onChange={event=>{const file=event.target.files?.[0];event.target.value="";if(file)void select(file);}}/></label>{error&&<p className="form-error">{error}</p>}{applied&&<p className="success-banner">{applied}</p>}{preview&&<div className="rule-preview"><strong>Ready to import</strong><span>{preview.counts.subject??0} subjects · {preview.counts.course??0} courses · {preview.counts.lesson??0} lessons</span>{preview.warnings.map((warning,index)=><small key={index}>{warning}</small>)}<button className="primary" disabled={busy} onClick={()=>void apply()}>Apply reviewed snapshot</button></div>}</section>;
+}
 
 function SchoolWorkspace() {
   const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
@@ -399,6 +434,7 @@ function SchoolAssessmentsWorkspace() {
   const [courseId, setCourseId] = useState(""); const [title, setTitle] = useState(""); const [kind, setKind] = useState<SchoolAssessment["kind"]>("test"); const [date, setDate] = useState(""); const [scope, setScope] = useState(""); const [weight, setWeight] = useState(""); const [error, setError] = useState<string | null>(null);
   async function refresh() { const [nextCourses, nextItems] = await Promise.all([api.schoolCourses(), api.schoolAssessments()]); setCourses(nextCourses.items); setItems(nextItems.items); setCourseId(current => current || nextCourses.items[0]?.id || ""); }
   useEffect(() => { void refresh().catch(() => setError("Assessments are unavailable.")); }, []);
+  useEffect(() => { const changed=()=>void refresh().catch(() => setError("Assessments are unavailable.")); window.addEventListener("school-snapshot-applied",changed); return()=>window.removeEventListener("school-snapshot-applied",changed); }, []);
   async function create(event: FormEvent) { event.preventDefault(); if (!courseId || !title.trim()) return; setError(null); try { await api.createSchoolAssessment({ courseId, title: title.trim(), kind, date, scope, weight }); setTitle(""); setDate(""); setScope(""); setWeight(""); await refresh(); } catch { setError("The assessment was not saved. Unknown fields can be left blank."); } }
   async function archive(item: SchoolAssessment) { try { await api.archiveSchoolAssessment(item); await refresh(); } catch { setError("The assessment changed elsewhere or could not be archived."); } }
   return <section className="settings-panel school-assignments"><div className="card-label"><CheckCircle2 size={16}/> Assessments</div><p className="panel-copy">Date, material scope, and official weight stay unknown until supplied. This does not create or predict a grade.</p>{error && <p className="form-error">{error}</p>}<div className="settings-list">{items.map(item => <article key={item.id}><div><strong>{item.title} · {item.kind}</strong><small>{courses.find(course => course.id === item.courseId)?.name ?? "Unknown course"} · {item.timeSpec.kind === "unknown" ? "Date unknown" : item.timeSpec.kind === "date_only" ? friendlyDateOnly(item.timeSpec.date) : friendlyDate(item.timeSpec.dueAt)}</small><small>{item.officialWeight === null ? "Official weight unknown" : `${item.officialWeight * 100}% official weight`}</small>{item.materialScope?.description && <details className="assessment-source-detail"><summary>Test details and sources</summary><p>{item.materialScope.description}</p></details>}</div><button className="text-button danger" onClick={() => void archive(item)}>Archive</button></article>)}{items.length === 0 && <p className="quiet-empty">No assessments yet. School imports have not been set up.</p>}</div><details className="school-manual-fallback"><summary>Add or correct a test manually</summary><form className="assessment-form" onSubmit={create}><select value={courseId} onChange={event => setCourseId(event.target.value)}><option value="">Choose course</option>{courses.map(course => <option key={course.id} value={course.id}>{course.name}</option>)}</select><input value={title} onChange={event => setTitle(event.target.value)} placeholder="Assessment title"/><select value={kind} onChange={event => setKind(event.target.value as SchoolAssessment["kind"])}>{["exam","test","quiz","presentation","project","other"].map(value => <option key={value}>{value}</option>)}</select><label>Date, if known<input type="date" value={date} onChange={event => setDate(event.target.value)} aria-label="Assessment date, optional"/></label><input value={scope} onChange={event => setScope(event.target.value)} placeholder="Material scope, optional"/><input type="number" min="0" max="100" step="0.1" value={weight} onChange={event => setWeight(event.target.value)} placeholder="Weight %, optional"/><button className="primary" disabled={!courseId || !title.trim()}>Add assessment</button></form></details></section>;

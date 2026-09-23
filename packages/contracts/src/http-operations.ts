@@ -307,6 +307,7 @@ export const httpOperations: HttpOperation[] = [
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/teachers", operationId: "listSchoolTeachers", tag: "School", success: 200, responseSchema: "TeacherViewList" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/overview", operationId: "getSchoolOverview", tag: "School", success: 200, responseSchema: "SchoolOverview" },
   { method: "post", path: "/api/v1/vaults/{vaultId}/school/import-preview", operationId: "previewSchoolImport", tag: "School", success: 202, requestSchema: "PreviewSchoolImport", responseSchema: "JobHandle" },
+  { method: "post", path: "/api/v1/vaults/{vaultId}/school/import-apply", operationId: "applySchoolImport", tag: "School", success: 202, requestSchema: "ApplySchoolImport", responseSchema: "JobHandle" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/connections/{connectionId}/readiness", operationId: "getSchoolConnectionReadiness", tag: "School", success: 200, responseSchema: "SchoolReadinessReport" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/assignments", operationId: "listSchoolAssignments", tag: "School", success: 200, responseSchema: "SchoolAssignmentList" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}", operationId: "getSchoolAssignment", tag: "School", success: 200, responseSchema: "SchoolAssignment" },
