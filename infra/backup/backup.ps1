@@ -16,8 +16,13 @@ try {
   if($LASTEXITCODE-ne 0){throw 'Could not copy database dump'}
 } finally { & docker compose exec -T postgres rm -f $containerDump 2>$null | Out-Null }
 $null=New-Item -ItemType Directory -Path $blobs
-& docker compose cp 'app:/var/lib/sorta/blob-storage/blobs/.' $blobs
-if($LASTEXITCODE-ne 0){throw 'Could not copy immutable blob originals'}
+& docker compose exec -T app test -d /var/lib/sorta/blob-storage
+if($LASTEXITCODE-ne 0){throw 'Blob storage volume is unavailable'}
+& docker compose exec -T app test -d /var/lib/sorta/blob-storage/blobs
+if($LASTEXITCODE-eq 0){
+  & docker compose cp 'app:/var/lib/sorta/blob-storage/blobs/.' $blobs
+  if($LASTEXITCODE-ne 0){throw 'Could not copy immutable blob originals'}
+}
 $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $dump).Hash.ToLowerInvariant()
 $blobFiles=@(Get-ChildItem -LiteralPath $blobs -File -Recurse | Sort-Object FullName)
 $blobManifest=@($blobFiles | ForEach-Object {[ordered]@{path=[IO.Path]::GetRelativePath($blobs,$_.FullName).Replace('\','/');sha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant();bytes=$_.Length}})
