@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 420,
+  "operationCount": 421,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -1252,6 +1252,16 @@
       "responseSchema": "ConnectorResourceList"
     },
     {
+      "operationId": "getConnectionSelection",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/selection",
+      "tag": "Integrations",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "ResourceSelection"
+    },
+    {
       "operationId": "selectConnectionResources",
       "method": "PUT",
       "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/selection",
@@ -1267,9 +1277,9 @@
       "path": "/api/v1/vaults/{vaultId}/connections/{connectionId}/sync",
       "tag": "Integrations",
       "authentication": "required",
-      "success": 202,
+      "success": 200,
       "requestSchema": null,
-      "responseSchema": "JobHandle"
+      "responseSchema": "ConnectionSyncResult"
     },
     {
       "operationId": "getConnectionSyncStatus",

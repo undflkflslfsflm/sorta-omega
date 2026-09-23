@@ -110,6 +110,9 @@ main { min-width: 0; }
 .device-access-forms { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }.scope-grid { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 10px 0 16px; }.scope-grid label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .75rem; }.one-time-secret { display: grid; gap: 6px; padding: 10px; border: 1px solid #e6cf8d; border-radius: 9px; background: #fff9e7; }.one-time-secret code { overflow-wrap: anywhere; user-select: all; }
 .school-assignments { margin-top: 18px; }.panel-copy { color: var(--muted); font-size: .82rem; }.assignment-form { display: grid; grid-template-columns: minmax(150px,1fr) minmax(180px,2fr) minmax(190px,1fr) auto; gap: 10px; align-items: end; margin: 18px 0; }.assignment-form input, .assignment-form select { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: white; }.assignment-form label { display: grid; gap: 4px; color: var(--muted); font-size: .7rem; font-weight: 700; }
 .assessment-form { display: grid; grid-template-columns: repeat(3,minmax(130px,1fr)); gap: 10px; margin: 18px 0; }.assessment-form input, .assessment-form select { min-width: 0; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.assessment-form label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: .7rem; font-weight: 700; }.assessment-form label input { width: 100%; }
+.assessment-source-detail { margin-top: 12px; max-width: 70ch; }.assessment-source-detail summary, .school-manual-fallback summary { cursor: pointer; color: var(--blue); font-weight: 700; }.assessment-source-detail p { margin: 9px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; line-height: 1.55; }
+.school-manual-fallback { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
 .attendance-summary { display: grid; gap: 4px; padding: 13px; border: 1px solid #cfe5d8; border-radius: 11px; background: #eef8f2; }.attendance-summary span { color: var(--muted); font-size: .76rem; }
 .target-row { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 12px; }.target-row input { min-height: 38px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; }
 .session-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
@@ -130,3 +133,9 @@ main { min-width: 0; }
   .chat-message { max-width: 100%; }.ask-composer > div { align-items: stretch; flex-direction: column; }.ask-composer span { width: 100%; }.ask-composer .primary { width: 100%; }.activity-list, .assignment-form, .assessment-form, .provider-action-form { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
+.calendar-block.attendance { border-color: #a84767; background: #fdebf0; }
+.calendar-block.attendance-absent { border-color: #b42318; background: #fee9e7; color: #761d18; }
+.calendar-block.attendance-late { border-color: #d39c0b; background: #fff3ca; color: #765514; }
+.advanced-workspace { margin-top: 28px; padding: 16px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+.advanced-workspace > summary { cursor: pointer; font-weight: 700; }
+.advanced-workspace[open] > summary { margin-bottom: 20px; }

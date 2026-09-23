@@ -1671,7 +1671,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getConnectionSelection"];
         put: operations["selectConnectionResources"];
         post?: never;
         delete?: never;
@@ -7304,6 +7304,19 @@ export interface components {
             } | null;
             blockers: string[];
         };
+        ConnectionSyncResult: {
+            coverage: {
+                /** @enum {string} */
+                dataset: "assignments" | "chats" | "channels" | "calendar" | "mail" | "files" | "sharepoint" | "todo" | "planner" | "onenote" | "contacts";
+                imported: number;
+                complete: boolean;
+                contentComplete: boolean;
+                limitations: string[];
+                error: string | null;
+            }[];
+            complete: boolean;
+            privateChatsOptedIn: boolean;
+        };
         DisconnectIntegration: {
             /** Format: uuid */
             previewId: string;
@@ -8317,12 +8330,12 @@ export interface components {
             } | null;
         };
         AuthorizationRequest: {
-            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "mail.read" | "files.read")[];
+            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "teams.channels.read" | "classes.read" | "assignments.read" | "mail.read" | "files.read" | "files.read.all" | "sites.read" | "tasks.read" | "notes.read" | "contacts.read" | "offline.access")[];
             /** @enum {string} */
             registeredReturnTarget: "connections" | "connection_detail";
         };
         ReauthorizationRequest: {
-            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "mail.read" | "files.read")[];
+            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "teams.channels.read" | "classes.read" | "assignments.read" | "mail.read" | "files.read" | "files.read.all" | "sites.read" | "tasks.read" | "notes.read" | "contacts.read" | "offline.access")[];
             /** @enum {string} */
             registeredReturnTarget: "connections" | "connection_detail";
             /** @enum {string} */
@@ -8335,7 +8348,7 @@ export interface components {
             provider: "microsoft" | "google_calendar";
             /** Format: uri */
             authorizationUrl: string;
-            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "mail.read" | "files.read")[];
+            requestedCapabilities: ("calendar.read" | "calendar.write" | "teams.read" | "teams.channels.read" | "classes.read" | "assignments.read" | "mail.read" | "files.read" | "files.read.all" | "sites.read" | "tasks.read" | "notes.read" | "contacts.read" | "offline.access")[];
             /** @enum {string} */
             registeredReturnTarget: "connections" | "connection_detail";
             /** Format: date-time */
@@ -9025,14 +9038,19 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "lesson" | "assignment" | "assessment";
+                kind: "lesson" | "assignment" | "assessment" | "attendance";
                 title: string;
                 /** Format: date-time */
                 startsAt: string;
                 /** Format: date-time */
                 endsAt: string | null;
                 /** @enum {string} */
-                layer: "school" | "deadline" | "assessment";
+                layer: "school" | "deadline" | "assessment" | "attendance";
+                /**
+                 * @default null
+                 * @enum {string|null}
+                 */
+                attendanceStatus: "present" | "absent" | "late" | "unknown" | null;
                 /** @enum {string} */
                 reason: "source_record_not_calendar_event";
                 revision: number;
@@ -9041,9 +9059,14 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 /** @enum {string} */
-                kind: "lesson" | "assignment" | "assessment";
+                kind: "lesson" | "assignment" | "assessment" | "attendance";
                 title: string;
                 date: string | null;
+                /**
+                 * @default null
+                 * @enum {string|null}
+                 */
+                attendanceStatus: "present" | "absent" | "late" | "unknown" | null;
                 /** @enum {string} */
                 reason: "time_unknown" | "date_only" | "unlinked_school_record";
                 revision: number;
@@ -21322,6 +21345,32 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    getConnectionSelection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+                connectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceSelection"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
     selectConnectionResources: {
         parameters: {
             query?: never;
@@ -21365,12 +21414,12 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Success */
-            202: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["JobHandle"];
+                    "application/json": components["schemas"]["ConnectionSyncResult"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -6211,6 +6211,61 @@
       }
     },
     "/api/v1/vaults/{vaultId}/connections/{connectionId}/selection": {
+      "get": {
+        "operationId": "getConnectionSelection",
+        "tags": [
+          "Integrations"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceSelection"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
       "put": {
         "operationId": "selectConnectionResources",
         "tags": [
@@ -6312,12 +6367,12 @@
           }
         ],
         "responses": {
-          "202": {
+          "200": {
             "description": "Success",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JobHandle"
+                  "$ref": "#/components/schemas/ConnectionSyncResult"
                 }
               }
             }
@@ -34263,6 +34318,76 @@
         ],
         "additionalProperties": false
       },
+      "ConnectionSyncResult": {
+        "type": "object",
+        "properties": {
+          "coverage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "dataset": {
+                  "type": "string",
+                  "enum": [
+                    "assignments",
+                    "chats",
+                    "channels",
+                    "calendar",
+                    "mail",
+                    "files",
+                    "sharepoint",
+                    "todo",
+                    "planner",
+                    "onenote",
+                    "contacts"
+                  ]
+                },
+                "imported": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "complete": {
+                  "type": "boolean"
+                },
+                "contentComplete": {
+                  "type": "boolean"
+                },
+                "limitations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "error": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "dataset",
+                "imported",
+                "complete",
+                "contentComplete",
+                "limitations",
+                "error"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "privateChatsOptedIn": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "coverage",
+          "complete",
+          "privateChatsOptedIn"
+        ],
+        "additionalProperties": false
+      },
       "DisconnectIntegration": {
         "type": "object",
         "properties": {
@@ -38481,12 +38606,21 @@
                 "calendar.read",
                 "calendar.write",
                 "teams.read",
+                "teams.channels.read",
+                "classes.read",
+                "assignments.read",
                 "mail.read",
-                "files.read"
+                "files.read",
+                "files.read.all",
+                "sites.read",
+                "tasks.read",
+                "notes.read",
+                "contacts.read",
+                "offline.access"
               ]
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 14
           },
           "registeredReturnTarget": {
             "type": "string",
@@ -38513,12 +38647,21 @@
                 "calendar.read",
                 "calendar.write",
                 "teams.read",
+                "teams.channels.read",
+                "classes.read",
+                "assignments.read",
                 "mail.read",
-                "files.read"
+                "files.read",
+                "files.read.all",
+                "sites.read",
+                "tasks.read",
+                "notes.read",
+                "contacts.read",
+                "offline.access"
               ]
             },
             "minItems": 1,
-            "maxItems": 5
+            "maxItems": 14
           },
           "registeredReturnTarget": {
             "type": "string",
@@ -38570,8 +38713,17 @@
                 "calendar.read",
                 "calendar.write",
                 "teams.read",
+                "teams.channels.read",
+                "classes.read",
+                "assignments.read",
                 "mail.read",
-                "files.read"
+                "files.read",
+                "files.read.all",
+                "sites.read",
+                "tasks.read",
+                "notes.read",
+                "contacts.read",
+                "offline.access"
               ]
             }
           },
@@ -41152,7 +41304,8 @@
                   "enum": [
                     "lesson",
                     "assignment",
-                    "assessment"
+                    "assessment",
+                    "attendance"
                   ]
                 },
                 "title": {
@@ -41172,8 +41325,20 @@
                   "enum": [
                     "school",
                     "deadline",
-                    "assessment"
+                    "assessment",
+                    "attendance"
                   ]
+                },
+                "attendanceStatus": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "late",
+                    "unknown"
+                  ],
+                  "nullable": true,
+                  "default": null
                 },
                 "reason": {
                   "type": "string",
@@ -41214,7 +41379,8 @@
                   "enum": [
                     "lesson",
                     "assignment",
-                    "assessment"
+                    "assessment",
+                    "attendance"
                   ]
                 },
                 "title": {
@@ -41224,6 +41390,17 @@
                   "type": "string",
                   "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                   "nullable": true
+                },
+                "attendanceStatus": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "late",
+                    "unknown"
+                  ],
+                  "nullable": true,
+                  "default": null
                 },
                 "reason": {
                   "type": "string",

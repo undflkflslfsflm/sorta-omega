@@ -26,7 +26,7 @@ describe("domain contracts", () => {
   });
   it("bounds social-time proposals and requires unique explicit connection scope",()=>{const id="00000000-0000-4000-8000-000000000123";const base={window:{startsAt:"2026-09-21T09:00:00.000Z",endsAt:"2026-09-21T17:00:00.000Z"},durationEstimate:60,userConstraintsRevision:0};expect(proposeSocialTimeSchema.safeParse(base).success).toBe(true);expect(proposeSocialTimeSchema.safeParse({...base,durationEstimate:5}).success).toBe(false);expect(proposeSocialTimeSchema.safeParse({...base,connectedAvailabilityScope:{connectionIds:[id,id]}}).success).toBe(false);});
   it("requires literal permanent-purge confirmation and a positive revision",()=>{expect(purgeRequestSchema.safeParse({confirmation:"permanently_purge",expectedRevision:2}).success).toBe(true);expect(purgeRequestSchema.safeParse({confirmation:"delete",expectedRevision:2}).success).toBe(false);expect(purgeRequestSchema.safeParse({confirmation:"permanently_purge",expectedRevision:0}).success).toBe(false);});
-  it("keeps provider authorization capabilities and return targets finite",()=>{expect(authorizationRequestSchema.safeParse({requestedCapabilities:["calendar.read"],registeredReturnTarget:"connection_detail"}).success).toBe(true);expect(authorizationRequestSchema.safeParse({requestedCapabilities:["calendar.read","calendar.read"],registeredReturnTarget:"connections"}).success).toBe(false);expect(reauthorizationRequestSchema.safeParse({requestedCapabilities:["calendar.write"],registeredReturnTarget:"connections",reason:"permission_upgrade"}).success).toBe(true);});
+  it("keeps provider authorization capabilities and return targets finite",()=>{expect(authorizationRequestSchema.safeParse({requestedCapabilities:["calendar.read"],registeredReturnTarget:"connection_detail"}).success).toBe(true);expect(authorizationRequestSchema.safeParse({requestedCapabilities:["sites.read"],registeredReturnTarget:"connections"}).success).toBe(true);expect(authorizationRequestSchema.safeParse({requestedCapabilities:["calendar.read","calendar.read"],registeredReturnTarget:"connections"}).success).toBe(false);expect(reauthorizationRequestSchema.safeParse({requestedCapabilities:["calendar.write"],registeredReturnTarget:"connections",reason:"permission_upgrade"}).success).toBe(true);});
   it("rejects empty capture before persistence", () => {
     expect(createCaptureSchema.safeParse({ text: "", clientOperationId: "operation-1" }).success).toBe(false);
     const blobId="00000000-0000-4000-8000-000000000123";
@@ -139,6 +139,11 @@ describe("domain contracts", () => {
   it("keeps missing assessment date, scope, and weight unknown", () => {
     const parsed = createSchoolAssessmentSchema.parse({ courseId: "00000000-0000-4000-8000-000000000123", title: "Chapter test", kind: "test" });
     expect(parsed.timeSpec).toEqual({ kind: "unknown" }); expect(parsed.materialScope).toBeNull(); expect(parsed.officialWeight).toBeNull();
+  });
+
+  it("accepts a known assessment day without inventing an exam start time", () => {
+    const parsed = createSchoolAssessmentSchema.parse({ courseId: "00000000-0000-4000-8000-000000000123", title: "Matematikk 2P", kind: "test", timeSpec: { kind: "date_only", date: "2026-09-24", timezone: "Europe/Oslo" } });
+    expect(parsed.timeSpec).toEqual({ kind: "date_only", date: "2026-09-24", timezone: "Europe/Oslo" });
   });
 
   it("requires attendance duration and unit to travel together", () => {
