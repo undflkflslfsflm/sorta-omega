@@ -31,6 +31,20 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
+  if (args.get("navigation-only") === "true" && provider === "inschool") {
+    const navigation = await page.evaluate(() => ({
+      weekHeading: document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() ?? null,
+      lessonCount: document.querySelectorAll(".Timetable-TimetableItem[starttimeanddateunix]").length,
+      controls: [...document.querySelectorAll<HTMLButtonElement>(".userTimetable_moveWeekButton")].map((button, index) => ({
+        index,
+        ariaLabel: button.getAttribute("aria-label"),
+        title: button.getAttribute("title"),
+        disabled: button.disabled,
+        svgClasses: [...button.querySelectorAll("svg")].map(svg => svg.getAttribute("class")),
+      })),
+    }));
+    console.log(JSON.stringify({ provider, navigation }));
+  } else {
   const structure = await page.evaluate(String.raw`(() => {
     const clean = value => (value ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 6);
     const candidates = [...document.querySelectorAll("nav a, nav button, [role=navigation] a, [role=navigation] button, [data-testid], [class*=timetable i], [class*=schedule i], [class*=lesson i], [class*=absence i], [class*=frav i], [role=log]")].slice(0, 600);
@@ -50,6 +64,7 @@ try {
     return { counts, shape, hierarchy, headings, itemProperties };
   })()`);
   console.log(JSON.stringify({ provider, origin: new URL(page.url()).origin, tabCount: browser.contexts().reduce((count, context) => count + context.pages().length, 0), structure }));
+  }
 } finally {
   await browser.close();
 }
