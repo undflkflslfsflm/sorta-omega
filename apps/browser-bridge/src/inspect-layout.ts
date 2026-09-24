@@ -46,7 +46,7 @@ try {
       await assignments.waitFor({ timeout: 15_000 });
       if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
       await assignments.click();
-      await probe.waitForTimeout(4_500);
+      await probe.waitForTimeout(8_000);
       const structure = await probe.evaluate(() => {
         const known = /^(assignments|assigned|completed|upcoming|past due|returned|turned in|to do|due|all|oppgaver|tildelt|fullført|kommende|forsinket|levert|alle)$/i;
         const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
@@ -63,7 +63,8 @@ try {
         try {
           const origin = new URL(frame.url()).origin;
           const counts = await frame.evaluate(() => ({ assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 }));
-          return { origin, counts };
+          const bodySample = origin === "https://assignments.edu.cloud.microsoft" ? await frame.evaluate(() => (document.body?.innerText ?? "").slice(0, 160).replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")) : null;
+          return { origin, counts, bodySample };
         } catch { return { origin: "unavailable", counts: null }; }
       }));
       console.log(JSON.stringify({ provider, structure, frames }));
