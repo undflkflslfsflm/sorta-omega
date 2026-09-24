@@ -31,7 +31,18 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("probe-next-week") === "true" && provider === "inschool") {
+  if (args.get("navigation-only") === "true" && provider === "teams") {
+    const navigation = await page.evaluate(() => {
+      const known = /^(activity|chat|teams|assignments|calendar|files|onedrive|classes|school|aktivitet|samtale|team|oppgaver|kalender|filer|klasser|skole)$/i;
+      const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
+      return {
+        routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
+        knownNavigation: [...new Set(labels)],
+        messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"], [role="log"] [role="listitem"]').length,
+      };
+    });
+    console.log(JSON.stringify({ provider, navigation }));
+  } else if (args.get("probe-next-week") === "true" && provider === "inschool") {
     const heading = page.locator(".userTimetable_currentWeek");
     const before = (await heading.textContent())?.trim();
     const counts: Array<{ milliseconds: number; heading: string | null; lessons: number; busy: number }> = [];
