@@ -429,6 +429,19 @@ export const addEntityAliasSchema = z.object({ alias: z.string().trim().min(1).m
 export const previewEntityMergeSchema = z.object({ entityIds: z.array(idSchema).min(2).max(50), targetId: idSchema, reason: z.string().trim().min(1).max(1000) }).strict().superRefine((value, context) => { const ids = new Set(value.entityIds); if (ids.size !== value.entityIds.length) context.addIssue({ code: "custom", message: "Entity IDs must be unique" }); if (!ids.has(value.targetId)) context.addIssue({ code: "custom", message: "Target entity must be included" }); });
 
 export const commitmentStatusSchema = z.enum(["active", "fulfilled", "cancelled", "superseded"]);
+export const commitmentCandidateSchema = z.object({
+  evidenceQuote: z.string().trim().min(1).max(1000),
+  personName: z.string().trim().min(1).max(120),
+  objectLabel: z.string().trim().min(1).max(240),
+  kind: z.literal("return_object"),
+  conditionKind: z.literal("next_meeting_with_person")
+}).strict();
+export const noteCommitmentCandidateSchema = commitmentCandidateSchema.extend({
+  id: idSchema, noteId: idSchema, noteRevision: z.number().int().positive(),
+  state: z.enum(["proposed", "accepted", "dismissed"]),
+  commitmentId: idSchema.nullable(), createdAt: z.string().datetime()
+});
+export const decideCommitmentCandidateSchema = z.object({ expectedNoteRevision: z.number().int().positive(), decision: z.enum(["accept", "dismiss"]) }).strict();
 export const commitmentSchema = z.object({
   id: idSchema,
   vaultId: vaultIdSchema,
@@ -437,6 +450,8 @@ export const commitmentSchema = z.object({
   objectEntityId: idSchema.nullable(),
   objectLabel: z.string().min(1).max(240),
   sourceNoteId: idSchema.nullable(),
+  sourceNoteRevision: z.number().int().positive().nullable().optional(),
+  sourceQuote: z.string().nullable().optional(),
   conditionKind: z.literal("next_meeting_with_person"),
   status: commitmentStatusSchema,
   revision: z.number().int().positive(),
@@ -594,7 +609,7 @@ export const jobHandleSchema = z.object({
 export const chatMessageAcceptedSchema = z.object({ userMessage: chatMessageSchema, assistantMessage: chatMessageSchema, job: jobHandleSchema });
 export const typedJobResultSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("search"), search: searchResultSchema }),
-  z.object({ type: z.literal("note_processing"), noteId: idSchema, processedRevision: z.number().int().positive(), classification: z.enum(["note", "task", "event", "idea", "reference", "unknown"]), suggestedTitle: z.string().max(240).nullable() }),
+  z.object({ type: z.literal("note_processing"), noteId: idSchema, processedRevision: z.number().int().positive(), classification: z.enum(["note", "task", "event", "idea", "reference", "unknown"]), suggestedTitle: z.string().max(240).nullable(), commitmentCandidates: z.array(commitmentCandidateSchema).max(5).default([]) }),
   z.object({ type: z.literal("ai_setup_test"), completion: z.boolean(), structuredOutput: z.boolean(), embeddings: z.boolean() }),
   z.object({ type: z.literal("index_rebuild"), indexedRevisions: z.number().int().nonnegative() }),
   z.object({ type: z.literal("answer"), chatId: idSchema, messageId: idSchema, answer: z.string().min(1).max(20000), citations: z.array(citationSchema) }),
@@ -1124,6 +1139,7 @@ export type EntityAlias = z.infer<typeof entityAliasSchema>;
 export type CalendarPolicySet = z.infer<typeof calendarPolicySetSchema>;
 export type AutomationDecision = z.infer<typeof automationDecisionSchema>;
 export type Commitment = z.infer<typeof commitmentSchema>;
+export type NoteCommitmentCandidate = z.infer<typeof noteCommitmentCandidateSchema>;
 export type CommitmentDetail = z.infer<typeof commitmentDetailSchema>;
 export type PrepItem = z.infer<typeof prepItemSchema>;
 export type Label = z.infer<typeof labelSchema>;

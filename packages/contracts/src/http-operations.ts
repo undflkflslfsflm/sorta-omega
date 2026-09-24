@@ -222,6 +222,8 @@ export const httpOperations: HttpOperation[] = [
   { method: "get", path: "/api/v1/vaults/{vaultId}/calendar-decisions", operationId: "listCalendarDecisions", tag: "Calendar automation", success: 200, responseSchema: "AutomationDecisionList" },
   { method: "post", path: "/api/v1/vaults/{vaultId}/calendar-decisions/{decisionId}/undo", operationId: "undoCalendarDecision", tag: "Calendar automation", success: 200, requestSchema: "UndoCalendarDecision", responseSchema: "CalendarDecisionUndoResult" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/commitments", operationId: "listCommitments", tag: "Commitments", success: 200, responseSchema: "CommitmentList" },
+  { method: "get", path: "/api/v1/vaults/{vaultId}/commitment-candidates", operationId: "listCommitmentCandidates", tag: "Commitments", success: 200, responseSchema: "NoteCommitmentCandidateList" },
+  { method: "post", path: "/api/v1/vaults/{vaultId}/commitment-candidates/{candidateId}/decision", operationId: "decideCommitmentCandidate", tag: "Commitments", success: 200, requestSchema: "DecideCommitmentCandidate", responseSchema: "NoteCommitmentCandidate" },
   { method: "post", path: "/api/v1/vaults/{vaultId}/commitments", operationId: "createCommitment", tag: "Commitments", success: 201, requestSchema: "CreateCommitment", responseSchema: "Commitment" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/commitments/{commitmentId}", operationId: "getCommitment", tag: "Commitments", success: 200, responseSchema: "CommitmentDetail" },
   { method: "patch", path: "/api/v1/vaults/{vaultId}/commitments/{commitmentId}", operationId: "updateCommitment", tag: "Commitments", success: 200, requestSchema: "UpdateCommitment", responseSchema: "Commitment" },

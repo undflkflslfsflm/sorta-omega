@@ -103,6 +103,8 @@ import {
   createChatSchema,
   createTaskSchema,
   acceptNoteTaskSchema,
+  decideCommitmentCandidateSchema,
+  noteCommitmentCandidateSchema,
   updateTaskSchema,
   documentRepresentationSchema,
   editNoteSchema,
@@ -340,6 +342,7 @@ import { expandOccurrences, instantFromWallClock, isSupportedTimezone } from "./
 import { calendarSourceStaleness, validateCalendarViewRange } from "./calendar-view.js";
 import { attendanceForClass, type ClassAttendanceLink } from "./calendar-attendance.js";
 import { explicitCapturedTaskTitle } from "./captured-task.js";
+import { groundedReturnCandidates } from "./commitment-candidates.js";
 import { prepStatusTransition } from "./prep-item.js";
 import { applyClassificationResult, classificationUndoConflict, type NoteClassification } from "./classification.js";
 import { compileNoteFilter, filterLabelIds } from "./note-filter.js";
@@ -555,7 +558,14 @@ const mapAutomationDecision=(row:Record<string,any>)=>automationDecisionSchema.p
 const mapCommitment = (row: Record<string, any>) => commitmentSchema.parse({
   id: row.id, vaultId: row.vault_id, text: row.text, personEntityId: row.person_entity_id,
   objectEntityId: row.object_entity_id, objectLabel: row.object_label, sourceNoteId: row.source_note_id,
+  sourceNoteRevision: row.source_note_revision ?? null, sourceQuote: row.source_quote ?? null,
   conditionKind: row.condition_kind, status: row.status, revision: row.revision, createdAt: iso(row.created_at)
+});
+const mapNoteCommitmentCandidate = (row: Record<string, any>) => noteCommitmentCandidateSchema.parse({
+  id: row.id, noteId: row.note_id, noteRevision: row.note_revision, evidenceQuote: row.evidence_quote,
+  personName: row.person_name, objectLabel: row.object_label, kind: row.kind,
+  conditionKind: row.condition_kind, state: row.state, commitmentId: row.commitment_id,
+  createdAt: iso(row.created_at)
 });
 const mapPrepItem = (row: Record<string, any>) => prepItemSchema.parse({
   id: row.id, eventId: row.event_id, commitmentId: row.commitment_id, text: row.text,
@@ -1944,6 +1954,7 @@ app.post("/api/v1/vaults/:vaultId/ai-operations/:operationId/undo", async (reque
     if (conflict) return conflict;
     const inverse = item.inverse as { classification?: NoteClassification | null; suggestedTitle?: string | null; classifiedRevision?: number | null };
     const removed = await client.query("DELETE FROM note_labels WHERE note_id = $1 AND source_operation_id = $2 AND locked = false RETURNING label_id", [item.note_id, operationId]);
+    await client.query("UPDATE note_commitment_candidates SET state='dismissed',updated_at=now() WHERE vault_id=$1 AND source_operation_id=$2 AND state='proposed'",[vaultId,operationId]);
     const updated = await client.query(
       `UPDATE notes SET classification = $2, suggested_title = $3, classified_revision = $4,
        organization_revision = organization_revision + 1, updated_at = now() WHERE id = $1 RETURNING organization_revision`,
@@ -3459,6 +3470,41 @@ app.get("/api/v1/vaults/:vaultId/calendar-decisions",async(request,reply)=>{cons
 
 app.post("/api/v1/vaults/:vaultId/calendar-decisions/:decisionId/undo",async(request,reply)=>{const {vaultId,decisionId}=request.params as {vaultId:string;decisionId:string};idSchema.parse(vaultId);idSchema.parse(decisionId);const input=undoCalendarDecisionSchema.parse(request.body);const undone=await transaction(async client=>{const locked=await client.query("SELECT * FROM calendar_automation_decisions WHERE vault_id=$1 AND id=$2 FOR UPDATE",[vaultId,decisionId]);const decision=locked.rows[0];if(!decision)return null;if(decision.undone_at){if(decision.undo_operation_id===input.clientOperationId&&decision.undo_result)return decision.undo_result;return "calendar_decision_already_undone" as const;}if(decision.revision!==input.expectedRevision)return "calendar_decision_stale" as const;if(decision.outcome!=="applied"||!decision.reversible||!decision.undo_manifest)return "calendar_decision_not_reversible" as const;const manifest=decision.undo_manifest as {type?:string;recordId?:string;expectedRevision?:number};if(!manifest.recordId||!Number.isInteger(manifest.expectedRevision))return "calendar_decision_undo_manifest_invalid" as const;let compensation:"event_trashed"|"prep_invalidated"|"commitment_archived";if(manifest.type==="trash_event"){const event=await client.query("UPDATE calendar_events SET trashed_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND revision=$3 AND trashed_at IS NULL RETURNING *",[vaultId,manifest.recordId,manifest.expectedRevision]);if(!event.rows[0])return "calendar_decision_undo_conflict" as const;const row=event.rows[0];await client.query("INSERT INTO calendar_event_revisions(event_id,revision,title,starts_at,ends_at,timezone,recurrence,actor_kind,changed_fields) VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,'owner',ARRAY['trashed','automation_decision_undo'])",[row.id,row.revision,row.title,row.starts_at,row.ends_at,row.timezone,row.recurrence?JSON.stringify(row.recurrence):null]);compensation="event_trashed";}else if(manifest.type==="invalidate_prep"){const prep=await client.query("UPDATE prep_items p SET invalidated_at=now(),invalidation_reason='automation_decision_undo',revision=revision+1,updated_at=now() FROM calendar_events e WHERE p.event_id=e.id AND e.vault_id=$1 AND p.id=$2 AND p.revision=$3 AND p.invalidated_at IS NULL RETURNING p.id",[vaultId,manifest.recordId,manifest.expectedRevision]);if(!prep.rows[0])return "calendar_decision_undo_conflict" as const;compensation="prep_invalidated";}else if(manifest.type==="archive_commitment"){const commitment=await client.query("UPDATE commitments SET archived_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND revision=$3 AND archived_at IS NULL RETURNING id",[vaultId,manifest.recordId,manifest.expectedRevision]);if(!commitment.rows[0])return "calendar_decision_undo_conflict" as const;await client.query("UPDATE prep_items p SET invalidated_at=now(),invalidation_reason='commitment_archived',revision=revision+1,updated_at=now() FROM calendar_events e WHERE p.event_id=e.id AND p.commitment_id=$1 AND p.invalidated_at IS NULL AND e.starts_at>now()",[manifest.recordId]);compensation="commitment_archived";}else return "calendar_decision_undo_manifest_invalid" as const;const undoneAt=new Date().toISOString();const result=calendarDecisionUndoResultSchema.parse({decisionId,compensation,affectedRecordId:manifest.recordId,writesApplied:true,undoneAt});await client.query("UPDATE calendar_automation_decisions SET undone_at=$3,undo_operation_id=$4,undo_result=$5::jsonb,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,decisionId,undoneAt,input.clientOperationId,JSON.stringify(result)]);return result;});if(!undone)return reply.code(404).send({error:"calendar_decision_not_found"});if(typeof undone==="string")return reply.code(409).send({error:undone});return calendarDecisionUndoResultSchema.parse(undone);});
 
+app.get("/api/v1/vaults/:vaultId/commitment-candidates",async request=>{
+  const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);
+  const result=await query(`SELECT c.* FROM note_commitment_candidates c JOIN notes n ON n.id=c.note_id AND n.vault_id=c.vault_id
+    WHERE c.vault_id=$1 AND c.state='proposed' AND n.revision=c.note_revision AND n.trashed_at IS NULL
+    ORDER BY c.created_at DESC,c.id LIMIT 100`,[vaultId]);
+  return{items:result.rows.map(mapNoteCommitmentCandidate)};
+});
+
+app.post("/api/v1/vaults/:vaultId/commitment-candidates/:candidateId/decision",async(request,reply)=>{
+  const {vaultId,candidateId}=request.params as {vaultId:string;candidateId:string};idSchema.parse(vaultId);idSchema.parse(candidateId);
+  const input=decideCommitmentCandidateSchema.parse(request.body);
+  const outcome=await transaction(async client=>{
+    const initial=(await client.query("SELECT note_id FROM note_commitment_candidates WHERE vault_id=$1 AND id=$2",[vaultId,candidateId])).rows[0];
+    if(!initial)return"candidate_not_found" as const;
+    const note=(await client.query("SELECT revision,body FROM notes WHERE vault_id=$1 AND id=$2 AND trashed_at IS NULL FOR SHARE",[vaultId,initial.note_id])).rows[0];
+    if(!note||note.revision!==input.expectedNoteRevision)return"stale_source_note" as const;
+    const candidate=(await client.query("SELECT * FROM note_commitment_candidates WHERE vault_id=$1 AND id=$2 FOR UPDATE",[vaultId,candidateId])).rows[0];
+    if(!candidate||candidate.note_revision!==note.revision||!note.body.includes(candidate.evidence_quote))return"stale_candidate" as const;
+    if(candidate.state!=='proposed')return candidate.state===(input.decision==='accept'?'accepted':'dismissed')?candidate:"candidate_already_decided" as const;
+    if(input.decision==='dismiss')return(await client.query("UPDATE note_commitment_candidates SET state='dismissed',updated_at=now() WHERE id=$1 RETURNING *",[candidateId])).rows[0];
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",[`${vaultId}:${candidate.person_name.toLocaleLowerCase('nb-NO')}`]);
+    const people=await client.query(`SELECT DISTINCT e.id FROM calendar_entities e LEFT JOIN calendar_entity_aliases a ON a.entity_id=e.id AND a.archived_at IS NULL
+      WHERE e.vault_id=$1 AND e.kind='person' AND e.archived_at IS NULL AND (lower(e.name)=lower($2) OR lower(a.alias)=lower($2))`,[vaultId,candidate.person_name]);
+    if((people.rowCount??0)>1)return"ambiguous_person" as const;
+    const personId=people.rows[0]?.id??(await client.query("INSERT INTO calendar_entities(vault_id,kind,name) VALUES ($1,'person',$2) RETURNING id",[vaultId,candidate.person_name])).rows[0].id;
+    const text=`Return ${candidate.object_label} to ${candidate.person_name} at the next in-person meeting`;
+    const commitment=(await client.query(`INSERT INTO commitments(vault_id,text,person_entity_id,object_label,source_note_id,source_note_revision,source_quote,condition_kind)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,'next_meeting_with_person') RETURNING *`,[vaultId,text,personId,candidate.object_label,candidate.note_id,candidate.note_revision,candidate.evidence_quote])).rows[0];
+    await client.query("INSERT INTO commitment_status_history(commitment_id,from_status,to_status,actor,evidence_kind,evidence_note_id) VALUES ($1,NULL,'active','owner','creation',$2)",[commitment.id,candidate.note_id]);
+    return(await client.query("UPDATE note_commitment_candidates SET state='accepted',commitment_id=$2,updated_at=now() WHERE id=$1 RETURNING *",[candidateId,commitment.id])).rows[0];
+  });
+  if(typeof outcome==='string')return reply.code(outcome==='candidate_not_found'?404:409).send({error:outcome});
+  return mapNoteCommitmentCandidate(outcome);
+});
+
 app.get("/api/v1/vaults/:vaultId/commitments", async (request) => {
   const { vaultId } = request.params as { vaultId: string };
   const { status, person_id: personId } = request.query as { status?: string; person_id?: string };
@@ -4873,7 +4919,7 @@ app.post("/api/v1/worker/jobs/:jobId/complete", async (request, reply) => {
     let persistedResult: unknown = input.result;
     if (input.result.type === "note_processing") {
       if (input.result.noteId !== job.input.noteId || input.result.processedRevision !== job.input.revision) return "result_revision_mismatch" as const;
-      const current = await client.query<{ revision: number; classification_locked: boolean; classification: NoteClassification | null; suggested_title: string | null; classified_revision: number | null; organization_revision: number }>("SELECT revision, classification_locked, classification, suggested_title, classified_revision, organization_revision FROM notes WHERE id = $1 AND vault_id = $2 FOR UPDATE", [job.input.noteId, job.vault_id]);
+      const current = await client.query<{ revision: number; body: string; classification_locked: boolean; classification: NoteClassification | null; suggested_title: string | null; classified_revision: number | null; organization_revision: number }>("SELECT revision, body, classification_locked, classification, suggested_title, classified_revision, organization_revision FROM notes WHERE id = $1 AND vault_id = $2 AND trashed_at IS NULL FOR UPDATE", [job.input.noteId, job.vault_id]);
       if (!current.rows[0] || current.rows[0].revision !== job.input.revision) {
         const superseded = await client.query(
           `UPDATE jobs SET status = 'superseded', stage = 'stale_input', progress = NULL, result = NULL,
@@ -4891,6 +4937,8 @@ app.post("/api/v1/worker/jobs/:jobId/complete", async (request, reply) => {
          classified_revision = $4, updated_at = now() WHERE id = $1`,
         [job.input.noteId, nextClassification.classification, nextClassification.suggestedTitle, nextClassification.classifiedRevision]
       );
+      const validCandidates=groundedReturnCandidates(current.rows[0].body,input.result.commitmentCandidates);
+      persistedResult={...input.result,commitmentCandidates:validCandidates};
       const model = await client.query<{ digest: string }>(
         `SELECT profile->>'digest' AS digest FROM workers w, jsonb_array_elements(w.installed_profiles) profile
          WHERE w.id = $1 AND profile->>'id' = 'local-qwen-general'`, [worker.id]
@@ -4899,7 +4947,12 @@ app.post("/api/v1/worker/jobs/:jobId/complete", async (request, reply) => {
         `INSERT INTO ai_operations(vault_id, note_id, job_id, kind, source_revision, model_profile_id, model_digest, prompt_version, result, inverse, applied)
          VALUES ($1,$2,$3,'classification',$4,'local-qwen-general',$5,'note-classification-v1',$6::jsonb,$7::jsonb,$8)
          ON CONFLICT(job_id, kind) DO UPDATE SET result = excluded.result RETURNING id`,
-        [job.vault_id, job.input.noteId, jobId, job.input.revision, model.rows[0]?.digest ?? null, JSON.stringify(input.result), JSON.stringify({ classification: current.rows[0].classification, suggestedTitle: current.rows[0].suggested_title, classifiedRevision: current.rows[0].classified_revision, organizationRevision: current.rows[0].organization_revision }), applied]
+        [job.vault_id, job.input.noteId, jobId, job.input.revision, model.rows[0]?.digest ?? null, JSON.stringify(persistedResult), JSON.stringify({ classification: current.rows[0].classification, suggestedTitle: current.rows[0].suggested_title, classifiedRevision: current.rows[0].classified_revision, organizationRevision: current.rows[0].organization_revision }), applied]
+      );
+      for(const candidate of validCandidates)await client.query(
+        `INSERT INTO note_commitment_candidates(vault_id,note_id,note_revision,evidence_quote,person_name,object_label,kind,condition_kind,source_operation_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`,
+        [job.vault_id,job.input.noteId,job.input.revision,candidate.evidenceQuote,candidate.personName,candidate.objectLabel,candidate.kind,candidate.conditionKind,operation.rows[0].id]
       );
       if (applied) {
         const rules = await client.query("SELECT * FROM routing_rules WHERE vault_id = $1 AND enabled = true ORDER BY priority, created_at", [job.vault_id]);

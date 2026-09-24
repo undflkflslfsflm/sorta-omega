@@ -64,7 +64,7 @@ export function requiredDeviceScope(method: string, url: string): DeviceScope | 
   if (/\/performance\/recommendations(?:[/?]|$)/.test(url)) return "ai:run";
   if (/\/(?:notes|imports|labels|collections|rules|routing-rules|relationships|resurfacing|ai-operations)(?:[/?]|$)/.test(url)) return "notes:write";
   if (/\/(?:tasks|reminders|notifications|execution-sessions)(?:[/?]|$)/.test(url)) return "tasks:write";
-  if (/\/(?:calendar|calendar-export|calendar-import-preview|calendars|calendar-events|calendar-view|calendar-entities|calendar-policies|calendar-decisions|calendar-provider-actions|events|entities|commitments|prep-items|scheduler|proposals|provider-calendar-actions)(?:[/?]|$)/.test(url)) return "calendar:write";
+  if (/\/(?:calendar|calendar-export|calendar-import-preview|calendars|calendar-events|calendar-view|calendar-entities|calendar-policies|calendar-decisions|calendar-provider-actions|events|entities|commitments|commitment-candidates|prep-items|scheduler|proposals|provider-calendar-actions)(?:[/?]|$)/.test(url)) return "calendar:write";
   if (/\/people(?:[/?]|$)/.test(url)) return "calendar:write";
   if (/\/(?:school|subjects|courses|assignments|lessons|assessments|attendance|performance)(?:[/?]|$)/.test(url)) return "school:write";
   if (/\/(?:study|knowledge-gaps|flashcards?|momentum)(?:[/?]|$)/.test(url)) return "study:write";

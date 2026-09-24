@@ -2576,6 +2576,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vaultId}/commitment-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listCommitmentCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vaults/{vaultId}/commitment-candidates/{candidateId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decideCommitmentCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vaultId}/commitments/{commitmentId}": {
         parameters: {
             query?: never;
@@ -8309,6 +8341,8 @@ export interface components {
                 objectLabel: string;
                 /** Format: uuid */
                 sourceNoteId: string | null;
+                sourceNoteRevision?: number | null;
+                sourceQuote?: string | null;
                 /** @enum {string} */
                 conditionKind: "next_meeting_with_person";
                 /** @enum {string} */
@@ -8740,6 +8774,8 @@ export interface components {
             objectLabel: string;
             /** Format: uuid */
             sourceNoteId: string | null;
+            sourceNoteRevision?: number | null;
+            sourceQuote?: string | null;
             /** @enum {string} */
             conditionKind: "next_meeting_with_person";
             /** @enum {string} */
@@ -8747,6 +8783,53 @@ export interface components {
             revision: number;
             /** Format: date-time */
             createdAt: string;
+        };
+        NoteCommitmentCandidate: {
+            evidenceQuote: string;
+            personName: string;
+            objectLabel: string;
+            /** @enum {string} */
+            kind: "return_object";
+            /** @enum {string} */
+            conditionKind: "next_meeting_with_person";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            noteId: string;
+            noteRevision: number;
+            /** @enum {string} */
+            state: "proposed" | "accepted" | "dismissed";
+            /** Format: uuid */
+            commitmentId: string | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NoteCommitmentCandidateList: {
+            items: {
+                evidenceQuote: string;
+                personName: string;
+                objectLabel: string;
+                /** @enum {string} */
+                kind: "return_object";
+                /** @enum {string} */
+                conditionKind: "next_meeting_with_person";
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                noteId: string;
+                noteRevision: number;
+                /** @enum {string} */
+                state: "proposed" | "accepted" | "dismissed";
+                /** Format: uuid */
+                commitmentId: string | null;
+                /** Format: date-time */
+                createdAt: string;
+            }[];
+        };
+        DecideCommitmentCandidate: {
+            expectedNoteRevision: number;
+            /** @enum {string} */
+            decision: "accept" | "dismiss";
         };
         CommitmentList: {
             items: {
@@ -8762,6 +8845,8 @@ export interface components {
                 objectLabel: string;
                 /** Format: uuid */
                 sourceNoteId: string | null;
+                sourceNoteRevision?: number | null;
+                sourceQuote?: string | null;
                 /** @enum {string} */
                 conditionKind: "next_meeting_with_person";
                 /** @enum {string} */
@@ -8816,6 +8901,8 @@ export interface components {
                 objectLabel: string;
                 /** Format: uuid */
                 sourceNoteId: string | null;
+                sourceNoteRevision?: number | null;
+                sourceQuote?: string | null;
                 /** @enum {string} */
                 conditionKind: "next_meeting_with_person";
                 /** @enum {string} */
@@ -9637,6 +9724,8 @@ export interface components {
                 objectLabel: string;
                 /** Format: uuid */
                 sourceNoteId: string | null;
+                sourceNoteRevision?: number | null;
+                sourceQuote?: string | null;
                 /** @enum {string} */
                 conditionKind: "next_meeting_with_person";
                 /** @enum {string} */
@@ -10119,6 +10208,16 @@ export interface components {
                 /** @enum {string} */
                 classification: "note" | "task" | "event" | "idea" | "reference" | "unknown";
                 suggestedTitle: string | null;
+                /** @default [] */
+                commitmentCandidates: {
+                    evidenceQuote: string;
+                    personName: string;
+                    objectLabel: string;
+                    /** @enum {string} */
+                    kind: "return_object";
+                    /** @enum {string} */
+                    conditionKind: "next_meeting_with_person";
+                }[];
             } | {
                 /** @enum {string} */
                 type: "ai_setup_test";
@@ -10736,6 +10835,16 @@ export interface components {
                     /** @enum {string} */
                     classification: "note" | "task" | "event" | "idea" | "reference" | "unknown";
                     suggestedTitle: string | null;
+                    /** @default [] */
+                    commitmentCandidates: {
+                        evidenceQuote: string;
+                        personName: string;
+                        objectLabel: string;
+                        /** @enum {string} */
+                        kind: "return_object";
+                        /** @enum {string} */
+                        conditionKind: "next_meeting_with_person";
+                    }[];
                 } | {
                     /** @enum {string} */
                     type: "ai_setup_test";
@@ -17468,6 +17577,16 @@ export interface components {
                 /** @enum {string} */
                 classification: "note" | "task" | "event" | "idea" | "reference" | "unknown";
                 suggestedTitle: string | null;
+                /** @default [] */
+                commitmentCandidates: {
+                    evidenceQuote: string;
+                    personName: string;
+                    objectLabel: string;
+                    /** @enum {string} */
+                    kind: "return_object";
+                    /** @enum {string} */
+                    conditionKind: "next_meeting_with_person";
+                }[];
             } | {
                 /** @enum {string} */
                 type: "ai_setup_test";
@@ -23896,6 +24015,61 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Commitment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listCommitmentCandidates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteCommitmentCandidateList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    decideCommitmentCandidate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+                candidateId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideCommitmentCandidate"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteCommitmentCandidate"];
                 };
             };
             400: components["responses"]["BadRequest"];

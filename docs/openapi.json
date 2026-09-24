@@ -11182,6 +11182,121 @@
         }
       }
     },
+    "/api/v1/vaults/{vaultId}/commitment-candidates": {
+      "get": {
+        "operationId": "listCommitmentCandidates",
+        "tags": [
+          "Commitments"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteCommitmentCandidateList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/v1/vaults/{vaultId}/commitment-candidates/{candidateId}/decision": {
+      "post": {
+        "operationId": "decideCommitmentCandidate",
+        "tags": [
+          "Commitments"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "candidateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideCommitmentCandidate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteCommitmentCandidate"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/vaults/{vaultId}/commitments/{commitmentId}": {
       "get": {
         "operationId": "getCommitment",
@@ -38501,6 +38616,16 @@
                   "format": "uuid",
                   "nullable": true
                 },
+                "sourceNoteRevision": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0,
+                  "nullable": true
+                },
+                "sourceQuote": {
+                  "type": "string",
+                  "nullable": true
+                },
                 "conditionKind": {
                   "type": "string",
                   "enum": [
@@ -40203,6 +40328,16 @@
             "format": "uuid",
             "nullable": true
           },
+          "sourceNoteRevision": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0,
+            "nullable": true
+          },
+          "sourceQuote": {
+            "type": "string",
+            "nullable": true
+          },
           "conditionKind": {
             "type": "string",
             "enum": [
@@ -40243,6 +40378,192 @@
         ],
         "additionalProperties": false
       },
+      "NoteCommitmentCandidate": {
+        "type": "object",
+        "properties": {
+          "evidenceQuote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "personName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "objectLabel": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "return_object"
+            ]
+          },
+          "conditionKind": {
+            "type": "string",
+            "enum": [
+              "next_meeting_with_person"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "noteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "noteRevision": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "dismissed"
+            ]
+          },
+          "commitmentId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "evidenceQuote",
+          "personName",
+          "objectLabel",
+          "kind",
+          "conditionKind",
+          "id",
+          "noteId",
+          "noteRevision",
+          "state",
+          "commitmentId",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "NoteCommitmentCandidateList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "evidenceQuote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1000
+                },
+                "personName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "objectLabel": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "return_object"
+                  ]
+                },
+                "conditionKind": {
+                  "type": "string",
+                  "enum": [
+                    "next_meeting_with_person"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "noteId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "noteRevision": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "proposed",
+                    "accepted",
+                    "dismissed"
+                  ]
+                },
+                "commitmentId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "evidenceQuote",
+                "personName",
+                "objectLabel",
+                "kind",
+                "conditionKind",
+                "id",
+                "noteId",
+                "noteRevision",
+                "state",
+                "commitmentId",
+                "createdAt"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "DecideCommitmentCandidate": {
+        "type": "object",
+        "properties": {
+          "expectedNoteRevision": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "accept",
+              "dismiss"
+            ]
+          }
+        },
+        "required": [
+          "expectedNoteRevision",
+          "decision"
+        ],
+        "additionalProperties": false
+      },
       "CommitmentList": {
         "type": "object",
         "properties": {
@@ -40279,6 +40600,16 @@
                 "sourceNoteId": {
                   "type": "string",
                   "format": "uuid",
+                  "nullable": true
+                },
+                "sourceNoteRevision": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0,
+                  "nullable": true
+                },
+                "sourceQuote": {
+                  "type": "string",
                   "nullable": true
                 },
                 "conditionKind": {
@@ -40478,6 +40809,16 @@
               "sourceNoteId": {
                 "type": "string",
                 "format": "uuid",
+                "nullable": true
+              },
+              "sourceNoteRevision": {
+                "type": "integer",
+                "exclusiveMinimum": true,
+                "minimum": 0,
+                "nullable": true
+              },
+              "sourceQuote": {
+                "type": "string",
                 "nullable": true
               },
               "conditionKind": {
@@ -43568,6 +43909,16 @@
                   "format": "uuid",
                   "nullable": true
                 },
+                "sourceNoteRevision": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0,
+                  "nullable": true
+                },
+                "sourceQuote": {
+                  "type": "string",
+                  "nullable": true
+                },
                 "conditionKind": {
                   "type": "string",
                   "enum": [
@@ -45507,6 +45858,51 @@
                     "type": "string",
                     "maxLength": 240,
                     "nullable": true
+                  },
+                  "commitmentCandidates": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "evidenceQuote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "personName": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 120
+                        },
+                        "objectLabel": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 240
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "return_object"
+                          ]
+                        },
+                        "conditionKind": {
+                          "type": "string",
+                          "enum": [
+                            "next_meeting_with_person"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "evidenceQuote",
+                        "personName",
+                        "objectLabel",
+                        "kind",
+                        "conditionKind"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 5,
+                    "default": []
                   }
                 },
                 "required": [
@@ -48325,6 +48721,51 @@
                           "type": "string",
                           "maxLength": 240,
                           "nullable": true
+                        },
+                        "commitmentCandidates": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "evidenceQuote": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 1000
+                              },
+                              "personName": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 120
+                              },
+                              "objectLabel": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 240
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "return_object"
+                                ]
+                              },
+                              "conditionKind": {
+                                "type": "string",
+                                "enum": [
+                                  "next_meeting_with_person"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "evidenceQuote",
+                              "personName",
+                              "objectLabel",
+                              "kind",
+                              "conditionKind"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "maxItems": 5,
+                          "default": []
                         }
                       },
                       "required": [
@@ -77010,6 +77451,51 @@
                         "type": "string",
                         "maxLength": 240,
                         "nullable": true
+                      },
+                      "commitmentCandidates": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "evidenceQuote": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "personName": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 120
+                            },
+                            "objectLabel": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 240
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "return_object"
+                              ]
+                            },
+                            "conditionKind": {
+                              "type": "string",
+                              "enum": [
+                                "next_meeting_with_person"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "evidenceQuote",
+                            "personName",
+                            "objectLabel",
+                            "kind",
+                            "conditionKind"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "maxItems": 5,
+                        "default": []
                       }
                     },
                     "required": [

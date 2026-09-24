@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 423,
+  "operationCount": 425,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -2110,6 +2110,26 @@
       "success": 200,
       "requestSchema": null,
       "responseSchema": "CommitmentList"
+    },
+    {
+      "operationId": "listCommitmentCandidates",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/commitment-candidates",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "NoteCommitmentCandidateList"
+    },
+    {
+      "operationId": "decideCommitmentCandidate",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/commitment-candidates/{candidateId}/decision",
+      "tag": "Commitments",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": "DecideCommitmentCandidate",
+      "responseSchema": "NoteCommitmentCandidate"
     },
     {
       "operationId": "createCommitment",
