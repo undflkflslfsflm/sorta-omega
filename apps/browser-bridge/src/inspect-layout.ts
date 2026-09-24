@@ -46,7 +46,7 @@ try {
       await assignments.waitFor({ timeout: 15_000 });
       if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
       await assignments.click();
-      await probe.waitForTimeout(2_000);
+      await probe.waitForTimeout(4_500);
       const structure = await probe.evaluate(() => {
         const known = /^(assignments|assigned|completed|upcoming|past due|returned|turned in|to do|due|all|oppgaver|tildelt|fullført|kommende|forsinket|levert|alle)$/i;
         const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
@@ -55,11 +55,18 @@ try {
           routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
           knownLabels: [...new Set(labels)],
           testIds: [...new Set([...document.querySelectorAll<HTMLElement>("[data-testid]")].map(element => element.getAttribute("data-testid")).filter((value): value is string => Boolean(value && /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(value))))].slice(0, 60),
-          counts: { assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, links: document.querySelectorAll("main a").length, buttons: document.querySelectorAll("main button").length },
+          counts: { assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, links: document.querySelectorAll("main a").length, buttons: document.querySelectorAll("main button").length, iframes: document.querySelectorAll("iframe").length },
           candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
         };
       });
-      console.log(JSON.stringify({ provider, structure }));
+      const frames = await Promise.all(probe.frames().map(async frame => {
+        try {
+          const origin = new URL(frame.url()).origin;
+          const counts = await frame.evaluate(() => ({ assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 }));
+          return { origin, counts };
+        } catch { return { origin: "unavailable", counts: null }; }
+      }));
+      console.log(JSON.stringify({ provider, structure, frames }));
     } finally { await probe.close(); }
   } else if (args.get("navigation-only") === "true" && provider === "teams") {
     const navigation = await page.evaluate(() => {
