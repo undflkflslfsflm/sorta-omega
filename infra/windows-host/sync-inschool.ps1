@@ -7,6 +7,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$statusDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'SortaOmega\BrowserBridge'
+New-Item -ItemType Directory -Path $statusDirectory -Force | Out-Null
+$statusLog = Join-Path $statusDirectory 'sync-status.jsonl'
+try {
 if ($VaultId -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw 'A vault UUID is required.' }
 if ($AppContainer -notmatch '^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$') { throw 'A literal Docker app container name is required.' }
 $origin = [Uri]$InSchoolOrigin
@@ -33,4 +37,11 @@ try {
 } finally {
   if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
   if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
+}
+[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded'} | ConvertTo-Json -Compress) + "`n"))
+} catch {
+  $message = $_.Exception.Message
+  if ($message.Length -gt 240) { $message = $message.Substring(0,240) }
+  [IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='failed';reason=$message} | ConvertTo-Json -Compress) + "`n"))
+  throw
 }
