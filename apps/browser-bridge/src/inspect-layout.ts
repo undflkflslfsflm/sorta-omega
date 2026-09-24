@@ -35,11 +35,11 @@ try {
     const heading = page.locator(".userTimetable_currentWeek");
     const before = (await heading.textContent())?.trim();
     const counts: Array<{ milliseconds: number; heading: string | null; lessons: number; busy: number }> = [];
-    const responses: Array<{ milliseconds: number; status: number; resourceType: string }> = [];
+    const responses: Array<{ milliseconds: number; status: number; resourceType: string; pathShape: string }> = [];
     const started = Date.now();
     const onResponse = (response: import("playwright-core").Response) => {
       const resourceType = response.request().resourceType();
-      if ((resourceType === "xhr" || resourceType === "fetch") && new URL(response.url()).origin === expectedOrigin) responses.push({ milliseconds: Date.now() - started, status: response.status(), resourceType });
+      if ((resourceType === "xhr" || resourceType === "fetch") && new URL(response.url()).origin === expectedOrigin) responses.push({ milliseconds: Date.now() - started, status: response.status(), resourceType, pathShape: new URL(response.url()).pathname.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/") });
     };
     page.on("response", onResponse);
     try {
