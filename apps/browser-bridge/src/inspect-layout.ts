@@ -31,7 +31,22 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("tab-inventory") === "true") {
+  if (args.get("teams-tree-only") === "true" && provider === "teams") {
+    const tree = await page.evaluate(() => {
+      const items = [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')];
+      return { treeCount: document.querySelectorAll('[role="tree"]').length, itemCount: items.length, items: items.slice(0, 100).map(element => {
+        const label = (element.getAttribute("aria-label") ?? element.textContent ?? "").trim();
+        const href = element instanceof HTMLAnchorElement ? element.getAttribute("href") ?? "" : "";
+        return {
+          tag: element.tagName.toLowerCase(), level: element.getAttribute("aria-level"), expanded: element.getAttribute("aria-expanded"), selected: element.getAttribute("aria-selected"),
+          category: /^(general|generelt)$/i.test(label) ? "general" : /^(assignments|oppgaver)$/i.test(label) ? "assignments" : /^(chat|teams|classes|kanaler|channels)$/i.test(label) ? "navigation" : "other",
+          hrefShape: href.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
+          classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 4),
+        };
+      }) };
+    });
+    console.log(JSON.stringify({ provider, tree }));
+  } else if (args.get("tab-inventory") === "true") {
     const tabs = browser.contexts().flatMap(context => context.pages()).map(candidate => {
       try { const url = new URL(candidate.url()); return { origin: url.origin, routeShape: `${url.pathname}${url.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120) }; }
       catch { return { origin: "non-http", routeShape: "" }; }
