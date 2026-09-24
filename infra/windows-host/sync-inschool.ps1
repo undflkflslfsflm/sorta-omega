@@ -7,7 +7,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$statusDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'SortaOmega\BrowserBridge'
+$statusDirectory = Split-Path -Parent $ProfilePath
 New-Item -ItemType Directory -Path $statusDirectory -Force | Out-Null
 $statusLog = Join-Path $statusDirectory 'sync-status.jsonl'
 try {

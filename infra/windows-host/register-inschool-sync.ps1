@@ -13,7 +13,9 @@ $taskName = 'Sorta Omega - InSchool timetable'
 $script = Join-Path $PSScriptRoot 'sync-inschool.ps1'
 if (-not (Test-Path -LiteralPath $script)) { throw 'The sync script is missing.' }
 if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'The InSchool sync task already exists; inspect it before changing it.' }
-$arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -VaultId {1} -AppContainer {2} -InSchoolOrigin {3}' -f $script,$VaultId,$AppContainer,$InSchoolOrigin
+$repository = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$profile = Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\EdgeUserData'
+$arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -VaultId {1} -AppContainer {2} -InSchoolOrigin {3} -RepositoryRoot "{4}" -ProfilePath "{5}"' -f $script,$VaultId,$AppContainer,$InSchoolOrigin,$repository,$profile
 $action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'powershell.exe') -Argument $arguments
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(3) -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew
