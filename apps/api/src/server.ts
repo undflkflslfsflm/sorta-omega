@@ -102,6 +102,7 @@ import {
   createChatMessageSchema,
   createChatSchema,
   createTaskSchema,
+  acceptNoteTaskSchema,
   updateTaskSchema,
   documentRepresentationSchema,
   editNoteSchema,
@@ -338,6 +339,7 @@ import { reciprocalRankFusion, type RankedCandidate } from "./rank-fusion.js";
 import { expandOccurrences, instantFromWallClock, isSupportedTimezone } from "./recurrence.js";
 import { calendarSourceStaleness, validateCalendarViewRange } from "./calendar-view.js";
 import { attendanceForClass, type ClassAttendanceLink } from "./calendar-attendance.js";
+import { explicitCapturedTaskTitle } from "./captured-task.js";
 import { prepStatusTransition } from "./prep-item.js";
 import { applyClassificationResult, classificationUndoConflict, type NoteClassification } from "./classification.js";
 import { compileNoteFilter, filterLabelIds } from "./note-filter.js";
@@ -524,7 +526,7 @@ const wrapAiBlock=(content:string)=>`${aiBlockStart}\n${content.trim()}\n${aiBlo
 function replaceAiBlock(body:string,content:string){const start=body.indexOf(aiBlockStart),end=body.indexOf(aiBlockEnd,start+aiBlockStart.length);if(start<0||end<0||body.indexOf(aiBlockStart,start+1)>=0||body.indexOf(aiBlockEnd,end+1)>=0)return null;return `${body.slice(0,start)}${wrapAiBlock(content)}${body.slice(end+aiBlockEnd.length)}`;}
 function dependencyGraphHasCycle(steps:Array<{stepId:string;dependsOnStepIds:string[]}>){const byId=new Map(steps.map(step=>[step.stepId,step])),visiting=new Set<string>(),visited=new Set<string>();const visit=(id:string):boolean=>{if(visiting.has(id))return true;if(visited.has(id))return false;visiting.add(id);for(const dependency of byId.get(id)?.dependsOnStepIds??[])if(visit(dependency))return true;visiting.delete(id);visited.add(id);return false;};return steps.some(step=>visit(step.stepId));}
 const mapTask = (row: Record<string, any>) => taskSchema.parse({
-  id: row.id, vaultId: row.vault_id, title: row.title, completed: row.completed,
+  id: row.id, vaultId: row.vault_id, title: row.title, sourceNoteId:row.source_note_id??null, completed: row.completed,
   dueAt: row.due_at ? iso(row.due_at) : null, estimatedMinutes: row.estimated_minutes, remainingMinutes: row.remaining_minutes,
   earliestStart: row.earliest_start ? iso(row.earliest_start) : null, priority: row.priority, allowSplit: row.allow_split,
   minBlockMinutes: row.min_block_minutes, maxBlockMinutes: row.max_block_minutes, revision: row.revision,
@@ -2834,6 +2836,7 @@ app.post("/api/v1/vaults/:vaultId/captures", async (request, reply) => {
 
   const firstBlob = input.blobIds.length ? blobsById.get(input.blobIds[0]) : null;
   const title = input.title ?? (text.split(/\r?\n/, 1)[0].slice(0, 100) || firstBlob?.filename || "Untitled note");
+  const explicitTaskTitle=explicitCapturedTaskTitle(text);
   const noteId = randomUUID();
   const sourceId = randomUUID();
   const documentState = createDocumentState(text);
@@ -2850,6 +2853,7 @@ app.post("/api/v1/vaults/:vaultId/captures", async (request, reply) => {
       "INSERT INTO notes(id, vault_id, source_id, title, body, yjs_state, status) VALUES ($1, $2, $3, $4, $5, $6, 'saved') RETURNING *",
       [noteId, vaultId, sourceId, title, text, documentState]
     );
+    if(explicitTaskTitle)await client.query("INSERT INTO tasks(vault_id,title,source_note_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",[vaultId,explicitTaskTitle,noteId]);
     await client.query(
       "INSERT INTO note_revisions(note_id, revision, title, body, yjs_state, actor_kind) VALUES ($1, 1, $2, $3, $4, 'capture')",
       [noteId, title, text, documentState]
@@ -3055,6 +3059,28 @@ app.get("/api/v1/vaults/:vaultId/tasks", async (request) => {
   idSchema.parse(vaultId);
   const result = await query("SELECT * FROM tasks WHERE vault_id = $1 AND deleted_at IS NULL ORDER BY completed, due_at NULLS LAST, created_at DESC", [vaultId]);
   return { items: result.rows.map(mapTask) };
+});
+
+app.post("/api/v1/vaults/:vaultId/notes/:noteId/accept-task",async(request,reply)=>{
+  const {vaultId,noteId}=request.params as {vaultId:string;noteId:string};idSchema.parse(vaultId);idSchema.parse(noteId);
+  const input=acceptNoteTaskSchema.parse(request.body);
+  const result=await transaction(async client=>{
+    const note=(await client.query("SELECT id,revision,classification,title,suggested_title,body FROM notes WHERE vault_id=$1 AND id=$2 AND trashed_at IS NULL FOR SHARE",[vaultId,noteId])).rows[0];
+    if(!note)return"note_not_found" as const;
+    if(note.revision!==input.expectedRevision)return"stale_note_revision" as const;
+    const explicitTitle=explicitCapturedTaskTitle(note.body??"");
+    if(!note.body?.trim()||(!explicitTitle&&note.classification!=="task"))return"note_not_task_candidate" as const;
+    const existing=(await client.query("SELECT * FROM tasks WHERE vault_id=$1 AND source_note_id=$2",[vaultId,noteId])).rows[0];
+    if(existing)return existing.deleted_at?"source_task_deleted" as const:{task:existing,created:false};
+    const title=(explicitTitle||note.suggested_title?.trim()||note.title?.trim()||"").slice(0,500);
+    if(!title)return"note_not_task_candidate" as const;
+    const inserted=(await client.query("INSERT INTO tasks(vault_id,title,source_note_id) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING RETURNING *",[vaultId,title,noteId])).rows[0];
+    const task=inserted??(await client.query("SELECT * FROM tasks WHERE vault_id=$1 AND source_note_id=$2",[vaultId,noteId])).rows[0];
+    if(!task)return"source_task_conflict" as const;
+    return task.deleted_at?"source_task_deleted" as const:{task,created:Boolean(inserted)};
+  });
+  if(typeof result==="string")return reply.code(result==="note_not_found"?404:409).send({error:result});
+  return reply.code(result.created?201:200).send(mapTask(result.task));
 });
 
 app.post("/api/v1/vaults/:vaultId/tasks", async (request, reply) => {

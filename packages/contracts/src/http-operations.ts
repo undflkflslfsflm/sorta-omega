@@ -175,6 +175,7 @@ export const httpOperations: HttpOperation[] = [
   { method:"get",path:"/api/v1/vaults/{vaultId}/personal-profile/interests/{interestId}/evidence",operationId:"getInterestEvidence",tag:"Profile",success:200,responseSchema:"InterestEvidenceList" },
   { method:"post",path:"/api/v1/vaults/{vaultId}/personal-profile/interests/{interestId}/decision",operationId:"decideInterestClaim",tag:"Profile",success:200,requestSchema:"DecideInterestClaim",responseSchema:"Interest" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/tasks", operationId: "listTasks", tag: "Tasks", success: 200, responseSchema: "TaskList" },
+  { method: "post", path: "/api/v1/vaults/{vaultId}/notes/{noteId}/accept-task", operationId: "acceptNoteTask", tag: "Tasks", success: 201, requestSchema: "AcceptNoteTask", responseSchema: "Task" },
   { method:"get",path:"/api/v1/vaults/{vaultId}/projects",operationId:"listProjects",tag:"Projects",success:200,responseSchema:"ProjectList" },
   { method:"post",path:"/api/v1/vaults/{vaultId}/projects",operationId:"createProject",tag:"Projects",success:201,requestSchema:"CreateProject",responseSchema:"Project" },
   { method:"get",path:"/api/v1/vaults/{vaultId}/projects/{projectId}",operationId:"getProject",tag:"Projects",success:200,responseSchema:"Project" },

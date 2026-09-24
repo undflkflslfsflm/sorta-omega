@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 422,
+  "operationCount": 423,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -1640,6 +1640,16 @@
       "success": 200,
       "requestSchema": null,
       "responseSchema": "TaskList"
+    },
+    {
+      "operationId": "acceptNoteTask",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/notes/{noteId}/accept-task",
+      "tag": "Tasks",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "AcceptNoteTask",
+      "responseSchema": "Task"
     },
     {
       "operationId": "listProjects",

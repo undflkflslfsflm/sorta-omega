@@ -8523,6 +8523,73 @@
         }
       }
     },
+    "/api/v1/vaults/{vaultId}/notes/{noteId}/accept-task": {
+      "post": {
+        "operationId": "acceptNoteTask",
+        "tags": [
+          "Tasks"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "noteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptNoteTask"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/vaults/{vaultId}/projects": {
       "get": {
         "operationId": "listProjects",
@@ -31302,6 +31369,11 @@
             "minLength": 1,
             "maxLength": 500
           },
+          "sourceNoteId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "completed": {
             "type": "boolean"
           },
@@ -37337,6 +37409,11 @@
                   "minLength": 1,
                   "maxLength": 500
                 },
+                "sourceNoteId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
                 "completed": {
                   "type": "boolean"
                 },
@@ -37473,6 +37550,20 @@
         },
         "required": [
           "title"
+        ],
+        "additionalProperties": false
+      },
+      "AcceptNoteTask": {
+        "type": "object",
+        "properties": {
+          "expectedRevision": {
+            "type": "integer",
+            "exclusiveMinimum": true,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "expectedRevision"
         ],
         "additionalProperties": false
       },
@@ -74164,6 +74255,11 @@
                 "minLength": 1,
                 "maxLength": 500
               },
+              "sourceNoteId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true
+              },
               "completed": {
                 "type": "boolean"
               },
@@ -74260,6 +74356,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 500
+                  },
+                  "sourceNoteId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
                   },
                   "completed": {
                     "type": "boolean"
@@ -74560,6 +74661,11 @@
                   "minLength": 1,
                   "maxLength": 500
                 },
+                "sourceNoteId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
                 "completed": {
                   "type": "boolean"
                 },
@@ -74706,6 +74812,11 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 500
+                    },
+                    "sourceNoteId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "nullable": true
                     },
                     "completed": {
                       "type": "boolean"

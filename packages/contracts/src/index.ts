@@ -225,6 +225,7 @@ export const taskSchema = z.object({
   id: idSchema,
   vaultId: vaultIdSchema,
   title: z.string().min(1).max(500),
+  sourceNoteId: idSchema.nullable().optional(),
   completed: z.boolean(),
   dueAt: z.string().datetime().nullable(),
   estimatedMinutes: z.number().int().positive().nullable(),
@@ -238,6 +239,8 @@ export const taskSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
 });
+
+export const acceptNoteTaskSchema = z.object({ expectedRevision: z.number().int().positive() }).strict();
 
 export const createTaskSchema = z.object({
   title: z.string().min(1).max(500),

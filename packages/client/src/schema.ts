@@ -2160,6 +2160,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vaultId}/notes/{noteId}/accept-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["acceptNoteTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vaultId}/projects": {
         parameters: {
             query?: never;
@@ -6530,6 +6546,8 @@ export interface components {
             /** Format: uuid */
             vaultId: string;
             title: string;
+            /** Format: uuid */
+            sourceNoteId?: string | null;
             completed: boolean;
             /** Format: date-time */
             dueAt: string | null;
@@ -7999,6 +8017,8 @@ export interface components {
                 /** Format: uuid */
                 vaultId: string;
                 title: string;
+                /** Format: uuid */
+                sourceNoteId?: string | null;
                 completed: boolean;
                 /** Format: date-time */
                 dueAt: string | null;
@@ -8030,6 +8050,9 @@ export interface components {
             allowSplit: boolean;
             minBlockMinutes?: number | null;
             maxBlockMinutes?: number | null;
+        };
+        AcceptNoteTask: {
+            expectedRevision: number;
         };
         UpdateTask: {
             expectedRevision: number;
@@ -16863,6 +16886,8 @@ export interface components {
                 /** Format: uuid */
                 vaultId: string;
                 title: string;
+                /** Format: uuid */
+                sourceNoteId?: string | null;
                 completed: boolean;
                 /** Format: date-time */
                 dueAt: string | null;
@@ -16887,6 +16912,8 @@ export interface components {
                     /** Format: uuid */
                     vaultId: string;
                     title: string;
+                    /** Format: uuid */
+                    sourceNoteId?: string | null;
                     completed: boolean;
                     /** Format: date-time */
                     dueAt: string | null;
@@ -16957,6 +16984,8 @@ export interface components {
                 /** Format: uuid */
                 vaultId: string;
                 title: string;
+                /** Format: uuid */
+                sourceNoteId?: string | null;
                 completed: boolean;
                 /** Format: date-time */
                 dueAt: string | null;
@@ -16993,6 +17022,8 @@ export interface components {
                     /** Format: uuid */
                     vaultId: string;
                     title: string;
+                    /** Format: uuid */
+                    sourceNoteId?: string | null;
                     completed: boolean;
                     /** Format: date-time */
                     dueAt: string | null;
@@ -22569,6 +22600,36 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateTask"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    acceptNoteTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+                noteId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptNoteTask"];
             };
         };
         responses: {

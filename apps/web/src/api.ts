@@ -129,6 +129,7 @@ export const api = {
     }
   },
   tasks: () => request<{ items: Task[] }>(`${vaultPath}/tasks`),
+  acceptNoteTask: (note:Note) => request<Task>(`${vaultPath}/notes/${note.id}/accept-task`,{method:"POST",body:JSON.stringify({expectedRevision:note.revision})}),
   task: (taskId:string) => request<Task>(`${vaultPath}/tasks/${taskId}`),
   taskExecutionHistory: (taskId: string, cursor?: string) => request<TaskExecutionHistory>(`${vaultPath}/tasks/${taskId}/execution-history?limit=25${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
   createTask: (title: string) => request<Task>(`${vaultPath}/tasks`, { method: "POST", body: JSON.stringify({ title }) }),
