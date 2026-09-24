@@ -34,7 +34,8 @@ try {
   if (args.get("teams-tree-only") === "true" && provider === "teams") {
     const tree = await page.evaluate(() => {
       const items = [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')];
-      return { treeCount: document.querySelectorAll('[role="tree"]').length, itemCount: items.length, items: items.slice(0, 100).map(element => {
+      const navigationLabels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => label.length < 100 && /teams|team|chat|kanal|channel|klasse|class|assignment|oppgav|posts|innlegg|files|filer|grades|karakter/i.test(label)).slice(0, 40);
+      return { treeCount: document.querySelectorAll('[role="tree"]').length, itemCount: items.length, navigationLabels, items: items.slice(0, 100).map(element => {
         const label = (element.getAttribute("aria-label") ?? element.textContent ?? "").trim();
         const href = element instanceof HTMLAnchorElement ? element.getAttribute("href") ?? "" : "";
         return {
