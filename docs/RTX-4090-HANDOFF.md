@@ -166,10 +166,17 @@ pnpm --filter @sorta/browser-bridge start -- --provider teams --profile "<absolu
 pnpm --filter @sorta/browser-bridge start -- --provider inschool --profile "<absolute-profile-dir>" --output "<absolute-output.json>" --origin "https://<county>.inschool.visma.no"
 ```
 
+## 2026-09-24 live InSchool checkpoint
+
+- The isolated Edge profile on the 4090 signed in to `mailand.inschool.visma.no`. The live app imported 26 lessons from week 39, and an hourly interactive Windows task was registered. The task runs only while that profile is open and authenticated.
+- A bounded test traversal across eight distinct weeks extracted 182 unique lessons and returned the browser to its starting week. A temporary empty grid appears before InSchool's timetable requests finish; the bridge now waits for those requests. A reused teaching-group ID across subjects then caused strict import validation to reject the larger snapshot; the normalizer now scopes course identity to both group and subject.
+- The larger post-fix import has **not** been verified. The InSchool tab now shows `/Login.jsp`, so the owner must sign back in through the separate Edge profile and reopen Timeplan. Rerun `Sorta Omega - InSchool timetable`, check its `sync-status.jsonl` counts and confirm `school_lessons` increases beyond 26 with the expected date range. Do not label the sweep complete until these checks pass.
+- Teams-wide collection, InSchool absences/grades/assignments, full academic-year timetable coverage and account-independent background login remain incomplete. Two short-lived school probe artifacts were removed after the failed validation; the registered sync script also removes its own temporary artifact.
+
 ## Known incomplete product work that must stay visible
 
 - Real Microsoft/Google provider fetch, delivery and lost-response reconciliation executors.
-- Live Teams/InSchool selector/account validation.
+- Whole-account Teams validation and post-reauthenticated multiweek InSchool import validation; the one-week InSchool path is live-verified.
 - Live two-client Yjs convergence plus broader offline edits/conflicts; mounted-editor convergence/undo and offline-reopen fixtures already pass.
 - The remaining native command set (including folder watches, model install/test, worker/audio/export/backup/update/focus operations) and installed runtime behavior. Calendar view, exact calendar-event, exact commitment and finite event-source navigation compile through a doubly validated renderer event. The bounded read-only `host.preflight` command explicitly leaves hardware/service readiness unknown when it cannot prove them; `model.inspect` is restricted to two fixed loopback listing endpoints and cannot install or mutate models. These commands compile but still require an installed runtime test.
 - Clean-host replacement restore evidence.
