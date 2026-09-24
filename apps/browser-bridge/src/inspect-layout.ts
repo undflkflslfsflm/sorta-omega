@@ -36,7 +36,7 @@ try {
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
       if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
-      const assignments = probe.getByRole("button", { name: "Assignments", exact: true });
+      const assignments = probe.getByRole("treeitem", { name: "Assignments", exact: true });
       await assignments.waitFor({ timeout: 15_000 });
       if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
       await assignments.click();
