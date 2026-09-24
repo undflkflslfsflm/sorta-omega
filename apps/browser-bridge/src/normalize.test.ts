@@ -17,6 +17,10 @@ it("derives stable subjects, courses, and timed lessons from InSchool timetable 
   expect(courses).toHaveLength(2);
   expect(lessons).toHaveLength(2);
   expect(lessons[0].courseExternalId).not.toBe(lessons[1].courseExternalId);
+  const overlappingSubjects=inSchoolTimetableSnapshot([item,{...item,subjectCode:"NOR101",subjectName:"Norsk"}],"2026-09-24T12:00:00.000Z");
+  const overlappingLessons=overlappingSubjects.records.filter(record=>record.kind==="lesson");
+  expect(overlappingLessons).toHaveLength(2);
+  expect(overlappingLessons[0].externalId).not.toBe(overlappingLessons[1].externalId);
   const tooMany=Array.from({length:1000},(_,index)=>({...item,entityId:`lesson-${index}`,startUnix:String(Number(item.startUnix)+index*3600)}));
   expect(()=>inSchoolTimetableSnapshot(tooMany,"2026-09-24T12:00:00.000Z")).toThrow("inschool_timetable_snapshot_record_limit_exceeded");
 });

@@ -35,7 +35,7 @@ export function inSchoolTimetableSnapshot(items:InSchoolVisibleLesson[],captured
     const courseExternalId=`course:${createHash("sha256").update(`${item.teachingGroupId.trim()}:${subjectExternalId}`).digest("hex")}`;
     if(!seenSubjects.has(subjectExternalId)){seenSubjects.add(subjectExternalId);records.push({kind:"subject",externalId:subjectExternalId,title:subjectName,code:subjectCode||null});}
     if(!seenCourses.has(courseExternalId)){seenCourses.add(courseExternalId);records.push({kind:"course",externalId:courseExternalId,title:subjectName,subjectExternalId,teachingGroupId:item.teachingGroupId.trim().slice(0,240)||null});}
-    const lessonExternalId=createHash("sha256").update(`inschool:lesson:${item.entityId}:${item.teachingGroupId}:${unix}:${item.lessonType}`).digest("hex");
+    const lessonExternalId=createHash("sha256").update(`inschool:lesson:${item.entityId}:${item.teachingGroupId}:${subjectExternalId}:${unix}:${item.lessonType}`).digest("hex");
     if(seenLessons.has(lessonExternalId))continue;
     seenLessons.add(lessonExternalId);
     records.push({kind:"lesson",externalId:lessonExternalId,title:subjectName,courseExternalId,subjectExternalId,startsAt,endsAt,timezone:"Europe/Oslo",room:item.room.trim().slice(0,240)||null,teachers:item.teachers.trim().slice(0,240)||null,lessonType:item.lessonType.trim().slice(0,240)||null,sourceEntityId:item.entityId.trim().slice(0,240)||null});
