@@ -91,6 +91,8 @@ try{
     if(!noninteractive)await terminal.question("Sign in through Feide interactively if needed, open the timetable, then press Enter here. ");
     assertAllowed(page);
     if(new URL(page.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
+    if(new URL(page.url()).pathname.toLowerCase().endsWith("/login.jsp"))throw new Error("inschool_login_required");
+    if(await page.locator(".userTimetable_currentWeek").count()!==1)throw new Error("inschool_timetable_not_open_layout_review_required");
     const items:InSchoolVisibleLesson[]=[];const visitedWeeks:string[]=[];let offset=0;
     try{
       const collect=async()=>{const week=await visibleInSchoolWeek(page);visitedWeeks.push(week.heading);items.push(...week.items);};
@@ -108,4 +110,4 @@ try{
     await writeNewArtifact(snapshot);
     console.log(JSON.stringify({provider:"inschool",format:"omega_school_json_v1",visitedWeekCount:visitedWeeks.length,distinctWeekCount:new Set(visitedWeeks).size,visibleElementCount:items.length,uniqueLessonCount:uniqueItems.length,itemCount:snapshot.records.length,itemLimit:1000,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:`This capture covers the selected ${weeksPast}-week past and ${weeksFuture}-week future timetable window only. Absence and grade details are not yet included.`}));
   }
-}finally{terminal.close();if(browser)await browser.close();else await context.close();}
+}catch(caught){const message=caught instanceof Error?caught.message:"";console.log(JSON.stringify({provider,errorCode:/^[a-z0-9_]{1,100}$/.test(message)?message:"browser_bridge_failed"}));process.exitCode=1;}finally{terminal.close();if(browser)await browser.close();else await context.close();}

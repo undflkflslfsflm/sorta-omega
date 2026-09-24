@@ -28,7 +28,15 @@ $containerArtifact = '/tmp/' + $name
 $copied = $false
 try {
   $bridgeOutput = @(& $tsx $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact)
-  if ($LASTEXITCODE -ne 0) { throw 'The InSchool browser capture failed.' }
+  $bridgeExitCode = $LASTEXITCODE
+  if ($bridgeExitCode -ne 0) {
+    $bridgeErrorCode = 'browser_bridge_failed'
+    if ($bridgeOutput.Count -gt 0) {
+      try { $bridgeErrorCode = ($bridgeOutput[-1] | ConvertFrom-Json).errorCode } catch { }
+    }
+    if ($bridgeErrorCode -notmatch '^[a-z0-9_]{1,100}$') { $bridgeErrorCode = 'browser_bridge_failed' }
+    throw "The InSchool browser capture failed: $bridgeErrorCode"
+  }
   $bridgeReport = $bridgeOutput[-1] | ConvertFrom-Json
   if ($bridgeReport.provider -ne 'inschool' -or $bridgeReport.itemCount -lt 1 -or $bridgeReport.uniqueLessonCount -lt 1) { throw 'The InSchool bridge returned an invalid capture report.' }
   & docker cp $artifact "${AppContainer}:$containerArtifact"
