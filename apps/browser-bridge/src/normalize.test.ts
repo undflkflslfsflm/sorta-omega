@@ -11,6 +11,12 @@ it("derives stable subjects, courses, and timed lessons from InSchool timetable 
   expect(first.records[2]).toMatchObject({startsAt:new Date(Number(item.startUnix)*1000).toISOString(),endsAt:new Date(Number(item.startUnix)*1000+45*60_000).toISOString(),room:"A12",timezone:"Europe/Oslo"});
   expect(first.records[2].externalId).toBe(second.records[2].externalId);
   expect(JSON.stringify(first)).not.toContain("cookie");
+  const sharedGroup=inSchoolTimetableSnapshot([item,{...item,entityId:"lesson-2",subjectCode:"NOR101",subjectName:"Norsk",startUnix:String(Number(item.startUnix)+3600)}],"2026-09-24T12:00:00.000Z");
+  const courses=sharedGroup.records.filter(record=>record.kind==="course");
+  const lessons=sharedGroup.records.filter(record=>record.kind==="lesson");
+  expect(courses).toHaveLength(2);
+  expect(lessons).toHaveLength(2);
+  expect(lessons[0].courseExternalId).not.toBe(lessons[1].courseExternalId);
   const tooMany=Array.from({length:1000},(_,index)=>({...item,entityId:`lesson-${index}`,startUnix:String(Number(item.startUnix)+index*3600)}));
   expect(()=>inSchoolTimetableSnapshot(tooMany,"2026-09-24T12:00:00.000Z")).toThrow("inschool_timetable_snapshot_record_limit_exceeded");
 });

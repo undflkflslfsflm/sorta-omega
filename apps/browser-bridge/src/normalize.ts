@@ -31,14 +31,14 @@ export function inSchoolTimetableSnapshot(items:InSchoolVisibleLesson[],captured
     if(duration<5||duration>600)continue;
     const startsAt=new Date(unix*1000).toISOString(),endsAt=new Date(unix*1000+duration*60_000).toISOString();
     const subjectCode=item.subjectCode.trim().slice(0,80);
-    const subjectExternalId=`subject:${subjectCode||subjectName.toLocaleLowerCase("nb-NO")}`;
-    const courseExternalId=`course:${item.teachingGroupId.trim()||subjectExternalId}`;
+    const subjectExternalId=`subject:${subjectCode||createHash("sha256").update(subjectName.toLocaleLowerCase("nb-NO")).digest("hex")}`;
+    const courseExternalId=`course:${createHash("sha256").update(`${item.teachingGroupId.trim()}:${subjectExternalId}`).digest("hex")}`;
     if(!seenSubjects.has(subjectExternalId)){seenSubjects.add(subjectExternalId);records.push({kind:"subject",externalId:subjectExternalId,title:subjectName,code:subjectCode||null});}
-    if(!seenCourses.has(courseExternalId)){seenCourses.add(courseExternalId);records.push({kind:"course",externalId:courseExternalId,title:subjectName,subjectExternalId,teachingGroupId:item.teachingGroupId.trim()||null});}
+    if(!seenCourses.has(courseExternalId)){seenCourses.add(courseExternalId);records.push({kind:"course",externalId:courseExternalId,title:subjectName,subjectExternalId,teachingGroupId:item.teachingGroupId.trim().slice(0,240)||null});}
     const lessonExternalId=createHash("sha256").update(`inschool:lesson:${item.entityId}:${item.teachingGroupId}:${unix}:${item.lessonType}`).digest("hex");
     if(seenLessons.has(lessonExternalId))continue;
     seenLessons.add(lessonExternalId);
-    records.push({kind:"lesson",externalId:lessonExternalId,title:subjectName,courseExternalId,subjectExternalId,startsAt,endsAt,timezone:"Europe/Oslo",room:item.room.trim()||null,teachers:item.teachers.trim()||null,lessonType:item.lessonType.trim()||null,sourceEntityId:item.entityId.trim()||null});
+    records.push({kind:"lesson",externalId:lessonExternalId,title:subjectName,courseExternalId,subjectExternalId,startsAt,endsAt,timezone:"Europe/Oslo",room:item.room.trim().slice(0,240)||null,teachers:item.teachers.trim().slice(0,240)||null,lessonType:item.lessonType.trim().slice(0,240)||null,sourceEntityId:item.entityId.trim().slice(0,240)||null});
     if(records.length>1_000)throw new Error("inschool_timetable_snapshot_record_limit_exceeded");
   }
   return {version:"omega_school_json_v1",source_timestamp:capturedAt,timezone:"Europe/Oslo",records};
