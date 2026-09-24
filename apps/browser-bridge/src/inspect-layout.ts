@@ -31,7 +31,27 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("navigation-only") === "true" && provider === "inschool") {
+  if (args.get("probe-next-week") === "true" && provider === "inschool") {
+    const heading = page.locator(".userTimetable_currentWeek");
+    const before = (await heading.textContent())?.trim();
+    const counts: Array<{ milliseconds: number; heading: string | null; lessons: number; busy: number }> = [];
+    try {
+      await page.locator('button.userTimetable_moveWeekButton[aria-label="Neste uke"]').click();
+      for (let index = 0; index < 32; index++) {
+        counts.push(await page.evaluate(milliseconds => ({
+          milliseconds,
+          heading: document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() ?? null,
+          lessons: document.querySelectorAll(".Timetable-TimetableItem[starttimeanddateunix]").length,
+          busy: document.querySelectorAll('[aria-busy="true"], [class*="loading" i], [class*="spinner" i]').length,
+        }), index * 250));
+        await page.waitForTimeout(250);
+      }
+    } finally {
+      await page.locator('button.userTimetable_moveWeekButton[aria-label="Forrige uke"]').click();
+      await page.waitForFunction(previous => document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() === previous, before, { timeout: 15_000 });
+    }
+    console.log(JSON.stringify({ provider, before, counts }));
+  } else if (args.get("navigation-only") === "true" && provider === "inschool") {
     const navigation = await page.evaluate(() => ({
       weekHeading: document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() ?? null,
       lessonCount: document.querySelectorAll(".Timetable-TimetableItem[starttimeanddateunix]").length,
