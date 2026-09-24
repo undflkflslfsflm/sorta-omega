@@ -8,7 +8,7 @@ function worker() {
   const cache = { put: vi.fn(async () => {}), match: vi.fn(async () => undefined), addAll: vi.fn(async () => {}) };
   const caches = { open: vi.fn(async () => cache), keys: vi.fn(async () => ["sorta-shell-v1", "sorta-shell-v2", "unrelated-cache"]), delete: vi.fn(async () => true) };
   const fetch = vi.fn(async () => new Response("asset"));
-  const self = { location: { origin: "https://omega.test" }, addEventListener: (name, handler) => { handlers[name] = handler; }, clients: { claim: vi.fn(async () => {}) } };
+  const self = { location: { origin: "https://omega.test" }, addEventListener: (name, handler) => { handlers[name] = handler; }, clients: { claim: vi.fn(async () => {}) }, skipWaiting: vi.fn(async () => {}) };
   const builtSource = source.replace('const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];', 'const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/assets/app-123.js"];');
   runInNewContext(builtSource, { self, caches, fetch, URL, Response });
   function request(path, method = "GET") {
@@ -20,11 +20,11 @@ function worker() {
 }
 
 describe("public-only service worker cache", () => {
-  it("serves the installed HTML without mixing in a newer network build", async () => {
+  it("fetches current HTML even when an older shell is cached", async () => {
     const w = worker();
     w.cache.match.mockResolvedValue(new Response("installed HTML"));
-    expect(await (await w.request("/").respondWith.mock.calls[0][0]).text()).toBe("installed HTML");
-    expect(w.fetch).not.toHaveBeenCalled();
+    expect(await (await w.request("/").respondWith.mock.calls[0][0]).text()).toBe("asset");
+    expect(w.fetch).toHaveBeenCalledOnce();
   });
 
   it("does not intercept private, query-bearing, cross-origin, or write requests", () => {
@@ -64,7 +64,7 @@ describe("public-only service worker cache", () => {
     w.fetch.mockRejectedValue(new TypeError("offline"));
     const response = await w.request("/assets/app-123.js").respondWith.mock.calls[0][0];
     expect(response.type).toBe("error");
-    expect(w.cache.match).toHaveBeenCalledTimes(2);
+    expect(w.cache.match).toHaveBeenCalledOnce();
     expect(w.cache.match.mock.calls.every(([, options]) => options.ignoreVary === true)).toBe(true);
   });
 
@@ -74,8 +74,12 @@ describe("public-only service worker cache", () => {
     expect(await (await w.request("/").respondWith.mock.calls[0][0]).text()).toBe("asset");
   });
 
-  it("deletes only previous Sorta shell caches and awaits client claiming", async () => {
+  it("activates the new worker and deletes only previous Sorta shell caches", async () => {
     const w = worker();
+    const install = { waitUntil: vi.fn() };
+    w.handlers.install(install);
+    await install.waitUntil.mock.calls[0][0];
+    expect(w.self.skipWaiting).toHaveBeenCalledOnce();
     const event = { waitUntil: vi.fn() };
     w.handlers.activate(event);
     await event.waitUntil.mock.calls[0][0];

@@ -2,7 +2,7 @@ const CACHE = "sorta-shell-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (event) => {
@@ -18,15 +18,9 @@ self.addEventListener("fetch", (event) => {
   const shell = SHELL.includes(url.pathname);
   if (!shell) return;
   const responsePromise = (async () => {
-    // Serve the installed build consistently while a newer worker waits. A
-    // network-first index could reference new chunks absent from this cache.
-    if (shell) {
-      // Public build assets are invariant across Origin headers. Precache GETs
-      // and module/CSS requests can differ there when the server sends Vary:
-      // Origin; respecting it would miss valid offline bytes on a real reload.
-      const installed = await (await caches.open(CACHE)).match(request, { ignoreVary: true });
-      if (installed) return installed;
-    }
+    // Fetch the current shell online so a deployment cannot be pinned behind
+    // an indefinitely cached index.html. Keep the last good public shell for
+    // offline use; private data is never placed in this cache.
     return fetch(request).then(async (response) => {
     if (response.ok && !response.redirected && response.type !== "opaque") {
       try { await (await caches.open(CACHE)).put(request, response.clone()); }
