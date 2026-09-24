@@ -5,6 +5,7 @@ export type TimelineItem = {
   endsAt: string | null;
   layer: string;
   attendanceStatus: "present" | "absent" | "late" | "unknown" | null;
+  attendanceLabel: string | null;
   detail: string;
 };
 

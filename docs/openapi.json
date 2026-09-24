@@ -41304,6 +41304,22 @@
                     "study"
                   ]
                 },
+                "attendanceStatus": {
+                  "type": "string",
+                  "enum": [
+                    "present",
+                    "absent",
+                    "late",
+                    "unknown"
+                  ],
+                  "nullable": true,
+                  "default": null
+                },
+                "attendanceLabel": {
+                  "type": "string",
+                  "nullable": true,
+                  "default": null
+                },
                 "source": {
                   "type": "object",
                   "properties": {
@@ -41395,6 +41411,11 @@
                     "late",
                     "unknown"
                   ],
+                  "nullable": true,
+                  "default": null
+                },
+                "attendanceLabel": {
+                  "type": "string",
                   "nullable": true,
                   "default": null
                 },

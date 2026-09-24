@@ -9042,6 +9042,13 @@ export interface components {
                 timezone: string;
                 /** @enum {string} */
                 layer: "personal" | "school" | "study";
+                /**
+                 * @default null
+                 * @enum {string|null}
+                 */
+                attendanceStatus: "present" | "absent" | "late" | "unknown" | null;
+                /** @default null */
+                attendanceLabel: string | null;
                 source: {
                     /** @enum {string} */
                     kind: "local" | "provider";
@@ -9067,6 +9074,8 @@ export interface components {
                  * @enum {string|null}
                  */
                 attendanceStatus: "present" | "absent" | "late" | "unknown" | null;
+                /** @default null */
+                attendanceLabel: string | null;
                 /** @enum {string} */
                 reason: "source_record_not_calendar_event";
                 revision: number;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { placeTimelineDay, timelineBounds, timelineDateKey, type TimelineItem } from "./calendar-timeline";
 
-const item = (id: string, startsAt: string, endsAt: string): TimelineItem => ({ id, title: id, startsAt, endsAt, layer: "school", attendanceStatus: null, detail: "" });
+const item = (id: string, startsAt: string, endsAt: string): TimelineItem => ({ id, title: id, startsAt, endsAt, layer: "school", attendanceStatus: null, attendanceLabel: null, detail: "" });
 
 describe("calendar timeline", () => {
   it("places lessons by local time rather than stacking them", () => {

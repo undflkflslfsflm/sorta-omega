@@ -61,7 +61,7 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
             const blockHeight = Math.max(20, ((item.endMinute - item.startMinute) / 60) * hourHeight - 2);
             const width = 100 / item.laneCount;
             return <article className={`calendar-timeline-event ${item.layer} ${item.attendanceStatus ? `attendance-${item.attendanceStatus}` : ""}`} key={item.id} style={{ top, height: blockHeight, left: `${item.lane * width}%`, width: `calc(${width}% - 3px)` }} title={`${item.title} · ${item.detail}`}>
-              <strong>{item.title}</strong><small>{time(item.startsAt)}–{item.endsAt ? time(item.endsAt) : "time unknown"}{item.attendanceStatus === "absent" ? " · Absent" : item.attendanceStatus === "late" ? " · Late" : ""}</small>
+              <strong>{item.title}</strong><small>{time(item.startsAt)}–{item.endsAt ? time(item.endsAt) : "time unknown"}{item.attendanceLabel ? ` · ${item.attendanceLabel}` : item.attendanceStatus === "absent" ? " · Absent" : item.attendanceStatus === "late" ? " · Late" : ""}</small>
             </article>;
           })}
         </div>)}
