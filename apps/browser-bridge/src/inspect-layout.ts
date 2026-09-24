@@ -53,6 +53,26 @@ try {
       catch { return { origin: "non-http", routeShape: "" }; }
     });
     console.log(JSON.stringify({ provider, tabs }));
+  } else if (args.get("probe-all-teams") === "true" && provider === "teams") {
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
+      if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
+      const back = probe.getByText("Back to All teams", { exact: true });
+      await back.waitFor({ timeout: 15_000 });
+      if (await back.count() !== 1) throw new Error("teams_all_teams_navigation_ambiguous");
+      await back.click();
+      await probe.waitForTimeout(3_000);
+      const structure = await probe.evaluate(() => {
+        const candidate = document.querySelector<HTMLElement>('[class*="team-card" i], [class*="teamCard" i], [role="gridcell"], [role="listitem"]');
+        return {
+          routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
+          counts: { teamClasses: document.querySelectorAll('[class*="team" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, gridCells: document.querySelectorAll('[role="gridcell"]').length, anchors: document.querySelectorAll("a").length },
+          candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), role: candidate.getAttribute("role"), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
+        };
+      });
+      console.log(JSON.stringify({ provider, structure }));
+    } finally { await probe.close(); }
   } else if (args.get("probe-assignments") === "true" && provider === "teams") {
     const probe = await browser.contexts()[0].newPage();
     try {
