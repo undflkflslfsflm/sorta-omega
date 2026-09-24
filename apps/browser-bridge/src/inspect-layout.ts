@@ -35,6 +35,13 @@ try {
     const heading = page.locator(".userTimetable_currentWeek");
     const before = (await heading.textContent())?.trim();
     const counts: Array<{ milliseconds: number; heading: string | null; lessons: number; busy: number }> = [];
+    const responses: Array<{ milliseconds: number; status: number; resourceType: string }> = [];
+    const started = Date.now();
+    const onResponse = (response: import("playwright-core").Response) => {
+      const resourceType = response.request().resourceType();
+      if ((resourceType === "xhr" || resourceType === "fetch") && new URL(response.url()).origin === expectedOrigin) responses.push({ milliseconds: Date.now() - started, status: response.status(), resourceType });
+    };
+    page.on("response", onResponse);
     try {
       await page.locator('button.userTimetable_moveWeekButton[aria-label="Neste uke"]').click();
       for (let index = 0; index < 32; index++) {
@@ -47,10 +54,11 @@ try {
         await page.waitForTimeout(250);
       }
     } finally {
+      page.off("response", onResponse);
       await page.locator('button.userTimetable_moveWeekButton[aria-label="Forrige uke"]').click();
       await page.waitForFunction(previous => document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() === previous, before, { timeout: 15_000 });
     }
-    console.log(JSON.stringify({ provider, before, counts }));
+    console.log(JSON.stringify({ provider, before, counts, responses }));
   } else if (args.get("navigation-only") === "true" && provider === "inschool") {
     const navigation = await page.evaluate(() => ({
       weekHeading: document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() ?? null,

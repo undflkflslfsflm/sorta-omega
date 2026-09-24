@@ -27,18 +27,25 @@ $artifact = Join-Path $spool $name
 $containerArtifact = '/tmp/' + $name
 $copied = $false
 try {
-  & $tsx $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact
+  $bridgeOutput = @(& $tsx $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact)
   if ($LASTEXITCODE -ne 0) { throw 'The InSchool browser capture failed.' }
+  $bridgeReport = $bridgeOutput[-1] | ConvertFrom-Json
+  if ($bridgeReport.provider -ne 'inschool' -or $bridgeReport.itemCount -lt 1 -or $bridgeReport.uniqueLessonCount -lt 1) { throw 'The InSchool bridge returned an invalid capture report.' }
   & docker cp $artifact "${AppContainer}:$containerArtifact"
   if ($LASTEXITCODE -ne 0) { throw 'The snapshot could not be transferred to the app container.' }
   $copied = $true
-  & docker exec $AppContainer node /app/apps/api/dist/import-school-snapshot.js --vault-id $VaultId --file $containerArtifact
+  $importOutput = @(& docker exec $AppContainer node /app/apps/api/dist/import-school-snapshot.js --vault-id $VaultId --file $containerArtifact)
   if ($LASTEXITCODE -ne 0) { throw 'The InSchool snapshot was not applied.' }
+  $importReport = $importOutput[-1] | ConvertFrom-Json
+  if ($null -eq $importReport.counts.lesson) { throw 'The InSchool import returned no lesson counts.' }
+  $lessonActions = $importReport.counts.lesson
+  $accounted = [int]$lessonActions.created + [int]$lessonActions.updated + [int]$lessonActions.linked + [int]$lessonActions.unchanged + [int]$lessonActions.stale
+  if ($accounted -ne [int]$bridgeReport.uniqueLessonCount) { throw 'The InSchool import did not account for every captured lesson.' }
 } finally {
   if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
   if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
 }
-[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded'} | ConvertTo-Json -Compress) + "`n"))
+[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale} | ConvertTo-Json -Compress) + "`n"))
 } catch {
   $message = $_.Exception.Message
   if ($message.Length -gt 240) { $message = $message.Substring(0,240) }
