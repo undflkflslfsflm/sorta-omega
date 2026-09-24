@@ -31,7 +31,13 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("probe-assignments") === "true" && provider === "teams") {
+  if (args.get("tab-inventory") === "true") {
+    const tabs = browser.contexts().flatMap(context => context.pages()).map(candidate => {
+      try { const url = new URL(candidate.url()); return { origin: url.origin, routeShape: `${url.pathname}${url.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120) }; }
+      catch { return { origin: "non-http", routeShape: "" }; }
+    });
+    console.log(JSON.stringify({ provider, tabs }));
+  } else if (args.get("probe-assignments") === "true" && provider === "teams") {
     const probe = await browser.contexts()[0].newPage();
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
