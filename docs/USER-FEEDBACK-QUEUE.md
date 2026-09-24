@@ -11,7 +11,7 @@ This is a working queue, not a claim that a feature is live. Finish and verify o
 | Color the class itself red for absence or yellow for lateness, including type | In GitHub since `d65a63c`; automatic InSchool attendance extraction is not yet present | Deploy; verify linked attendance with real source records, then implement and live-test InSchool attendance ingestion |
 | Automatically populate subjects, courses, lessons, assessments, assignments, attendance, grades and their details from InSchool/Teams | Partial: timetable one-week import live-verified; broader traversal and other categories incomplete | Reauthenticate the 4090's isolated school browser, verify multiweek import, then add each missing source dataset with coverage checks |
 | Remove manual “cockpit” work from everyday use; commitments should come from capture/import | Open | Redesign the primary Tasks, Brain, School and reminder surfaces around passive retrieval, then test with real records |
-| Norwegian/European date display and entry | Partial | Audit every visible date input/output, change confusing `mm/dd/yyyy` native controls or show a clear `dd.mm.yyyy` affordance, verify locale behavior |
+| Norwegian/European date display and entry | Partial: reminder entry and snooze use explicit `dd.mm.yyyy hh:mm` locally | Audit every other visible date input/output, remove confusing native `mm/dd/yyyy` controls, and verify locale behavior live |
 | Whole-account Teams/365 and Gmail collection | Open/partial | Obtain authorized account access and verify dataset-by-dataset sync, contents, pagination and completeness |
 
 The live site may lag GitHub while remote deployment is unavailable. Do not mark a row finished from a passing unit test alone.
