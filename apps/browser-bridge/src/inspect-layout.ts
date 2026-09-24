@@ -58,7 +58,7 @@ try {
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
       if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
-      const back = probe.getByText("Back to All teams", { exact: true });
+      const back = probe.locator('[aria-label="Back to All teams"], [title="Back to All teams"]');
       await back.waitFor({ timeout: 15_000 });
       if (await back.count() !== 1) throw new Error("teams_all_teams_navigation_ambiguous");
       await back.click();
