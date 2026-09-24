@@ -61,6 +61,9 @@ try {
     console.log(JSON.stringify({ provider, before, counts, responses }));
   } else if (args.get("navigation-only") === "true" && provider === "inschool") {
     const navigation = await page.evaluate(() => ({
+      routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
+      passwordFields: document.querySelectorAll('input[type="password"]').length,
+      loginPrompt: /logg inn|sign in|feide/i.test(document.body?.innerText?.slice(0, 3_000) ?? ""),
       weekHeading: document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() ?? null,
       lessonCount: document.querySelectorAll(".Timetable-TimetableItem[starttimeanddateunix]").length,
       controls: [...document.querySelectorAll<HTMLButtonElement>(".userTimetable_moveWeekButton")].map((button, index) => ({
