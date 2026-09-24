@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page } from "playwright-core";
+import { chromium, type Browser, type Page, type Request, type Response } from "playwright-core";
 import { link, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
@@ -51,9 +51,25 @@ async function moveInSchoolWeek(page:Page,direction:-1|1){
   const label=direction===1?"Neste uke":"Forrige uke";
   const control=page.locator(`button.userTimetable_moveWeekButton[aria-label="${label}"]`);
   if(await control.count()!==1||await control.isDisabled())throw new Error("inschool_week_navigation_changed_or_unavailable");
-  await control.click();
-  await page.waitForFunction(before=>{const current=document.querySelector(".userTimetable_currentWeek")?.textContent?.trim();return Boolean(current&&current!==before);},previous,{timeout:15_000});
-  assertAllowed(page);
+  const origin=new URL(page.url()).origin;
+  const isTimetableRequest=(request:Request)=>{try{const url=new URL(request.url());return url.origin===origin&&request.resourceType()==="xhr"&&/^\/control\/.*\/learner\/.*\/fetch\/ALL\/.*\/current$/.test(url.pathname);}catch{return false;}};
+  const pending=new Set<Request>();let observed=false,failed=false,lastFinished=0;
+  const onRequest=(request:Request)=>{if(isTimetableRequest(request)){observed=true;pending.add(request);}};
+  const onFinished=(request:Request)=>{if(isTimetableRequest(request)){pending.delete(request);lastFinished=Date.now();}};
+  const onFailed=(request:Request)=>{if(isTimetableRequest(request)){pending.delete(request);failed=true;}};
+  const onResponse=(response:Response)=>{if(isTimetableRequest(response.request())&&response.status()>=400)failed=true;};
+  page.on("request",onRequest);page.on("requestfinished",onFinished);page.on("requestfailed",onFailed);page.on("response",onResponse);
+  try{
+    await control.click();
+    await page.waitForFunction(before=>{const current=document.querySelector(".userTimetable_currentWeek")?.textContent?.trim();return Boolean(current&&current!==before);},previous,{timeout:15_000});
+    assertAllowed(page);
+    for(let attempt=0;attempt<80;attempt++){
+      if(failed)throw new Error("inschool_timetable_request_failed");
+      if(observed&&pending.size===0&&Date.now()-lastFinished>=750)return;
+      await page.waitForTimeout(250);
+    }
+    throw new Error("inschool_timetable_request_not_completed");
+  }finally{page.off("request",onRequest);page.off("requestfinished",onFinished);page.off("requestfailed",onFailed);page.off("response",onResponse);}
 }
 
 async function scrollToOldest(page:Page){for(let attempt=0,stable=0,previous="";attempt<200&&stable<4;attempt++){const state=await page.evaluate(()=>{const candidates=[...document.querySelectorAll<HTMLElement>('[data-tid="message-pane-list-runway"], [role="log"], [data-tid="chat-pane-list"]')],target=candidates.sort((a,b)=>b.scrollHeight-a.scrollHeight)[0];if(!target)return"missing";target.scrollTop=0;return`${target.scrollHeight}:${target.textContent?.slice(0,200)??""}`;});stable=state===previous?stable+1:0;previous=state;await page.waitForTimeout(750);}}
