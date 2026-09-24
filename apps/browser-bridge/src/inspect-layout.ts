@@ -31,7 +31,31 @@ try {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("navigation-only") === "true" && provider === "teams") {
+  if (args.get("probe-assignments") === "true" && provider === "teams") {
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
+      if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
+      const assignments = probe.getByRole("button", { name: "Assignments", exact: true });
+      await assignments.waitFor({ timeout: 15_000 });
+      if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
+      await assignments.click();
+      await probe.waitForTimeout(2_000);
+      const structure = await probe.evaluate(() => {
+        const known = /^(assignments|assigned|completed|upcoming|past due|returned|turned in|to do|due|all|oppgaver|tildelt|fullført|kommende|forsinket|levert|alle)$/i;
+        const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
+        const candidate = document.querySelector<HTMLElement>('[class*="assignment" i], [class*="task-card" i], [role="listitem"]');
+        return {
+          routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
+          knownLabels: [...new Set(labels)],
+          testIds: [...new Set([...document.querySelectorAll<HTMLElement>("[data-testid]")].map(element => element.getAttribute("data-testid")).filter((value): value is string => Boolean(value && /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(value))))].slice(0, 60),
+          counts: { assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, links: document.querySelectorAll("main a").length, buttons: document.querySelectorAll("main button").length },
+          candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
+        };
+      });
+      console.log(JSON.stringify({ provider, structure }));
+    } finally { await probe.close(); }
+  } else if (args.get("navigation-only") === "true" && provider === "teams") {
     const navigation = await page.evaluate(() => {
       const known = /^(activity|chat|teams|assignments|calendar|files|onedrive|classes|school|aktivitet|samtale|team|oppgaver|kalender|filer|klasser|skole)$/i;
       const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
