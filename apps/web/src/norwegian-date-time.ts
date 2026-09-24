@@ -7,3 +7,12 @@ export function parseNorwegianDateTime(value: string): Date | null {
   const parsed = new Date(year, month - 1, day, hour, minute);
   return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day && parsed.getHours() === hour && parsed.getMinutes() === minute ? parsed : null;
 }
+
+export function parseNorwegianDate(value: string): string | null {
+  const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, day, month, year] = match;
+  const parsed = new Date(Number(year), Number(month) - 1, Number(day));
+  if (parsed.getFullYear() !== Number(year) || parsed.getMonth() !== Number(month) - 1 || parsed.getDate() !== Number(day)) return null;
+  return `${year}-${month}-${day}`;
+}
