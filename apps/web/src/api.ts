@@ -102,9 +102,9 @@ export const api = {
   relatedNotes:(noteId:string,limit=10)=>request<RelatedResult>(`${vaultPath}/notes/${noteId}/related?limit=${limit}`),
   createRelationship: (fromNoteId: string, toNoteId: string, kind: Relationship["kind"]) => request<Relationship>(`${vaultPath}/relationships`, { method: "POST", body: JSON.stringify({ fromNoteId, toNoteId, kind, evidenceAnchorIds: [] }) }),
   deleteRelationship: (relationship: Relationship) => request<void>(`${vaultPath}/relationships/${relationship.id}?expectedRevision=${relationship.revision}`, { method: "DELETE" }),
-  capture: (text: string | undefined, clientOperationId: string = crypto.randomUUID(), blobIds: string[] = []) => request<Note>(`${vaultPath}/captures`, {
+  capture: (text: string | undefined, clientOperationId: string = crypto.randomUUID(), blobIds: string[] = [], title?: string) => request<Note>(`${vaultPath}/captures`, {
     method: "POST",
-    body: JSON.stringify({ text, blobIds, clientOperationId })
+    body: JSON.stringify({ text, blobIds, clientOperationId, title })
   }),
   captureDetails: (captureId: string) => request<Capture>(`${vaultPath}/captures/${captureId}`),
   blobContentUrl: (blobId: string, download = false) => `${BASE}${vaultPath}/blobs/${blobId}/content${download ? "?download=true" : ""}`,
