@@ -58,10 +58,10 @@ try {
   } else if (args.get("navigation-only") === "true" && provider === "teams") {
     const navigation = await page.evaluate(() => {
       const known = /^(activity|chat|teams|assignments|calendar|files|onedrive|classes|school|aktivitet|samtale|team|oppgaver|kalender|filer|klasser|skole)$/i;
-      const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
+      const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => ({ label: (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim(), tag: element.tagName.toLowerCase(), role: element.getAttribute("role") })).filter(item => known.test(item.label));
       return {
         routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
-        knownNavigation: [...new Set(labels)],
+        knownNavigation: labels,
         messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"], [role="log"] [role="listitem"]').length,
       };
     });
