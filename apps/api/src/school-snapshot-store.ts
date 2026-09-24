@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { InSchoolSnapshot } from "./school-snapshot.js";
 
-type Kind = "subject" | "course" | "lesson";
+type Kind = "subject" | "course" | "lesson" | "attendance" | "grade";
 type Action = "created" | "updated" | "linked" | "unchanged" | "stale";
 export type SchoolSnapshotApplyCounts = Record<Kind, Record<Action, number>>;
 
 function emptyCounts(): SchoolSnapshotApplyCounts {
   const actions = () => ({ created: 0, updated: 0, linked: 0, unchanged: 0, stale: 0 });
-  return { subject: actions(), course: actions(), lesson: actions() };
+  return { subject: actions(), course: actions(), lesson: actions(), attendance: actions(), grade: actions() };
 }
 
 function hashRecord(value: unknown): string {
@@ -18,7 +18,7 @@ function hashRecord(value: unknown): string {
 export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string, snapshot: InSchoolSnapshot): Promise<SchoolSnapshotApplyCounts> {
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))", [vaultId, snapshot.source_origin]);
   const counts = emptyCounts();
-  const subjectIds = new Map<string, string>(), courseIds = new Map<string, string>();
+  const subjectIds = new Map<string, string>(), courseIds = new Map<string, string>(), lessonIds = new Map<string, string>();
   const timestamp = Date.parse(snapshot.source_timestamp);
 
   async function existing(kind: Kind, externalId: string) {
@@ -26,13 +26,13 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
     return result.rows[0] ?? null;
   }
   async function saveLink(kind: Kind, externalId: string, id: string, record: unknown, contentHash: string) {
-    await client.query(`INSERT INTO school_snapshot_links(vault_id,source_origin,record_kind,external_id,subject_id,course_id,lesson_id,content_hash,source_record,source_timestamp)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+    await client.query(`INSERT INTO school_snapshot_links(vault_id,source_origin,record_kind,external_id,subject_id,course_id,lesson_id,attendance_id,grade_id,content_hash,source_record,source_timestamp)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)
       ON CONFLICT(vault_id,source_origin,record_kind,external_id) DO UPDATE SET
       content_hash=excluded.content_hash,source_record=excluded.source_record,source_timestamp=excluded.source_timestamp,last_seen_at=now()`,
-    [vaultId, snapshot.source_origin, kind, externalId, kind === "subject" ? id : null, kind === "course" ? id : null, kind === "lesson" ? id : null, contentHash, JSON.stringify(record), snapshot.source_timestamp]);
+    [vaultId, snapshot.source_origin, kind, externalId, kind === "subject" ? id : null, kind === "course" ? id : null, kind === "lesson" ? id : null, kind === "attendance" ? id : null, kind === "grade" ? id : null, contentHash, JSON.stringify(record), snapshot.source_timestamp]);
   }
-  async function linkedRow(table: "school_subjects" | "school_courses" | "school_lessons", id: string) {
+  async function linkedRow(table: "school_subjects" | "school_courses" | "school_lessons" | "attendance_records" | "performance_grades", id: string) {
     const result = await client.query(`SELECT * FROM ${table} WHERE vault_id=$1 AND id=$2 AND archived_at IS NULL FOR UPDATE`, [vaultId, id]);
     if (!result.rows[0]) throw new Error("school_snapshot_linked_record_unavailable");
     return result.rows[0];
@@ -92,7 +92,7 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
     const courseId = courseIds.get(record.courseExternalId);
     if (!courseId) throw new Error("school_snapshot_lesson_course_unavailable");
     const hash = hashRecord(record), link = await existing("lesson", record.externalId);
-    if (link && new Date(link.source_timestamp).getTime() > timestamp) { counts.lesson.stale++; continue; }
+    if (link && new Date(link.source_timestamp).getTime() > timestamp) { lessonIds.set(record.externalId, link.lesson_id); counts.lesson.stale++; continue; }
     const timeSpec = JSON.stringify({ kind: "exact", startsAt: record.startsAt, endsAt: record.endsAt, timezone: record.timezone });
     let id: string;
     if (link) {
@@ -112,6 +112,50 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
       }
     }
     await saveLink("lesson", record.externalId, id, record, hash);
+    lessonIds.set(record.externalId, id);
+  }
+  for (const record of snapshot.records.filter(item => item.kind === "attendance")) {
+    const courseId = courseIds.get(record.courseExternalId);
+    if (!courseId) throw new Error("school_snapshot_attendance_course_unavailable");
+    const lessonId = record.lessonExternalId ? lessonIds.get(record.lessonExternalId) : null;
+    if (record.lessonExternalId && !lessonId) throw new Error("school_snapshot_attendance_lesson_unavailable");
+    const hash = hashRecord(record), link = await existing("attendance", record.externalId);
+    if (link && new Date(link.source_timestamp).getTime() > timestamp) { counts.attendance.stale++; continue; }
+    const timeSpec = JSON.stringify({ kind: "date_only", date: record.date, timezone: "Europe/Oslo" });
+    let id: string;
+    if (link) {
+      const row = await linkedRow("attendance_records", link.attendance_id);
+      id = row.id;
+      if (link.content_hash === hash) counts.attendance.unchanged++;
+      else if (row.origin === "provider") {
+        await client.query("UPDATE attendance_records SET course_id=$3,lesson_id=$4,record_date=$5,time_spec=$6::jsonb,raw_status=$7,normalized_status=$8,excusal_status=$9,duration=$10,units=$11,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2", [vaultId,id,courseId,lessonId,record.date,timeSpec,record.rawStatus,record.normalizedStatus,record.excusalStatus,record.duration,record.units]);
+        counts.attendance.updated++;
+      } else counts.attendance.linked++;
+    } else {
+      const created = await client.query("INSERT INTO attendance_records(vault_id,course_id,lesson_id,record_date,time_spec,raw_status,normalized_status,excusal_status,duration,units,origin) VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9,$10,'provider') RETURNING id", [vaultId,courseId,lessonId,record.date,timeSpec,record.rawStatus,record.normalizedStatus,record.excusalStatus,record.duration,record.units]);
+      id = created.rows[0].id; counts.attendance.created++;
+    }
+    await saveLink("attendance", record.externalId, id, record, hash);
+  }
+  for (const record of snapshot.records.filter(item => item.kind === "grade")) {
+    const courseId = courseIds.get(record.courseExternalId);
+    if (!courseId) throw new Error("school_snapshot_grade_course_unavailable");
+    const hash = hashRecord(record), link = await existing("grade", record.externalId);
+    if (link && new Date(link.source_timestamp).getTime() > timestamp) { counts.grade.stale++; continue; }
+    let id: string;
+    if (link) {
+      const row = await linkedRow("performance_grades", link.grade_id);
+      id = row.id;
+      if (link.content_hash === hash) counts.grade.unchanged++;
+      else if (row.origin === "provider") {
+        await client.query("UPDATE performance_grades SET course_id=$3,grade_value=$4,grade_scale=$5,grade_date=$6,official_weight=$7,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2", [vaultId,id,courseId,record.rawGrade,record.scale,record.date,record.officialWeight]);
+        counts.grade.updated++;
+      } else counts.grade.linked++;
+    } else {
+      const created = await client.query("INSERT INTO performance_grades(vault_id,course_id,grade_value,grade_scale,grade_date,official_weight,origin,record_kind) VALUES ($1,$2,$3,$4,$5,$6,'provider','official') RETURNING id", [vaultId,courseId,record.rawGrade,record.scale,record.date,record.officialWeight]);
+      id = created.rows[0].id; counts.grade.created++;
+    }
+    await saveLink("grade", record.externalId, id, record, hash);
   }
   return counts;
 }
