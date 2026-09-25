@@ -55204,6 +55204,11 @@
                     "provider"
                   ]
                 },
+                "sourceObjectId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
+                },
                 "archivedAt": {
                   "type": "string",
                   "format": "date-time",
@@ -57897,6 +57902,11 @@
               "provider"
             ]
           },
+          "sourceObjectId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
           "archivedAt": {
             "type": "string",
             "format": "date-time",
@@ -58063,6 +58073,11 @@
                     "owner",
                     "provider"
                   ]
+                },
+                "sourceObjectId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true
                 },
                 "archivedAt": {
                   "type": "string",

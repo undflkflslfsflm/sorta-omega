@@ -370,6 +370,8 @@ import { rankRelatedNotes } from "./related-notes.js";
 import { systemJobCancellationDecision, systemJobRetryDecision } from "./system-job.js";
 import { noOAuthCredentialRevocation, revokeGoogleOAuthToken, selectOAuthRevocationToken, unsupportedOAuthRevocation, type OAuthRevocationResult } from "./oauth-revocation.js";
 import { collectMicrosoftGraph, type GraphSource } from "./microsoft-graph.js";
+import { projectMicrosoftSchoolSource } from "./microsoft-school-projection.js";
+import { mapStoredSourceRevision } from "./source-object-revision.js";
 
 const DEFAULT_VAULT = "00000000-0000-4000-8000-000000000001";
 const localChatModel = config.LOCAL_CHAT_BACKEND === "openai_compatible" ? config.OPENAI_COMPATIBLE_CHAT_MODEL : config.OLLAMA_CHAT_MODEL;
@@ -595,7 +597,7 @@ const mapAiOperation = (row: Record<string, any>) => aiOperationSchema.parse({
 });
 const mapSchoolSubject = (row: Record<string, any>) => schoolSubjectSchema.parse({ id: row.id, vaultId: row.vault_id, name: row.name, code: row.code, academicPeriod: row.academic_period, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapSchoolCourse = (row: Record<string, any>) => schoolCourseSchema.parse({ id: row.id, vaultId: row.vault_id, subjectId: row.subject_id, name: row.name, academicPeriod: row.academic_period, teacherEntityIds: row.teacher_entity_ids, classEntityIds: row.class_entity_ids, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
-const mapSchoolAssignment = (row: Record<string, any>) => schoolAssignmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, instructionsSourceIds: row.instructions_source_ids, due: row.due, materialSourceIds: row.material_source_ids, taskIds: row.task_ids, preparationStatus: row.preparation_status, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
+const mapSchoolAssignment = (row: Record<string, any>) => schoolAssignmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, instructionsSourceIds: row.instructions_source_ids, due: row.due, materialSourceIds: row.material_source_ids, taskIds: row.task_ids, preparationStatus: row.preparation_status, origin: row.origin, sourceObjectId: row.source_object_id ?? null, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapCourseMaterialLink=(row:Record<string,any>)=>courseMaterialLinkSchema.parse({id:row.id,vaultId:row.vault_id,courseId:row.course_id,sourceId:row.source_object_id,revisionId:row.source_revision_id,chapter:row.chapter,lessonId:row.lesson_id,mappingOrigin:row.mapping_origin,evidenceAnchorIds:row.evidence_anchor_ids,revision:row.revision,createdAt:iso(row.created_at),updatedAt:iso(row.updated_at)});
 const mapSchoolLesson = (row: Record<string, any>) => schoolLessonSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, calendarEventId: row.calendar_event_id, timeSpec: row.time_spec, room: row.room, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapSchoolAssessment = (row: Record<string, any>) => schoolAssessmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, kind: row.kind, timeSpec: row.time_spec, materialScope: row.material_scope, officialWeight: row.official_weight, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
@@ -2270,18 +2272,19 @@ app.get("/api/v1/vaults/:vaultId/school/assignments", async (request, reply) => 
   idSchema.parse(vaultId); if (courseId) idSchema.parse(courseId); const limit = rawLimit === undefined ? 100 : Number(rawLimit);
   if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !["active", "archived", "all"].includes(status)) return reply.code(400).send({ error: "invalid_assignment_filter" });
   const result = await query(
-    `SELECT * FROM school_assignments WHERE vault_id=$1 AND ($2::uuid IS NULL OR course_id=$2)
-     AND ($3='all' OR ($3='active' AND archived_at IS NULL) OR ($3='archived' AND archived_at IS NOT NULL))
-     ORDER BY archived_at NULLS FIRST,
-       CASE WHEN due->>'kind'='exact' THEN (due->>'dueAt')::timestamptz ELSE NULL END NULLS LAST,
-       updated_at DESC, id LIMIT $4`, [vaultId, courseId ?? null, status, limit]
+    `SELECT a.*,l.source_object_id FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id
+     WHERE a.vault_id=$1 AND ($2::uuid IS NULL OR a.course_id=$2)
+     AND ($3='all' OR ($3='active' AND a.archived_at IS NULL) OR ($3='archived' AND a.archived_at IS NOT NULL))
+     ORDER BY a.archived_at NULLS FIRST,
+       CASE WHEN a.due->>'kind'='exact' THEN (a.due->>'dueAt')::timestamptz ELSE NULL END NULLS LAST,
+       a.updated_at DESC, a.id LIMIT $4`, [vaultId, courseId ?? null, status, limit]
   );
   return { items: result.rows.map(mapSchoolAssignment), nextCursor: null };
 });
 
 app.get("/api/v1/vaults/:vaultId/school/assignments/:assignmentId", async (request, reply) => {
   const { vaultId, assignmentId } = request.params as { vaultId: string; assignmentId: string }; idSchema.parse(vaultId); idSchema.parse(assignmentId);
-  const result = await query("SELECT * FROM school_assignments WHERE vault_id=$1 AND id=$2", [vaultId, assignmentId]);
+  const result = await query("SELECT a.*,l.source_object_id FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id WHERE a.vault_id=$1 AND a.id=$2", [vaultId, assignmentId]);
   if (!result.rows[0]) return reply.code(404).send({ error: "school_assignment_not_found" }); return mapSchoolAssignment(result.rows[0]);
 });
 
@@ -2981,18 +2984,19 @@ async function saveMicrosoftSource(vaultId:string,connectionId:string,source:Gra
   }
   const attachmentBlobIds=attachmentBlobs.map(item=>item.id);
   const contentHash=createHash("sha256").update(source.content).update(JSON.stringify(source.metadata)).update(attachmentBlobs.map(item=>item.sha256).join(":")).digest("hex");
-  await transaction(async client=>{
+  return transaction(async client=>{
     const current=(await client.query<Record<string,any>>("SELECT * FROM source_objects WHERE connection_id=$1 AND provider_object_id=$2 FOR UPDATE",[connectionId,source.providerObjectId])).rows[0];
     if(current){
       const prior=(await client.query<{content_hash:string}>("SELECT content_hash FROM source_object_revisions WHERE source_object_id=$1 AND revision=$2",[current.id,current.current_revision])).rows[0];
-      if(prior?.content_hash===contentHash){await client.query("UPDATE source_objects SET last_attempt_at=now(),last_success_at=now(),freshness='current',updated_at=now() WHERE id=$1",[current.id]);return;}
+      if(prior?.content_hash===contentHash){await client.query("UPDATE source_objects SET last_attempt_at=now(),last_success_at=now(),freshness='current',updated_at=now() WHERE id=$1",[current.id]);return projectMicrosoftSchoolSource(client,vaultId,connectionId,current.id,source,contentHash);}
       const next=current.current_revision+1;
       await client.query("INSERT INTO source_object_revisions(source_object_id,revision,content_hash,content_text,metadata,attachment_blob_ids) VALUES ($1,$2,$3,$4,$5::jsonb,$6::uuid[])",[current.id,next,contentHash,source.content,JSON.stringify(source.metadata),attachmentBlobIds]);
       await client.query("UPDATE source_objects SET container_id=$2,kind=$3,title=$4,deep_link=$5,metadata=$6::jsonb,current_revision=$7,freshness='current',access_state='available',last_attempt_at=now(),last_success_at=now(),revision=revision+1,updated_at=now() WHERE id=$1",[current.id,source.containerId,source.kind,source.title,source.deepLink,JSON.stringify(source.metadata),next]);
-      return;
+      return projectMicrosoftSchoolSource(client,vaultId,connectionId,current.id,source,contentHash);
     }
     const inserted=(await client.query<{id:string}>("INSERT INTO source_objects(vault_id,connection_id,provider_object_id,container_id,kind,title,deep_link,metadata,freshness,last_attempt_at,last_success_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'current',now(),now()) RETURNING id",[vaultId,connectionId,source.providerObjectId,source.containerId,source.kind,source.title,source.deepLink,JSON.stringify(source.metadata)])).rows[0];
     await client.query("INSERT INTO source_object_revisions(source_object_id,revision,content_hash,content_text,metadata,attachment_blob_ids) VALUES ($1,1,$2,$3,$4::jsonb,$5::uuid[])",[inserted.id,contentHash,source.content,JSON.stringify(source.metadata),attachmentBlobIds]);
+    return projectMicrosoftSchoolSource(client,vaultId,connectionId,inserted.id,source,contentHash);
   });
 }
 
@@ -3023,7 +3027,9 @@ app.post("/api/v1/vaults/:vaultId/connections/:connectionId/sync",async(request,
   const scopes=credential.granted_scope as string[];
   const allowChats=(connection.selection_approvals?.sensitiveDataOptIns??[]).includes("private_chats");
   const permittedScopes=allowChats?scopes:scopes.filter(scope=>scope.toLowerCase()!=="chat.read");
-  const coverage=await collectMicrosoftGraph(tokens.access_token,permittedScopes,source=>saveMicrosoftSource(vaultId,connectionId,source));
+  let unprojectedAssignments=0;
+  const coverage=await collectMicrosoftGraph(tokens.access_token,permittedScopes,async source=>{if(await saveMicrosoftSource(vaultId,connectionId,source)==="class_missing")unprojectedAssignments++;});
+  if(unprojectedAssignments){const assignments=coverage.find(item=>item.dataset==="assignments");if(assignments){assignments.complete=false;assignments.contentComplete=false;assignments.error="school_projection_incomplete";assignments.limitations.push(`${unprojectedAssignments} assignment(s) could not be shown in School because the matching class was not imported.`);}}
   const succeeded=coverage.some(item=>item.complete),partial=coverage.some(item=>!item.contentComplete&&item.error!=="scope_not_granted");
   const capability={key:"microsoft.graph_read",mode:"live_read",enabled:succeeded,verifiedAt:succeeded?new Date().toISOString():null,limitation:partial||!succeeded?"Some Microsoft Graph datasets remain incomplete; inspect per-dataset coverage.":null};
   await query("UPDATE integration_connections SET state=$3,capabilities=$4::jsonb,coverage=$5::jsonb,imported_count=(SELECT count(*) FROM source_objects WHERE connection_id=$2),last_success_at=CASE WHEN $6 THEN now() ELSE last_success_at END,last_failure_at=CASE WHEN $7 THEN now() ELSE last_failure_at END,last_error_code=$8,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,connectionId,succeeded?(partial?"degraded":"connected"):"error",JSON.stringify([capability]),JSON.stringify({microsoftGraph:coverage,privateChatsOptedIn:allowChats}),succeeded,partial||!succeeded,partial||!succeeded?"partial_graph_coverage":null]);
@@ -5503,7 +5509,7 @@ app.get("/api/v1/vaults/:vaultId/source-objects",async(request,reply)=>{
 });
 
 app.get("/api/v1/vaults/:vaultId/source-objects/:sourceId",async(request,reply)=>{
-  const {vaultId,sourceId}=request.params as {vaultId:string;sourceId:string};const {revision_id:revisionId}=request.query as {revision_id?:string};idSchema.parse(vaultId);idSchema.parse(sourceId);if(revisionId)idSchema.parse(revisionId);const sourceResult=await query("SELECT * FROM source_objects WHERE vault_id=$1 AND id=$2",[vaultId,sourceId]);const source=sourceResult.rows[0];if(!source)return reply.code(404).send({error:"source_object_not_found"});const revisionResult=revisionId?await query("SELECT * FROM source_object_revisions WHERE source_object_id=$1 AND id=$2",[sourceId,revisionId]):await query("SELECT * FROM source_object_revisions WHERE source_object_id=$1 AND revision=$2",[sourceId,source.current_revision]);const revision=revisionResult.rows[0];if(!revision)return reply.code(409).send({error:"source_object_revision_unavailable"});return sourceObjectDetailSchema.parse({source:mapSourceObject(source),selectedRevision:{id:revision.id,sourceObjectId:revision.source_object_id,revision:revision.revision,contentHash:revision.content_hash,exactContent:revision.exact_content,metadata:revision.metadata,attachmentBlobIds:revision.attachment_blob_ids,fetchedAt:iso(revision.fetched_at)},current:revision.revision===source.current_revision,historical:revision.revision!==source.current_revision});
+  const {vaultId,sourceId}=request.params as {vaultId:string;sourceId:string};const {revision_id:revisionId}=request.query as {revision_id?:string};idSchema.parse(vaultId);idSchema.parse(sourceId);if(revisionId)idSchema.parse(revisionId);const sourceResult=await query("SELECT * FROM source_objects WHERE vault_id=$1 AND id=$2",[vaultId,sourceId]);const source=sourceResult.rows[0];if(!source)return reply.code(404).send({error:"source_object_not_found"});const revisionResult=revisionId?await query("SELECT * FROM source_object_revisions WHERE source_object_id=$1 AND id=$2",[sourceId,revisionId]):await query("SELECT * FROM source_object_revisions WHERE source_object_id=$1 AND revision=$2",[sourceId,source.current_revision]);const revision=revisionResult.rows[0];if(!revision)return reply.code(409).send({error:"source_object_revision_unavailable"});return sourceObjectDetailSchema.parse({source:mapSourceObject(source),selectedRevision:mapStoredSourceRevision(revision),current:revision.revision===source.current_revision,historical:revision.revision!==source.current_revision});
 });
 
 app.post("/api/v1/vaults/:vaultId/source-objects/:sourceId/refresh",async(request,reply)=>{

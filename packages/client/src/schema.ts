@@ -12382,6 +12382,8 @@ export interface components {
                 preparationStatus: "not_started" | "in_progress" | "prepared";
                 /** @enum {string} */
                 origin: "owner" | "provider";
+                /** Format: uuid */
+                sourceObjectId?: string | null;
                 /** Format: date-time */
                 archivedAt: string | null;
                 revision: number;
@@ -13028,6 +13030,8 @@ export interface components {
             preparationStatus: "not_started" | "in_progress" | "prepared";
             /** @enum {string} */
             origin: "owner" | "provider";
+            /** Format: uuid */
+            sourceObjectId?: string | null;
             /** Format: date-time */
             archivedAt: string | null;
             revision: number;
@@ -13067,6 +13071,8 @@ export interface components {
                 preparationStatus: "not_started" | "in_progress" | "prepared";
                 /** @enum {string} */
                 origin: "owner" | "provider";
+                /** Format: uuid */
+                sourceObjectId?: string | null;
                 /** Format: date-time */
                 archivedAt: string | null;
                 revision: number;
