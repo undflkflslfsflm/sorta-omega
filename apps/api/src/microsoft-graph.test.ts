@@ -325,17 +325,21 @@ describe("Microsoft Graph ingestion", () => {
     const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input); calls.push({ url, authorization: new Headers(init?.headers).get("authorization") });
       const pathname = new URL(url).pathname;
-      if (pathname === "/v1.0/me/drive/root/children") return response({ value: [{ id: "worksheet", name: "worksheet.txt", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": "https://school.sharepoint.com/stale" }] });
+      if (pathname === "/v1.0/me/drive/root/children") return response({ value: [{ id: "worksheet", name: "worksheet.txt", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": "https://school.sharepoint.com/stale" }, { id: "broken", name: "broken.pdf", file: { mimeType: "application/pdf" }, size: 9 }] });
       if (pathname === "/v1.0/me/drive/items/worksheet") return response({ id: "worksheet", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": temporaryUrl });
+      if (pathname === "/v1.0/me/drive/items/broken") return response({ id: "broken", file: { mimeType: "application/pdf" }, size: 9, "@microsoft.graph.downloadUrl": "https://school.sharepoint.com/temp/broken" });
       if (url === temporaryUrl) return new Response("Exercises", { status: 200 });
+      if (url === "https://school.sharepoint.com/temp/broken") return new Response("not a PDF", { status: 200 });
       throw new Error(`unexpected ${url}`);
     }) as typeof fetch;
     const coverage = await collectMicrosoftGraph("secret", ["Files.Read"], async item => { sources.push(item); }, fetcher);
-    expect(sources).toHaveLength(1);
+    expect(sources).toHaveLength(2);
     expect(sources[0].metadata).toMatchObject({ contentDownloaded: true, textExtracted: true, originalFileCount: 1 });
     expect(sources[0].content).toContain("Exercises");
     expect(sources[0].metadata.item).not.toHaveProperty("@microsoft.graph.downloadUrl");
     expect(new TextDecoder().decode(sources[0].attachments![0].bytes)).toBe("Exercises");
+    expect(sources[1].metadata).toMatchObject({ contentDownloaded: true, textExtracted: false, textComplete: false, extractionReason: "invalid_document", originalFileCount: 1 });
+    expect(new TextDecoder().decode(sources[1].attachments![0].bytes)).toBe("not a PDF");
     expect(calls.find(call => call.url === temporaryUrl)?.authorization).toBeNull();
     expect(coverage.find(item => item.dataset === "files")).toMatchObject({ complete: true });
   });
