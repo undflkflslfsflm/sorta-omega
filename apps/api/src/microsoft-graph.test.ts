@@ -318,6 +318,50 @@ describe("Microsoft Graph ingestion", () => {
     expect(coverage.find(item => item.dataset === "sharepoint")).toMatchObject({ imported: 5, complete: true, contentComplete: false, error: null });
   });
 
+  it("stores OneDrive file originals without persisting temporary download URLs", async () => {
+    const sources: GraphSource[] = [];
+    const temporaryUrl = "https://school.sharepoint.com/temp/worksheet";
+    const calls: Array<{url:string;authorization:string|null}> = [];
+    const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input); calls.push({ url, authorization: new Headers(init?.headers).get("authorization") });
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/drive/root/children") return response({ value: [{ id: "worksheet", name: "worksheet.txt", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": "https://school.sharepoint.com/stale" }] });
+      if (pathname === "/v1.0/me/drive/items/worksheet") return response({ id: "worksheet", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": temporaryUrl });
+      if (url === temporaryUrl) return new Response("Exercises", { status: 200 });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Files.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].metadata).toMatchObject({ contentDownloaded: true, originalFileCount: 1 });
+    expect(sources[0].metadata.item).not.toHaveProperty("@microsoft.graph.downloadUrl");
+    expect(new TextDecoder().decode(sources[0].attachments![0].bytes)).toBe("Exercises");
+    expect(calls.find(call => call.url === temporaryUrl)?.authorization).toBeNull();
+    expect(coverage.find(item => item.dataset === "files")).toMatchObject({ complete: true });
+  });
+
+  it("captures SharePoint file bytes and reports an oversized original", async () => {
+    const sources: GraphSource[] = [];
+    const calls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input); calls.push(url);
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/followedSites") return response({ value: [{ id: "site", displayName: "School" }] });
+      if (pathname === "/v1.0/sites/site/lists") return response({ value: [] });
+      if (pathname === "/v1.0/sites/site/drives") return response({ value: [{ id: "drive" }] });
+      if (pathname === "/v1.0/drives/drive/root/children") return response({ value: [{ id: "sheet", name: "revision.txt", file: { mimeType: "text/plain" }, size: 5 }, { id: "video", name: "lesson.mp4", file: { mimeType: "video/mp4" }, size: 20_000_001 }] });
+      if (pathname === "/v1.0/drives/drive/items/sheet") return response({ id: "sheet", file: { mimeType: "text/plain" }, size: 5, "@microsoft.graph.downloadUrl": "https://school.sharepoint.com/revision" });
+      if (url === "https://school.sharepoint.com/revision") return new Response("Maths", { status: 200 });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Sites.Read.All"], async item => { sources.push(item); }, fetcher);
+    const sheet = sources.find(item => item.providerObjectId === "sharepoint-drive:drive:sheet")!;
+    expect(sheet.metadata).toMatchObject({ contentDownloaded: true, originalFileCount: 1 });
+    expect(new TextDecoder().decode(sheet.attachments![0].bytes)).toBe("Maths");
+    expect(sources.find(item => item.providerObjectId === "sharepoint-drive:drive:video")?.metadata).toMatchObject({ contentDownloaded: false, originalFileCount: 0 });
+    expect(coverage.find(item => item.dataset === "sharepoint")?.limitations).toContain("1 SharePoint file original(s) were not downloaded.");
+    expect(calls).toHaveLength(6);
+  });
+
   it("reports a joined Team site access gap while retaining accessible SharePoint data", async () => {
     const sources: GraphSource[] = [];
     const fetcher = (async (input: string | URL | Request) => {

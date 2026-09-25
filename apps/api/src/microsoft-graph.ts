@@ -106,6 +106,9 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
   async function downloadAssignmentFile(rawFileUrl: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
     return downloadItem(await get(driveFileUrl(rawFileUrl)));
   }
+  async function downloadPersonalDriveFile(itemId: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    return downloadItem(await get(path(`/me/drive/items/${encode(itemId)}`)));
+  }
   async function downloadTeamsFile(rawContentUrl: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
     const url = new URL(rawContentUrl);
     const item = url.origin === origin ? await get(driveFileUrl(rawContentUrl)) : await get(sharedFileUrl(rawContentUrl));
@@ -169,7 +172,7 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     }
     return { items: items.slice(0, maximum), complete: !next && items.length <= maximum };
   }
-  return { get, getText, list, downloadAssignmentFile, downloadTeamsFile, downloadHostedContent, downloadMailAttachment };
+  return { get, getText, list, downloadAssignmentFile, downloadPersonalDriveFile, downloadTeamsFile, downloadHostedContent, downloadMailAttachment };
 }
 
 export async function collectMicrosoftGraph(token: string, scopes: string[], save: (source: GraphSource) => Promise<void>, fetcher: typeof fetch = fetch): Promise<GraphCoverage[]> {
@@ -181,8 +184,10 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   const chatLimitations: string[] = [];
   const channelLimitations: string[] = [];
   const mailLimitations: string[] = [];
+  const fileLimitations: string[] = ["Document text is not extracted from binary file originals."];
+  const sharepointLimitations: string[] = ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document text is not extracted from binary file originals."];
   async function run(dataset: GraphDataset, authorized: boolean, work: () => Promise<boolean>) {
-    const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? mailLimitations : dataset === "chats" ? chatLimitations : dataset === "channels" ? channelLimitations : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
+    const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? fileLimitations : dataset === "sharepoint" ? sharepointLimitations : dataset === "mail" ? mailLimitations : dataset === "chats" ? chatLimitations : dataset === "channels" ? channelLimitations : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
     if (!authorized) { coverage.push({ dataset, imported: 0, complete: false, contentComplete: false, limitations, error: "scope_not_granted" }); return; }
     const start = imported;
     try { const complete = await work(); coverage.push({ dataset, imported: imported - start, complete, contentComplete: complete && limitations.length === 0, limitations, error: complete ? null : "provider_coverage_incomplete" }); }
@@ -191,6 +196,27 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   let imported = 0;
   async function emit(source: GraphSource) { await save(source); imported++; }
   const fileReadAllowed = has("Files.Read") || has("Files.Read.All") || has("Sites.Read.All");
+  async function driveFileOriginal(item: Record<string, any>, budget: { used: number }, driveId: string | null) {
+    if (!item.file) return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: false };
+    const size = item.size;
+    if (!Number.isSafeInteger(size) || size < 0 || size > maxFileBytes || budget.used + size > 1_000_000_000) {
+      return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: true };
+    }
+    try {
+      const id = str(item.id);
+      if (!id) throw new Error("graph_drive_file_id_missing");
+      const file = driveId
+        ? await graph.downloadAssignmentFile(path(`/drives/${encode(driveId)}/items/${encode(id)}`))
+        : await graph.downloadPersonalDriveFile(id);
+      if (budget.used + file.bytes.byteLength > 1_000_000_000) throw new Error("graph_drive_dataset_limit");
+      budget.used += file.bytes.byteLength;
+      return { attachments: [{ filename: (str(item.name) || "Drive file").slice(0, 240), mediaType: file.mediaType, bytes: file.bytes }], contentDownloaded: true, fileMissing: false };
+    } catch { return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: true }; }
+  }
+  function safeDriveItem(item: Record<string, any>) {
+    const { ["@microsoft.graph.downloadUrl"]: _temporaryUrl, ...safe } = item;
+    return safe;
+  }
   async function teamsMessageFiles(message: Record<string, any>, messageBase: string, limitations: string[]) {
     const attachments: NonNullable<GraphSource["attachments"]> = [];
     const attachmentManifest: Array<{ index: number; attachmentId: string | null; hostedContentId?: string; filename: string }> = [];
@@ -378,21 +404,27 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
     return messages.complete;
   });
   await run("files", has("Files.Read") || has("Files.Read.All"), async () => {
-    const pending = ["/me/drive/root/children"]; let complete = true, count = 0;
+    const pending = ["/me/drive/root/children"]; let complete = true, count = 0, missingFileCount = 0;
+    const budget = { used: 0 };
     while (pending.length && count < 5000) {
       const children = await graph.list(path(pending.shift()!), 5000 - count); complete &&= children.complete;
       for (const item of children.items) {
         if (!item.id) continue;
         count++;
-        await emit({ providerObjectId: `drive:${item.id}`, containerId: str(item.parentReference?.id) || null, kind: "drive_file", title: str(item.name) || "Drive item", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { item, contentDownloaded: false } });
+        const original = await driveFileOriginal(item, budget, null);
+        if (original.fileMissing) missingFileCount++;
+        await emit({ providerObjectId: `drive:${item.id}`, containerId: str(item.parentReference?.id) || null, kind: "drive_file", title: str(item.name) || "Drive item", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, originalFileCount: original.attachments.length }, attachments: original.attachments });
         if (item.folder) pending.push(`/me/drive/items/${encode(str(item.id))}/children`);
       }
     }
+    if (missingFileCount) fileLimitations.push(`${missingFileCount} OneDrive file original(s) were not downloaded.`);
     return complete && pending.length === 0;
   });
   await run("sharepoint", has("Sites.Read.All"), async () => {
     const followed = await graph.list(path("/me/followedSites"));
     let complete = followed.complete;
+    let missingFileCount = 0;
+    const budget = { used: 0 };
     const sites = new Map<string, Record<string, any>>();
     for (const site of followed.items) if (str(site.id)) sites.set(str(site.id), site);
     if (has("Team.ReadBasic.All")) {
@@ -432,13 +464,16 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
           for (const item of children.items) {
             const id = str(item.id); if (!id) continue;
             count++;
-            await emit({ providerObjectId: `sharepoint-drive:${driveId}:${id}`, containerId: str(item.parentReference?.id) || driveId, kind: "drive_file", title: str(item.name) || "SharePoint file", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { siteId, driveId, item, contentDownloaded: false } });
+            const original = await driveFileOriginal(item, budget, driveId);
+            if (original.fileMissing) missingFileCount++;
+            await emit({ providerObjectId: `sharepoint-drive:${driveId}:${id}`, containerId: str(item.parentReference?.id) || driveId, kind: "drive_file", title: str(item.name) || "SharePoint file", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { siteId, driveId, item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, originalFileCount: original.attachments.length }, attachments: original.attachments });
             if (item.folder) pending.push(`/drives/${encode(driveId)}/items/${encode(id)}/children`);
           }
         }
         if (pending.length) complete = false;
       }
     }
+    if (missingFileCount) sharepointLimitations.push(`${missingFileCount} SharePoint file original(s) were not downloaded.`);
     return complete;
   });
   await run("todo", has("Tasks.Read"), async () => {
