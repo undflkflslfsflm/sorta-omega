@@ -48033,7 +48033,14 @@
                           "unchanged",
                           "stale"
                         ],
-                        "additionalProperties": false
+                        "additionalProperties": false,
+                        "default": {
+                          "created": 0,
+                          "updated": 0,
+                          "linked": 0,
+                          "unchanged": 0,
+                          "stale": 0
+                        }
                       },
                       "grade": {
                         "type": "object",
@@ -48066,15 +48073,20 @@
                           "unchanged",
                           "stale"
                         ],
-                        "additionalProperties": false
+                        "additionalProperties": false,
+                        "default": {
+                          "created": 0,
+                          "updated": 0,
+                          "linked": 0,
+                          "unchanged": 0,
+                          "stale": 0
+                        }
                       }
                     },
                     "required": [
                       "subject",
                       "course",
-                      "lesson",
-                      "attendance",
-                      "grade"
+                      "lesson"
                     ],
                     "additionalProperties": false
                   },
@@ -50966,7 +50978,14 @@
                                 "unchanged",
                                 "stale"
                               ],
-                              "additionalProperties": false
+                              "additionalProperties": false,
+                              "default": {
+                                "created": 0,
+                                "updated": 0,
+                                "linked": 0,
+                                "unchanged": 0,
+                                "stale": 0
+                              }
                             },
                             "grade": {
                               "type": "object",
@@ -50999,15 +51018,20 @@
                                 "unchanged",
                                 "stale"
                               ],
-                              "additionalProperties": false
+                              "additionalProperties": false,
+                              "default": {
+                                "created": 0,
+                                "updated": 0,
+                                "linked": 0,
+                                "unchanged": 0,
+                                "stale": 0
+                              }
                             }
                           },
                           "required": [
                             "subject",
                             "course",
-                            "lesson",
-                            "attendance",
-                            "grade"
+                            "lesson"
                           ],
                           "additionalProperties": false
                         },
@@ -79768,7 +79792,14 @@
                               "unchanged",
                               "stale"
                             ],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "default": {
+                              "created": 0,
+                              "updated": 0,
+                              "linked": 0,
+                              "unchanged": 0,
+                              "stale": 0
+                            }
                           },
                           "grade": {
                             "type": "object",
@@ -79801,15 +79832,20 @@
                               "unchanged",
                               "stale"
                             ],
-                            "additionalProperties": false
+                            "additionalProperties": false,
+                            "default": {
+                              "created": 0,
+                              "updated": 0,
+                              "linked": 0,
+                              "unchanged": 0,
+                              "stale": 0
+                            }
                           }
                         },
                         "required": [
                           "subject",
                           "course",
-                          "lesson",
-                          "attendance",
-                          "grade"
+                          "lesson"
                         ],
                         "additionalProperties": false
                       },

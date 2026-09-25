@@ -21,6 +21,10 @@ describe("InSchool import preview", () => {
   });
   it("accepts all five canonical apply count categories", () => {
     const actions = { created: 0, updated: 0, linked: 0, unchanged: 0, stale: 0 };
-    expect(schoolImportApplyResultSchema.safeParse({ type: "school_import_apply", previewJobId: "00000000-0000-4000-8000-000000000123", sourceTimestamp: "2026-09-24T12:00:00.000Z", counts: { subject: actions, course: actions, lesson: actions, attendance: actions, grade: actions }, snapshotOnly: true, liveConnectionCreated: false, writesApplied: true, limitations: [] }).success).toBe(true);
+    const base = { type: "school_import_apply", previewJobId: "00000000-0000-4000-8000-000000000123", sourceTimestamp: "2026-09-24T12:00:00.000Z", snapshotOnly: true, liveConnectionCreated: false, writesApplied: true, limitations: [] };
+    expect(schoolImportApplyResultSchema.safeParse({ ...base, counts: { subject: actions, course: actions, lesson: actions, attendance: actions, grade: actions } }).success).toBe(true);
+    const historic = schoolImportApplyResultSchema.parse({ ...base, counts: { subject: actions, course: actions, lesson: actions } });
+    expect(historic.counts.attendance).toEqual(actions);
+    expect(historic.counts.grade).toEqual(actions);
   });
 });

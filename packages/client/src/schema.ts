@@ -10689,6 +10689,15 @@ export interface components {
                         unchanged: number;
                         stale: number;
                     };
+                    /**
+                     * @default {
+                     *       "created": 0,
+                     *       "updated": 0,
+                     *       "linked": 0,
+                     *       "unchanged": 0,
+                     *       "stale": 0
+                     *     }
+                     */
                     attendance: {
                         created: number;
                         updated: number;
@@ -10696,6 +10705,15 @@ export interface components {
                         unchanged: number;
                         stale: number;
                     };
+                    /**
+                     * @default {
+                     *       "created": 0,
+                     *       "updated": 0,
+                     *       "linked": 0,
+                     *       "unchanged": 0,
+                     *       "stale": 0
+                     *     }
+                     */
                     grade: {
                         created: number;
                         updated: number;
@@ -11330,6 +11348,15 @@ export interface components {
                             unchanged: number;
                             stale: number;
                         };
+                        /**
+                         * @default {
+                         *       "created": 0,
+                         *       "updated": 0,
+                         *       "linked": 0,
+                         *       "unchanged": 0,
+                         *       "stale": 0
+                         *     }
+                         */
                         attendance: {
                             created: number;
                             updated: number;
@@ -11337,6 +11364,15 @@ export interface components {
                             unchanged: number;
                             stale: number;
                         };
+                        /**
+                         * @default {
+                         *       "created": 0,
+                         *       "updated": 0,
+                         *       "linked": 0,
+                         *       "unchanged": 0,
+                         *       "stale": 0
+                         *     }
+                         */
                         grade: {
                             created: number;
                             updated: number;
@@ -18086,6 +18122,15 @@ export interface components {
                         unchanged: number;
                         stale: number;
                     };
+                    /**
+                     * @default {
+                     *       "created": 0,
+                     *       "updated": 0,
+                     *       "linked": 0,
+                     *       "unchanged": 0,
+                     *       "stale": 0
+                     *     }
+                     */
                     attendance: {
                         created: number;
                         updated: number;
@@ -18093,6 +18138,15 @@ export interface components {
                         unchanged: number;
                         stale: number;
                     };
+                    /**
+                     * @default {
+                     *       "created": 0,
+                     *       "updated": 0,
+                     *       "linked": 0,
+                     *       "unchanged": 0,
+                     *       "stale": 0
+                     *     }
+                     */
                     grade: {
                         created: number;
                         updated: number;
