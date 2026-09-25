@@ -198,6 +198,27 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   let imported = 0;
   async function emit(source: GraphSource) { await save(source); imported++; }
   const fileReadAllowed = has("Files.Read") || has("Files.Read.All") || has("Sites.Read.All");
+  async function attachmentText(attachments: NonNullable<GraphSource["attachments"]>, limitations: string[]) {
+    const parts: string[] = [];
+    const extractionManifest: Array<{ index: number; textExtracted: boolean; complete: boolean; reason: string | null }> = [];
+    let remaining = 1_000_000;
+    for (let index = 0; index < attachments.length; index++) {
+      const file = attachments[index];
+      const result = remaining > 0
+        ? await extractDocumentText(file.bytes, file.filename, file.mediaType).catch(() => ({ text: null, complete: false, reason: "extraction_failed" }))
+        : { text: null, complete: false, reason: "source_text_limit" };
+      const truncated = !!result.text && result.text.length > remaining;
+      if (result.text) {
+        const excerpt = result.text.slice(0, remaining);
+        parts.push(`[Attachment: ${file.filename}]\n${excerpt}`);
+        remaining -= excerpt.length;
+      }
+      const complete = result.complete && !truncated;
+      extractionManifest.push({ index, textExtracted: !!result.text, complete, reason: complete ? null : result.reason || "source_text_limit" });
+    }
+    if (extractionManifest.some(item => !item.complete)) limitations.push("Some attachment text was not extracted; original files are retained.");
+    return { text: parts.join("\n"), extractionManifest };
+  }
   async function driveFileOriginal(item: Record<string, any>, budget: { used: number }, driveId: string | null) {
     if (!item.file) return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, extractedText: null as string | null, textComplete: false, extractionReason: "not_a_file" as string | null, fileMissing: false };
     const size = item.size;
@@ -258,7 +279,8 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
     } catch { missingHostedContentCount++; limitations.push("A Teams hosted content list could not be read."); }
     if (missing) limitations.push(`${missing} linked Teams file(s) were not downloaded.`);
     if (missingHostedContentCount) limitations.push(`${missingHostedContentCount} hosted Teams content item(s) were not downloaded or enumerated.`);
-    return { attachments, attachmentManifest, missingLinkedFileCount: missing, missingHostedContentCount };
+    const extracted = await attachmentText(attachments, limitations);
+    return { attachments, attachmentManifest, missingLinkedFileCount: missing, missingHostedContentCount, ...extracted };
   }
   await run("classes", has("EduRoster.ReadBasic"), async () => {
     const classes = await graph.list(path("/education/me/classes"));
@@ -319,9 +341,10 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
           downloadedBytes += downloaded.bytes.byteLength;
         } catch { missingFileCount++; missingForAssignment++; }
       }
+      const extracted = await attachmentText(attachments, assignmentLimitations);
       await emit({ providerObjectId: `education-assignment:${classId}:${id}`, containerId: classId, kind: "assignment", title, deepLink: str(detail.webUrl) || null,
-        content: [title, htmlText(detail.instructions?.content), ...resources.items.map(item => [str(item.displayName), str(item.resource?.webUrl)].filter(Boolean).join(" "))].filter(Boolean).join("\n"),
-        metadata: { detail, resources: resources.items, submissions: submissions.items, submissionDetails, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, attachmentManifest, linkedFileCount: attachments.length, missingLinkedFileCount: missingForAssignment }, attachments });
+        content: [title, htmlText(detail.instructions?.content), ...resources.items.map(item => [str(item.displayName), str(item.resource?.webUrl)].filter(Boolean).join(" ")), extracted.text].filter(Boolean).join("\n"),
+        metadata: { detail, resources: resources.items, submissions: submissions.items, submissionDetails, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, attachmentManifest, extractionManifest: extracted.extractionManifest, linkedFileCount: attachments.length, missingLinkedFileCount: missingForAssignment }, attachments });
     }
     if (missingFileCount) assignmentLimitations.push(`${missingFileCount} linked assignment file(s) were not downloaded.`);
     if (assignmentLimitations.length) assignmentLimitations.splice(0,assignmentLimitations.length,...new Set(assignmentLimitations));
@@ -335,7 +358,7 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
       for (const message of messages.items) {
         if (!message.id) continue;
         const files = await teamsMessageFiles(message, `/chats/${encode(id)}/messages/${encode(str(message.id))}`, chatLimitations);
-        await emit({ providerObjectId: `chat:${id}:${message.id}`, containerId: id, kind: "teams_message", title: str(chat.topic) || "Teams chat", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { chatId: id, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
+        await emit({ providerObjectId: `chat:${id}:${message.id}`, containerId: id, kind: "teams_message", title: str(chat.topic) || "Teams chat", deepLink: str(message.webUrl) || null, content: [teamsMessageText(message), files.text].filter(Boolean).join("\n"), metadata: { chatId: id, message, attachmentManifest: files.attachmentManifest, extractionManifest: files.extractionManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
       }
     }
     if (chatLimitations.length) chatLimitations.splice(0,chatLimitations.length,...new Set(chatLimitations));
@@ -353,12 +376,12 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         for (const message of messages.items) {
           if (!message.id) continue;
           const files = await teamsMessageFiles(message, `${base}/${encode(str(message.id))}`, channelLimitations);
-          await emit({ providerObjectId: `channel:${teamId}:${channelId}:${message.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { teamId, channelId, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
+          await emit({ providerObjectId: `channel:${teamId}:${channelId}:${message.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel", deepLink: str(message.webUrl) || null, content: [teamsMessageText(message), files.text].filter(Boolean).join("\n"), metadata: { teamId, channelId, message, attachmentManifest: files.attachmentManifest, extractionManifest: files.extractionManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
           const replies = await graph.list(path(`${base}/${encode(str(message.id))}/replies`)); complete &&= replies.complete;
           for (const reply of replies.items) {
             if (!reply.id) continue;
             const replyFiles = await teamsMessageFiles(reply, `${base}/${encode(str(message.id))}/replies/${encode(str(reply.id))}`, channelLimitations);
-            await emit({ providerObjectId: `channel-reply:${teamId}:${channelId}:${message.id}:${reply.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel reply", deepLink: str(reply.webUrl) || null, content: teamsMessageText(reply), metadata: { teamId, channelId, parentMessageId: message.id, message: reply, attachmentManifest: replyFiles.attachmentManifest, missingLinkedFileCount: replyFiles.missingLinkedFileCount, missingHostedContentCount: replyFiles.missingHostedContentCount }, attachments: replyFiles.attachments });
+            await emit({ providerObjectId: `channel-reply:${teamId}:${channelId}:${message.id}:${reply.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel reply", deepLink: str(reply.webUrl) || null, content: [teamsMessageText(reply), replyFiles.text].filter(Boolean).join("\n"), metadata: { teamId, channelId, parentMessageId: message.id, message: reply, attachmentManifest: replyFiles.attachmentManifest, extractionManifest: replyFiles.extractionManifest, missingLinkedFileCount: replyFiles.missingLinkedFileCount, missingHostedContentCount: replyFiles.missingHostedContentCount }, attachments: replyFiles.attachments });
           }
         }
       }
@@ -403,7 +426,8 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         }
       } catch { missingAttachmentCount++; mailLimitations.push("A mail attachment list could not be read."); }
       if (missingAttachmentCount) mailLimitations.push(`${missingAttachmentCount} mail attachment(s) were not downloaded or enumerated.`);
-      await emit({ providerObjectId: `mail:${id}`, containerId: str(message.conversationId) || null, kind: "mail_message", title: str(message.subject) || "Email", deepLink: str(message.webLink) || null, content: [str(message.subject), htmlText(message.body?.content), ...attachmentNames].filter(Boolean).join("\n"), metadata: { message, attachmentManifest, missingAttachmentCount }, attachments });
+      const extracted = await attachmentText(attachments, mailLimitations);
+      await emit({ providerObjectId: `mail:${id}`, containerId: str(message.conversationId) || null, kind: "mail_message", title: str(message.subject) || "Email", deepLink: str(message.webLink) || null, content: [str(message.subject), htmlText(message.body?.content), ...attachmentNames, extracted.text].filter(Boolean).join("\n"), metadata: { message, attachmentManifest, extractionManifest: extracted.extractionManifest, missingAttachmentCount }, attachments });
     }
     if (mailLimitations.length) mailLimitations.splice(0,mailLimitations.length,...new Set(mailLimitations));
     return messages.complete;

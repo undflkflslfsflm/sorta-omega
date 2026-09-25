@@ -80,6 +80,8 @@ describe("Microsoft Graph ingestion", () => {
     const assignment = sources.find(item => item.kind === "assignment")!;
     expect(assignment.attachments).toMatchObject([{filename:"questions.txt",mediaType:"text/plain"}]);
     expect(new TextDecoder().decode(assignment.attachments![0].bytes)).toBe("Exercises");
+    expect(assignment.content).toContain("[Attachment: questions.txt]\nExercises");
+    expect(assignment.metadata.extractionManifest).toMatchObject([{ index: 0, textExtracted: true, complete: true, reason: null }]);
     expect(assignment.metadata).not.toHaveProperty("@microsoft.graph.downloadUrl");
     expect(calls.find(call=>call.url===temporaryUrl)?.authorization).toBeNull();
     expect(coverage.find(item=>item.dataset==="assignments")).toMatchObject({complete:true,contentComplete:true,limitations:[]});
@@ -159,7 +161,7 @@ describe("Microsoft Graph ingestion", () => {
     const coverage = await collectMicrosoftGraph("secret", ["Chat.Read"], async item => { sources.push(item); }, fetcher);
     expect(sources[0].attachments).toMatchObject([{ mediaType: "image/png", bytes: new Uint8Array([1, 2, 3]) }]);
     expect(sources[0].metadata.attachmentManifest).toMatchObject([{ hostedContentId: "image-1", index: 0 }]);
-    expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: true, limitations: [] });
+    expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: false, limitations: ["Some attachment text was not extracted; original files are retained."] });
   });
 
   it("keeps a Teams message but flags unreadable hosted content", async () => {
@@ -199,7 +201,7 @@ describe("Microsoft Graph ingestion", () => {
     expect(sources[0].attachments).toMatchObject([{ filename: "revision.pdf", mediaType: "application/pdf" }, { filename: "Teacher message", mediaType: "message/rfc822" }]);
     expect(sources[0].metadata.attachmentManifest).toMatchObject([{ index: 0, attachmentId: "sheet" }, { index: 1, attachmentId: "forward" }]);
     expect(calls.find(url => url.includes("$select="))).toContain("id,name,size,contentType,isInline");
-    expect(coverage.find(item => item.dataset === "mail")).toMatchObject({ complete: true, contentComplete: true, limitations: [] });
+    expect(coverage.find(item => item.dataset === "mail")).toMatchObject({ complete: true, contentComplete: false, limitations: ["Some attachment text was not extracted; original files are retained."] });
   });
 
   it("keeps Microsoft mail readable when an attachment exceeds the import limit", async () => {
