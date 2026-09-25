@@ -332,7 +332,8 @@ describe("Microsoft Graph ingestion", () => {
     }) as typeof fetch;
     const coverage = await collectMicrosoftGraph("secret", ["Files.Read"], async item => { sources.push(item); }, fetcher);
     expect(sources).toHaveLength(1);
-    expect(sources[0].metadata).toMatchObject({ contentDownloaded: true, originalFileCount: 1 });
+    expect(sources[0].metadata).toMatchObject({ contentDownloaded: true, textExtracted: true, originalFileCount: 1 });
+    expect(sources[0].content).toContain("Exercises");
     expect(sources[0].metadata.item).not.toHaveProperty("@microsoft.graph.downloadUrl");
     expect(new TextDecoder().decode(sources[0].attachments![0].bytes)).toBe("Exercises");
     expect(calls.find(call => call.url === temporaryUrl)?.authorization).toBeNull();
@@ -355,7 +356,8 @@ describe("Microsoft Graph ingestion", () => {
     }) as typeof fetch;
     const coverage = await collectMicrosoftGraph("secret", ["Sites.Read.All"], async item => { sources.push(item); }, fetcher);
     const sheet = sources.find(item => item.providerObjectId === "sharepoint-drive:drive:sheet")!;
-    expect(sheet.metadata).toMatchObject({ contentDownloaded: true, originalFileCount: 1 });
+    expect(sheet.metadata).toMatchObject({ contentDownloaded: true, textExtracted: true, originalFileCount: 1 });
+    expect(sheet.content).toContain("Maths");
     expect(new TextDecoder().decode(sheet.attachments![0].bytes)).toBe("Maths");
     expect(sources.find(item => item.providerObjectId === "sharepoint-drive:drive:video")?.metadata).toMatchObject({ contentDownloaded: false, originalFileCount: 0 });
     expect(coverage.find(item => item.dataset === "sharepoint")?.limitations).toContain("1 SharePoint file original(s) were not downloaded.");

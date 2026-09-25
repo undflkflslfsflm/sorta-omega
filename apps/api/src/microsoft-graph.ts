@@ -16,6 +16,7 @@ const origin = "https://graph.microsoft.com";
 const maxJsonBytes = 8_000_000;
 const maxHtmlBytes = 2_000_000;
 const maxFileBytes = 20_000_000;
+const maxExtractedTextBytes = 2_000_000;
 const maxPages = 100;
 const path = (value: string) => `${origin}/v1.0${value}`;
 const str = (value: unknown) => typeof value === "string" ? value : "";
@@ -24,6 +25,15 @@ const encode = (value: string) => encodeURIComponent(value);
 const teamsMessageText = (message: Record<string, any>) => [htmlText(message.body?.content),
   ...(Array.isArray(message.attachments) ? message.attachments.filter((item: Record<string, any>) => str(item.contentType).toLowerCase() === "reference").map((item: Record<string, any>) => str(item.name)) : [])]
   .filter(Boolean).join("\n");
+function readableFileText(bytes: Uint8Array, mediaType: string): string | null {
+  const type = mediaType.split(";", 1)[0].trim().toLowerCase();
+  if (bytes.byteLength > maxExtractedTextBytes || !(type.startsWith("text/") || ["application/json", "application/xml", "application/javascript"].includes(type))) return null;
+  try {
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    if (decoded.includes("\0")) return null;
+    return type === "text/html" ? htmlText(decoded) : decoded.trim();
+  } catch { return null; }
+}
 
 export class GraphReadError extends Error {
   constructor(readonly status: number, readonly code: string) { super(`graph_${code}`); }
@@ -197,10 +207,10 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   async function emit(source: GraphSource) { await save(source); imported++; }
   const fileReadAllowed = has("Files.Read") || has("Files.Read.All") || has("Sites.Read.All");
   async function driveFileOriginal(item: Record<string, any>, budget: { used: number }, driveId: string | null) {
-    if (!item.file) return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: false };
+    if (!item.file) return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, extractedText: null as string | null, fileMissing: false };
     const size = item.size;
     if (!Number.isSafeInteger(size) || size < 0 || size > maxFileBytes || budget.used + size > 1_000_000_000) {
-      return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: true };
+      return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, extractedText: null as string | null, fileMissing: true };
     }
     try {
       const id = str(item.id);
@@ -210,8 +220,8 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         : await graph.downloadPersonalDriveFile(id);
       if (budget.used + file.bytes.byteLength > 1_000_000_000) throw new Error("graph_drive_dataset_limit");
       budget.used += file.bytes.byteLength;
-      return { attachments: [{ filename: (str(item.name) || "Drive file").slice(0, 240), mediaType: file.mediaType, bytes: file.bytes }], contentDownloaded: true, fileMissing: false };
-    } catch { return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, fileMissing: true }; }
+      return { attachments: [{ filename: (str(item.name) || "Drive file").slice(0, 240), mediaType: file.mediaType, bytes: file.bytes }], contentDownloaded: true, extractedText: readableFileText(file.bytes, file.mediaType), fileMissing: false };
+    } catch { return { attachments: [] as NonNullable<GraphSource["attachments"]>, contentDownloaded: false, extractedText: null as string | null, fileMissing: true }; }
   }
   function safeDriveItem(item: Record<string, any>) {
     const { ["@microsoft.graph.downloadUrl"]: _temporaryUrl, ...safe } = item;
@@ -413,7 +423,7 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         count++;
         const original = await driveFileOriginal(item, budget, null);
         if (original.fileMissing) missingFileCount++;
-        await emit({ providerObjectId: `drive:${item.id}`, containerId: str(item.parentReference?.id) || null, kind: "drive_file", title: str(item.name) || "Drive item", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, originalFileCount: original.attachments.length }, attachments: original.attachments });
+        await emit({ providerObjectId: `drive:${item.id}`, containerId: str(item.parentReference?.id) || null, kind: "drive_file", title: str(item.name) || "Drive item", deepLink: str(item.webUrl) || null, content: [str(item.name), original.extractedText].filter(Boolean).join("\n"), metadata: { item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, textExtracted: original.extractedText !== null, originalFileCount: original.attachments.length }, attachments: original.attachments });
         if (item.folder) pending.push(`/me/drive/items/${encode(str(item.id))}/children`);
       }
     }
@@ -466,7 +476,7 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
             count++;
             const original = await driveFileOriginal(item, budget, driveId);
             if (original.fileMissing) missingFileCount++;
-            await emit({ providerObjectId: `sharepoint-drive:${driveId}:${id}`, containerId: str(item.parentReference?.id) || driveId, kind: "drive_file", title: str(item.name) || "SharePoint file", deepLink: str(item.webUrl) || null, content: str(item.name), metadata: { siteId, driveId, item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, originalFileCount: original.attachments.length }, attachments: original.attachments });
+            await emit({ providerObjectId: `sharepoint-drive:${driveId}:${id}`, containerId: str(item.parentReference?.id) || driveId, kind: "drive_file", title: str(item.name) || "SharePoint file", deepLink: str(item.webUrl) || null, content: [str(item.name), original.extractedText].filter(Boolean).join("\n"), metadata: { siteId, driveId, item: safeDriveItem(item), contentDownloaded: original.contentDownloaded, textExtracted: original.extractedText !== null, originalFileCount: original.attachments.length }, attachments: original.attachments });
             if (item.folder) pending.push(`/drives/${encode(driveId)}/items/${encode(id)}/children`);
           }
         }
