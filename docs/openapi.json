@@ -47822,7 +47822,9 @@
                             "lesson",
                             "assignment",
                             "assessment",
-                            "material"
+                            "material",
+                            "attendance",
+                            "grade"
                           ]
                         },
                         "externalId": {
@@ -47999,12 +48001,80 @@
                           "stale"
                         ],
                         "additionalProperties": false
+                      },
+                      "attendance": {
+                        "type": "object",
+                        "properties": {
+                          "created": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "updated": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "linked": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "unchanged": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "stale": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "created",
+                          "updated",
+                          "linked",
+                          "unchanged",
+                          "stale"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "grade": {
+                        "type": "object",
+                        "properties": {
+                          "created": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "updated": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "linked": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "unchanged": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "stale": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "created",
+                          "updated",
+                          "linked",
+                          "unchanged",
+                          "stale"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "required": [
                       "subject",
                       "course",
-                      "lesson"
+                      "lesson",
+                      "attendance",
+                      "grade"
                     ],
                     "additionalProperties": false
                   },
@@ -50685,7 +50755,9 @@
                                   "lesson",
                                   "assignment",
                                   "assessment",
-                                  "material"
+                                  "material",
+                                  "attendance",
+                                  "grade"
                                 ]
                               },
                               "externalId": {
@@ -50862,12 +50934,80 @@
                                 "stale"
                               ],
                               "additionalProperties": false
+                            },
+                            "attendance": {
+                              "type": "object",
+                              "properties": {
+                                "created": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "linked": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "unchanged": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "stale": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "created",
+                                "updated",
+                                "linked",
+                                "unchanged",
+                                "stale"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "grade": {
+                              "type": "object",
+                              "properties": {
+                                "created": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "linked": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "unchanged": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "stale": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                }
+                              },
+                              "required": [
+                                "created",
+                                "updated",
+                                "linked",
+                                "unchanged",
+                                "stale"
+                              ],
+                              "additionalProperties": false
                             }
                           },
                           "required": [
                             "subject",
                             "course",
-                            "lesson"
+                            "lesson",
+                            "attendance",
+                            "grade"
                           ],
                           "additionalProperties": false
                         },
@@ -55575,7 +55715,9 @@
                 "lesson",
                 "assignment",
                 "assessment",
-                "material"
+                "material",
+                "attendance",
+                "grade"
               ]
             },
             "nullable": true,
@@ -79415,7 +79557,9 @@
                                 "lesson",
                                 "assignment",
                                 "assessment",
-                                "material"
+                                "material",
+                                "attendance",
+                                "grade"
                               ]
                             },
                             "externalId": {
@@ -79592,12 +79736,80 @@
                               "stale"
                             ],
                             "additionalProperties": false
+                          },
+                          "attendance": {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "linked": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unchanged": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "stale": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "linked",
+                              "unchanged",
+                              "stale"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "grade": {
+                            "type": "object",
+                            "properties": {
+                              "created": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "updated": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "linked": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "unchanged": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "stale": {
+                                "type": "integer",
+                                "minimum": 0
+                              }
+                            },
+                            "required": [
+                              "created",
+                              "updated",
+                              "linked",
+                              "unchanged",
+                              "stale"
+                            ],
+                            "additionalProperties": false
                           }
                         },
                         "required": [
                           "subject",
                           "course",
-                          "lesson"
+                          "lesson",
+                          "attendance",
+                          "grade"
                         ],
                         "additionalProperties": false
                       },

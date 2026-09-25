@@ -355,6 +355,7 @@ import { buildSchedulePreview, explainScheduleReasons, selectNextActionCandidate
 import { initialIntegration } from "./integration-capabilities.js";
 import { parseInSchoolSnapshot } from "./school-snapshot.js";
 import { applyInSchoolSnapshot } from "./school-snapshot-store.js";
+import { schoolImportPreview, schoolSnapshotOutsidePeriod } from "./school-import-preview.js";
 import { buildWeeklyReview } from "./weekly-review.js";
 import { summarizePersonalDataRecords } from "./personal-data-import.js";
 import { analyzeApprovedTopics } from "./interest-analysis.js";
@@ -2187,7 +2188,33 @@ app.get("/api/v1/vaults/:vaultId/school/teachers",async(request,reply)=>{
   return {items,nextCursor:hasMore?items.at(-1)!.id:null};
 });
 
-app.post("/api/v1/vaults/:vaultId/school/import-preview",async(request,reply)=>{const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);const input=previewSchoolImportSchema.parse(request.body);if(!isSupportedTimezone(input.timezone))return reply.code(400).send({error:"unsupported_timezone"});const blob=(await query<Record<string,any>>("SELECT * FROM blobs WHERE vault_id=$1 AND id=$2",[vaultId,input.attachmentId])).rows[0];if(!blob)return reply.code(404).send({error:"school_import_attachment_not_found"});if(Number(blob.byte_length)>20*1024*1024)return reply.code(413).send({error:"school_import_too_large"});const file=blobPath(blobStorageRoot,blob.storage_key);if(!existsSync(file))return reply.code(503).send({error:"blob_storage_unavailable"});if(await hashFile(file)!==blob.sha256)return reply.code(503).send({error:"blob_integrity_failure"});let parsed:any;try{parsed=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(await readFile(file)));}catch{return reply.code(400).send({error:"school_import_not_valid_utf8_json"});}if(!parsed||typeof parsed!=="object"||parsed.version!=="omega_school_json_v1"||!Array.isArray(parsed.records)||!parsed.records.length||parsed.records.length>1000)return reply.code(400).send({error:"school_import_schema_invalid"});const allowed=new Set(["subject","course","lesson","assignment","assessment","material"]),normalized:Array<{kind:"subject"|"course"|"lesson"|"assignment"|"assessment"|"material";externalId:string;title:string}>=[];for(const raw of parsed.records){if(!raw||typeof raw!=="object"||typeof raw.kind!=="string"||typeof raw.externalId!=="string"||typeof raw.title!=="string")return reply.code(400).send({error:"school_import_record_invalid"});const mapped=input.mapping?.[raw.kind]??raw.kind;if(!allowed.has(mapped)||raw.externalId.length<1||raw.externalId.length>500||raw.title.trim().length<1||raw.title.length>1000)return reply.code(400).send({error:"school_import_record_invalid"});normalized.push({kind:mapped as any,externalId:raw.externalId,title:raw.title.trim()});}const counts=Object.fromEntries([...allowed].map(kind=>[kind,normalized.filter(item=>item.kind===kind).length])),warnings=["This is a snapshot preview, not a verified live school connection.","Applying school-domain records requires a separately reviewed proposal/apply workflow."];const result=schoolImportPreviewResultSchema.parse({type:"school_import_preview",detectedFormat:"omega_school_json_v1",sourceTimestamp:input.sourceTimestamp,timezone:input.timezone,period:input.period,counts,sample:normalized.slice(0,20),warnings,snapshotOnly:true,liveConnectionCreated:false,writesApplied:false}),payload=JSON.stringify({type:"school_import_preview",attachmentId:input.attachmentId,sourceTimestamp:input.sourceTimestamp,timezone:input.timezone,period:input.period,mapping:input.mapping}),job=await transaction(async client=>{const created=await client.query("INSERT INTO jobs(vault_id,kind,status,stage,progress,input,input_hash,result,attempts,started_at,finished_at) VALUES ($1,'school_import_preview','succeeded','proposal_ready',1,$2::jsonb,$3,$4::jsonb,1,now(),now()) RETURNING *",[vaultId,payload,createHash("sha256").update(payload).digest("hex"),JSON.stringify(result)]);await client.query("INSERT INTO job_events(job_id,sequence,kind,data) VALUES ($1,1,'accepted',$2::jsonb),($1,2,'completed',$3::jsonb)",[created.rows[0].id,JSON.stringify({attachmentId:input.attachmentId,recordCount:normalized.length}),JSON.stringify(result)]);return created.rows[0];});return reply.code(202).send(mapJobHandle(job));});
+app.post("/api/v1/vaults/:vaultId/school/import-preview",async(request,reply)=>{
+  const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);
+  const input=previewSchoolImportSchema.parse(request.body);
+  if(input.mapping!==null)return reply.code(400).send({error:"school_import_mapping_apply_not_supported"});
+  if(!isSupportedTimezone(input.timezone))return reply.code(400).send({error:"unsupported_timezone"});
+  const blob=(await query<Record<string,any>>("SELECT * FROM blobs WHERE vault_id=$1 AND id=$2",[vaultId,input.attachmentId])).rows[0];
+  if(!blob)return reply.code(404).send({error:"school_import_attachment_not_found"});
+  if(Number(blob.byte_length)>20*1024*1024)return reply.code(413).send({error:"school_import_too_large"});
+  const file=blobPath(blobStorageRoot,blob.storage_key);
+  if(!existsSync(file))return reply.code(503).send({error:"blob_storage_unavailable"});
+  if(await hashFile(file)!==blob.sha256)return reply.code(503).send({error:"blob_integrity_failure"});
+  let snapshot;
+  try{snapshot=parseInSchoolSnapshot(JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(await readFile(file))));}
+  catch{return reply.code(400).send({error:"school_import_snapshot_not_applicable"});}
+  if(snapshot.source_timestamp!==input.sourceTimestamp||snapshot.timezone!==input.timezone)return reply.code(409).send({error:"school_import_preview_snapshot_mismatch"});
+  if(input.period&&schoolSnapshotOutsidePeriod(snapshot,input.period))return reply.code(409).send({error:"school_import_record_outside_preview_period"});
+  const {counts,sample}=schoolImportPreview(snapshot);
+  const warnings=["This is a dated browser snapshot, not a live InSchool connection.","Only the record categories counted here will be applied; missing categories are not inferred."];
+  const result=schoolImportPreviewResultSchema.parse({type:"school_import_preview",detectedFormat:"omega_school_json_v1",sourceTimestamp:input.sourceTimestamp,timezone:input.timezone,period:input.period,counts,sample,warnings,snapshotOnly:true,liveConnectionCreated:false,writesApplied:false});
+  const payload=JSON.stringify({type:"school_import_preview",attachmentId:input.attachmentId,sourceTimestamp:input.sourceTimestamp,timezone:input.timezone,period:input.period,mapping:null});
+  const job=await transaction(async client=>{
+    const created=await client.query("INSERT INTO jobs(vault_id,kind,status,stage,progress,input,input_hash,result,attempts,started_at,finished_at) VALUES ($1,'school_import_preview','succeeded','proposal_ready',1,$2::jsonb,$3,$4::jsonb,1,now(),now()) RETURNING *",[vaultId,payload,createHash("sha256").update(payload).digest("hex"),JSON.stringify(result)]);
+    await client.query("INSERT INTO job_events(job_id,sequence,kind,data) VALUES ($1,1,'accepted',$2::jsonb),($1,2,'completed',$3::jsonb)",[created.rows[0].id,JSON.stringify({attachmentId:input.attachmentId,recordCount:snapshot.records.length}),JSON.stringify(result)]);
+    return created.rows[0];
+  });
+  return reply.code(202).send(mapJobHandle(job));
+});
 
 app.post("/api/v1/vaults/:vaultId/school/import-apply",async(request,reply)=>{
   const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);
@@ -2207,14 +2234,18 @@ app.post("/api/v1/vaults/:vaultId/school/import-apply",async(request,reply)=>{
   catch{return reply.code(400).send({error:"school_import_snapshot_not_applicable"});}
   if(snapshot.source_timestamp!==previewInput.sourceTimestamp||snapshot.timezone!==previewInput.timezone)return reply.code(409).send({error:"school_import_preview_snapshot_mismatch"});
   const period=previewInput.period as {from:string;to:string}|null;
-  if(period){const dateFor=(instant:string)=>new Intl.DateTimeFormat("en-CA",{timeZone:snapshot.timezone,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(instant));if(snapshot.records.some(record=>record.kind==="lesson"&&(dateFor(record.startsAt)<period.from||dateFor(record.startsAt)>period.to)))return reply.code(409).send({error:"school_import_lesson_outside_preview_period"});}
+  if(period&&schoolSnapshotOutsidePeriod(snapshot,period))return reply.code(409).send({error:"school_import_record_outside_preview_period"});
   let job:Record<string,any>;
   try{job=await transaction(async client=>{
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))",[vaultId,input.previewJobId]);
     const prior=await client.query("SELECT * FROM jobs WHERE vault_id=$1 AND kind='school_import_apply' AND input->>'previewJobId'=$2",[vaultId,input.previewJobId]);
     if(prior.rows[0])return prior.rows[0];
     const counts=await applyInSchoolSnapshot(client,vaultId,snapshot);
-    const result=schoolImportApplyResultSchema.parse({type:"school_import_apply",previewJobId:input.previewJobId,sourceTimestamp:snapshot.source_timestamp,counts,snapshotOnly:true,liveConnectionCreated:false,writesApplied:true,limitations:["Only captured timetable subjects, courses and lessons were applied.","This is a dated browser snapshot, not continuous InSchool synchronization; attendance, grades and assignments were not captured."]});
+    const limitations=["This is a dated browser snapshot, not continuous InSchool synchronization.","Categories absent from this capture were not imported."];
+    if(!snapshot.records.some(record=>record.kind==="attendance"))limitations.push("Attendance was not captured in this snapshot.");
+    if(!snapshot.records.some(record=>record.kind==="grade"))limitations.push("Grades were not captured in this snapshot.");
+    limitations.push("Assignments and assessments were not captured in this snapshot.");
+    const result=schoolImportApplyResultSchema.parse({type:"school_import_apply",previewJobId:input.previewJobId,sourceTimestamp:snapshot.source_timestamp,counts,snapshotOnly:true,liveConnectionCreated:false,writesApplied:true,limitations});
     const payload=JSON.stringify({type:"school_import_apply",previewJobId:input.previewJobId,attachmentId}),created=await client.query("INSERT INTO jobs(vault_id,kind,status,stage,progress,input,input_hash,result,attempts,started_at,finished_at) VALUES ($1,'school_import_apply','succeeded','snapshot_applied',1,$2::jsonb,$3,$4::jsonb,1,now(),now()) RETURNING *",[vaultId,payload,createHash("sha256").update(payload).digest("hex"),JSON.stringify(result)]);
     await client.query("INSERT INTO job_events(job_id,sequence,kind,data) VALUES ($1,1,'accepted',$2::jsonb),($1,2,'completed',$3::jsonb)",[created.rows[0].id,JSON.stringify({previewJobId:input.previewJobId}),JSON.stringify(result)]);
     return created.rows[0];

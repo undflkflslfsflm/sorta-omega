@@ -10649,7 +10649,7 @@ export interface components {
                 };
                 sample: {
                     /** @enum {string} */
-                    kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material";
+                    kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material" | "attendance" | "grade";
                     externalId: string;
                     title: string;
                 }[];
@@ -10683,6 +10683,20 @@ export interface components {
                         stale: number;
                     };
                     lesson: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    attendance: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    grade: {
                         created: number;
                         updated: number;
                         linked: number;
@@ -11276,7 +11290,7 @@ export interface components {
                     };
                     sample: {
                         /** @enum {string} */
-                        kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material";
+                        kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material" | "attendance" | "grade";
                         externalId: string;
                         title: string;
                     }[];
@@ -11310,6 +11324,20 @@ export interface components {
                             stale: number;
                         };
                         lesson: {
+                            created: number;
+                            updated: number;
+                            linked: number;
+                            unchanged: number;
+                            stale: number;
+                        };
+                        attendance: {
+                            created: number;
+                            updated: number;
+                            linked: number;
+                            unchanged: number;
+                            stale: number;
+                        };
+                        grade: {
                             created: number;
                             updated: number;
                             linked: number;
@@ -12439,7 +12467,7 @@ export interface components {
             format: "auto" | "omega_school_json_v1";
             /** @default null */
             mapping: {
-                [key: string]: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material";
+                [key: string]: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material" | "attendance" | "grade";
             } | null;
             /** Format: date-time */
             sourceTimestamp: string;
@@ -18018,7 +18046,7 @@ export interface components {
                 };
                 sample: {
                     /** @enum {string} */
-                    kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material";
+                    kind: "subject" | "course" | "lesson" | "assignment" | "assessment" | "material" | "attendance" | "grade";
                     externalId: string;
                     title: string;
                 }[];
@@ -18052,6 +18080,20 @@ export interface components {
                         stale: number;
                     };
                     lesson: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    attendance: {
+                        created: number;
+                        updated: number;
+                        linked: number;
+                        unchanged: number;
+                        stale: number;
+                    };
+                    grade: {
                         created: number;
                         updated: number;
                         linked: number;
