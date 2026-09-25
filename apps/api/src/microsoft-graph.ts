@@ -118,6 +118,12 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     if (!response.ok) throw new GraphReadError(response.status, response.status === 403 ? "permission_denied" : `http_${response.status}`);
     return { bytes: await boundedBytes(response, maxFileBytes), mediaType: response.headers.get("content-type") || "application/octet-stream" };
   }
+  async function downloadMailAttachment(messageId: string, attachmentId: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    const url = path(`/me/messages/${encode(messageId)}/attachments/${encode(attachmentId)}/$value`);
+    const response = await fetcher(url, { headers: { authorization: `Bearer ${token}`, accept: "application/octet-stream" }, redirect: "error", signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new GraphReadError(response.status, response.status === 403 ? "permission_denied" : `http_${response.status}`);
+    return { bytes: await boundedBytes(response, maxFileBytes), mediaType: response.headers.get("content-type") || "application/octet-stream" };
+  }
   async function getText(url: string): Promise<string> {
     const parsed = new URL(url, origin);
     if (parsed.origin !== origin || !parsed.pathname.startsWith("/v1.0/")) throw new Error("graph_nextlink_origin_invalid");
@@ -163,7 +169,7 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     }
     return { items: items.slice(0, maximum), complete: !next && items.length <= maximum };
   }
-  return { get, getText, list, downloadAssignmentFile, downloadTeamsFile, downloadHostedContent };
+  return { get, getText, list, downloadAssignmentFile, downloadTeamsFile, downloadHostedContent, downloadMailAttachment };
 }
 
 export async function collectMicrosoftGraph(token: string, scopes: string[], save: (source: GraphSource) => Promise<void>, fetcher: typeof fetch = fetch): Promise<GraphCoverage[]> {
@@ -174,8 +180,9 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   const assignmentLimitations: string[] = [];
   const chatLimitations: string[] = [];
   const channelLimitations: string[] = [];
+  const mailLimitations: string[] = [];
   async function run(dataset: GraphDataset, authorized: boolean, work: () => Promise<boolean>) {
-    const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? ["Attachment bodies are not downloaded; message metadata is stored."] : dataset === "chats" ? chatLimitations : dataset === "channels" ? channelLimitations : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
+    const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? mailLimitations : dataset === "chats" ? chatLimitations : dataset === "channels" ? channelLimitations : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
     if (!authorized) { coverage.push({ dataset, imported: 0, complete: false, contentComplete: false, limitations, error: "scope_not_granted" }); return; }
     const start = imported;
     try { const complete = await work(); coverage.push({ dataset, imported: imported - start, complete, contentComplete: complete && limitations.length === 0, limitations, error: complete ? null : "provider_coverage_incomplete" }); }
@@ -335,7 +342,39 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   });
   await run("mail", has("Mail.Read"), async () => {
     const messages = await graph.list(path("/me/messages"));
-    for (const message of messages.items) if (message.id) await emit({ providerObjectId: `mail:${message.id}`, containerId: str(message.conversationId) || null, kind: "mail_message", title: str(message.subject) || "Email", deepLink: str(message.webLink) || null, content: [str(message.subject), htmlText(message.body?.content)].filter(Boolean).join("\n"), metadata: { message } });
+    for (const message of messages.items) {
+      const id = str(message.id);
+      if (!id) continue;
+      const attachments: NonNullable<GraphSource["attachments"]> = [];
+      const attachmentManifest: Array<{index:number;attachmentId:string;filename:string;type:string}> = [];
+      const attachmentNames: string[] = [];
+      let missingAttachmentCount = 0, downloadedBytes = 0;
+      try {
+        const listed = await graph.list(path(`/me/messages/${encode(id)}/attachments?$select=id,name,size,contentType,isInline`), 100);
+        if (!listed.complete) { missingAttachmentCount++; mailLimitations.push("Some mail attachment lists exceed the import limit."); }
+        for (const item of listed.items) {
+          const attachmentId = str(item.id), filename = (str(item.name) || "Mail attachment").slice(0, 240);
+          attachmentNames.push(filename);
+          const type = str(item["@odata.type"]).toLowerCase();
+          const size = item.size;
+          if (!attachmentId || !Number.isSafeInteger(size) || size < 0 || size > maxFileBytes || attachments.length >= 100 || downloadedBytes + size > 100_000_000) { missingAttachmentCount++; continue; }
+          try {
+            const downloaded = type.endsWith("fileattachment") || type.endsWith("itemattachment")
+              ? await graph.downloadMailAttachment(id, attachmentId)
+              : type.endsWith("referenceattachment")
+                ? await graph.downloadTeamsFile(str((await graph.get(path(`/me/messages/${encode(id)}/attachments/${encode(attachmentId)}`))).sourceUrl))
+                : null;
+            if (!downloaded || downloadedBytes + downloaded.bytes.byteLength > 100_000_000) { missingAttachmentCount++; continue; }
+            attachmentManifest.push({index:attachments.length,attachmentId,filename,type});
+            attachments.push({filename,mediaType:downloaded.mediaType,bytes:downloaded.bytes});
+            downloadedBytes += downloaded.bytes.byteLength;
+          } catch { missingAttachmentCount++; }
+        }
+      } catch { missingAttachmentCount++; mailLimitations.push("A mail attachment list could not be read."); }
+      if (missingAttachmentCount) mailLimitations.push(`${missingAttachmentCount} mail attachment(s) were not downloaded or enumerated.`);
+      await emit({ providerObjectId: `mail:${id}`, containerId: str(message.conversationId) || null, kind: "mail_message", title: str(message.subject) || "Email", deepLink: str(message.webLink) || null, content: [str(message.subject), htmlText(message.body?.content), ...attachmentNames].filter(Boolean).join("\n"), metadata: { message, attachmentManifest, missingAttachmentCount }, attachments });
+    }
+    if (mailLimitations.length) mailLimitations.splice(0,mailLimitations.length,...new Set(mailLimitations));
     return messages.complete;
   });
   await run("files", has("Files.Read") || has("Files.Read.All"), async () => {

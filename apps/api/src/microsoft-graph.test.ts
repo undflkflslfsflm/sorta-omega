@@ -178,6 +178,47 @@ describe("Microsoft Graph ingestion", () => {
     expect(coverage.find(item => item.dataset === "chats")?.limitations).toContain("1 hosted Teams content item(s) were not downloaded or enumerated.");
   });
 
+  it("retains Microsoft mail file and attached-message originals with provenance", async () => {
+    const sources: GraphSource[] = [];
+    const calls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input); calls.push(url);
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/messages") return response({ value: [{ id: "mail-1", subject: "Maths test", body: { content: "<p>Revision sheet attached</p>" } }] });
+      if (pathname === "/v1.0/me/messages/mail-1/attachments") return response({ value: [
+        { id: "sheet", "@odata.type": "#microsoft.graph.fileAttachment", name: "revision.pdf", size: 3 },
+        { id: "forward", "@odata.type": "#microsoft.graph.itemAttachment", name: "Teacher message", size: 4 }
+      ] });
+      if (pathname === "/v1.0/me/messages/mail-1/attachments/sheet/$value") return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "content-type": "application/pdf" } });
+      if (pathname === "/v1.0/me/messages/mail-1/attachments/forward/$value") return new Response("Mail", { status: 200, headers: { "content-type": "message/rfc822" } });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Mail.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].content).toContain("revision.pdf");
+    expect(sources[0].attachments).toMatchObject([{ filename: "revision.pdf", mediaType: "application/pdf" }, { filename: "Teacher message", mediaType: "message/rfc822" }]);
+    expect(sources[0].metadata.attachmentManifest).toMatchObject([{ index: 0, attachmentId: "sheet" }, { index: 1, attachmentId: "forward" }]);
+    expect(calls.find(url => url.includes("$select="))).toContain("id,name,size,contentType,isInline");
+    expect(coverage.find(item => item.dataset === "mail")).toMatchObject({ complete: true, contentComplete: true, limitations: [] });
+  });
+
+  it("keeps Microsoft mail readable when an attachment exceeds the import limit", async () => {
+    const sources: GraphSource[] = [];
+    const calls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input); calls.push(url);
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/messages") return response({ value: [{ id: "mail-1", subject: "Maths test" }] });
+      if (pathname === "/v1.0/me/messages/mail-1/attachments") return response({ value: [{ id: "large", "@odata.type": "#microsoft.graph.fileAttachment", name: "video.mp4", size: 20_000_001 }] });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Mail.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources[0].metadata.missingAttachmentCount).toBe(1);
+    expect(calls).toHaveLength(2);
+    expect(coverage.find(item => item.dataset === "mail")).toMatchObject({ complete: true, contentComplete: false });
+    expect(coverage.find(item => item.dataset === "mail")?.limitations).toContain("1 mail attachment(s) were not downloaded or enumerated.");
+  });
+
   it("retains working and submitted resource originals with their submission provenance", async () => {
     const sources: GraphSource[]=[];
     const workingUrl="https://graph.microsoft.com/v1.0/drives/d/items/working";
