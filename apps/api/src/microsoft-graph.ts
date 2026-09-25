@@ -6,6 +6,7 @@ export type GraphSource = {
   deepLink: string | null;
   content: string;
   metadata: Record<string, unknown>;
+  attachments?: Array<{ filename: string; mediaType: string; bytes: Uint8Array }>;
 };
 
 export type GraphDataset = "classes" | "assignments" | "chats" | "channels" | "calendar" | "mail" | "files" | "sharepoint" | "todo" | "planner" | "onenote" | "contacts";
@@ -14,6 +15,7 @@ export type GraphCoverage = { dataset: GraphDataset; imported: number; complete:
 const origin = "https://graph.microsoft.com";
 const maxJsonBytes = 8_000_000;
 const maxHtmlBytes = 2_000_000;
+const maxFileBytes = 20_000_000;
 const maxPages = 100;
 const path = (value: string) => `${origin}/v1.0${value}`;
 const str = (value: unknown) => typeof value === "string" ? value : "";
@@ -47,7 +49,50 @@ async function boundedBody(response: Response, maximum: number): Promise<string>
   }
 }
 
+async function boundedBytes(response: Response, maximum: number): Promise<Uint8Array> {
+  const declared = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > maximum) throw new Error("graph_file_too_large");
+  const reader = response.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = []; let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maximum) throw new Error("graph_file_too_large");
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return bytes;
+  } finally { await reader.cancel().catch(() => undefined); }
+}
+
+function driveFileUrl(raw: string): string {
+  const url = new URL(raw);
+  if (url.origin !== origin || url.search || url.hash || url.username || url.password || url.port || !/^\/v1\.0\/drives\/[^/%]+\/items\/[^/%]+$/.test(url.pathname)) throw new Error("graph_assignment_file_url_invalid");
+  return url.toString();
+}
+
+function downloadUrl(raw: string): string {
+  const url = new URL(raw);
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || url.port || url.username || url.password || !(host.endsWith(".sharepoint.com") || host.endsWith(".files.1drv.com"))) throw new Error("graph_download_host_untrusted");
+  return url.toString();
+}
+
 export function createGraphReader(token: string, fetcher: typeof fetch = fetch) {
+  async function downloadAssignmentFile(rawFileUrl: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    const item = await get(driveFileUrl(rawFileUrl));
+    if (!item.file || !Number.isSafeInteger(item.size) || item.size < 0 || item.size > maxFileBytes) throw new Error("graph_assignment_file_unavailable_or_too_large");
+    const temporaryUrl = downloadUrl(str(item["@microsoft.graph.downloadUrl"]));
+    const response = await fetcher(temporaryUrl, { headers: { accept: "application/octet-stream" }, redirect: "error", signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new GraphReadError(response.status, response.status === 403 ? "permission_denied" : `http_${response.status}`);
+    const bytes = await boundedBytes(response, maxFileBytes);
+    if (bytes.byteLength !== item.size) throw new Error("graph_assignment_file_size_mismatch");
+    return { bytes, mediaType: str(item.file.mimeType) || "application/octet-stream" };
+  }
   async function getText(url: string): Promise<string> {
     const parsed = new URL(url, origin);
     if (parsed.origin !== origin || !parsed.pathname.startsWith("/v1.0/")) throw new Error("graph_nextlink_origin_invalid");
@@ -93,7 +138,7 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     }
     return { items: items.slice(0, maximum), complete: !next && items.length <= maximum };
   }
-  return { get, getText, list };
+  return { get, getText, list, downloadAssignmentFile };
 }
 
 export async function collectMicrosoftGraph(token: string, scopes: string[], save: (source: GraphSource) => Promise<void>, fetcher: typeof fetch = fetch): Promise<GraphCoverage[]> {
@@ -101,8 +146,9 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   const granted = new Set(scopes.map(item => item.toLowerCase()));
   const has = (...required: string[]) => required.every(item => granted.has(item.toLowerCase()));
   const coverage: GraphCoverage[] = [];
+  const assignmentLimitations: string[] = [];
   async function run(dataset: GraphDataset, authorized: boolean, work: () => Promise<boolean>) {
-    const limitations = dataset === "assignments" ? ["Linked assignment file bodies are not downloaded."] : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? ["Attachment bodies are not downloaded; message metadata is stored."] : dataset === "chats" || dataset === "channels" ? ["Linked and attached file bodies are not downloaded."] : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
+    const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? ["Attachment bodies are not downloaded; message metadata is stored."] : dataset === "chats" || dataset === "channels" ? ["Linked and attached file bodies are not downloaded."] : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
     if (!authorized) { coverage.push({ dataset, imported: 0, complete: false, contentComplete: false, limitations, error: "scope_not_granted" }); return; }
     const start = imported;
     try { const complete = await work(); coverage.push({ dataset, imported: imported - start, complete, contentComplete: complete && limitations.length === 0, limitations, error: complete ? null : "provider_coverage_incomplete" }); }
@@ -123,6 +169,8 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   });
   await run("assignments", has("EduAssignments.Read"), async () => {
     const assignments = await graph.list(path("/education/me/assignments")); let complete = assignments.complete;
+    const fileReadAllowed = has("Files.Read") || has("Files.Read.All") || has("Sites.Read.All");
+    let missingFileCount = 0;
     for (const summary of assignments.items) {
       const classId = str(summary.classId), id = str(summary.id);
       if (!classId || !id) continue;
@@ -131,10 +179,24 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
       const submissions = await graph.list(path(`/education/classes/${encode(classId)}/assignments/${encode(id)}/submissions?$expand=outcomes,resources,submittedResources`), 1000);
       complete &&= resources.complete && submissions.complete;
       const title = str(detail.displayName) || str(summary.displayName) || "Assignment";
+      const attachments: NonNullable<GraphSource["attachments"]> = [];
+      let missingForAssignment = 0;
+      for (const item of resources.items) {
+        const fileUrl = str(item.resource?.fileUrl);
+        if (!fileUrl) { if (item.resource) { missingFileCount++; missingForAssignment++; } continue; }
+        if (!fileReadAllowed) { missingFileCount++; missingForAssignment++; continue; }
+        try {
+          const downloaded = await graph.downloadAssignmentFile(fileUrl);
+          attachments.push({ filename: (str(item.resource?.displayName) || str(item.displayName) || "Assignment file").slice(0, 240), mediaType: downloaded.mediaType, bytes: downloaded.bytes });
+        } catch { missingFileCount++; missingForAssignment++; }
+      }
+      if (submissions.items.some(item => Array.isArray(item.resources) && item.resources.length || Array.isArray(item.submittedResources) && item.submittedResources.length)) assignmentLimitations.push("Submission file bodies are not downloaded.");
       await emit({ providerObjectId: `education-assignment:${classId}:${id}`, containerId: classId, kind: "assignment", title, deepLink: str(detail.webUrl) || null,
         content: [title, htmlText(detail.instructions?.content), ...resources.items.map(item => [str(item.displayName), str(item.resource?.webUrl)].filter(Boolean).join(" "))].filter(Boolean).join("\n"),
-        metadata: { detail, resources: resources.items, submissions: submissions.items, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, linkedFileContentsDownloaded: false } });
+        metadata: { detail, resources: resources.items, submissions: submissions.items, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, linkedFileCount: attachments.length, missingLinkedFileCount: missingForAssignment }, attachments });
     }
+    if (missingFileCount) assignmentLimitations.push(`${missingFileCount} linked assignment file(s) were not downloaded.`);
+    if (assignmentLimitations.length) assignmentLimitations.splice(0,assignmentLimitations.length,...new Set(assignmentLimitations));
     return complete;
   });
   await run("chats", has("Chat.Read"), async () => {

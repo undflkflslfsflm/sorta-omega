@@ -59,6 +59,42 @@ describe("Microsoft Graph ingestion", () => {
     expect(coverage.find(item => item.dataset === "chats")?.error).toBe("scope_not_granted");
   });
 
+  it("captures authorized assignment file bytes without forwarding the Graph token to the download host", async () => {
+    const sources: GraphSource[] = [];
+    const fileUrl = "https://graph.microsoft.com/v1.0/drives/drive-1/items/file-1";
+    const temporaryUrl = "https://school.sharepoint.com/download?temporary=secret";
+    const calls: Array<{url:string;authorization:string|null}> = [];
+    const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input); calls.push({url,authorization:new Headers(init?.headers).get("authorization")});
+      const path = new URL(url).pathname;
+      if (path === "/v1.0/education/me/assignments") return response({ value: [{ id: "a1", classId: "c1" }] });
+      if (path === "/v1.0/education/classes/c1/assignments/a1") return response({ id: "a1", displayName: "Maths worksheet", instructions: { content: "Read the attached file" } });
+      if (path.endsWith("/resources")) return response({ value: [{ resource: { displayName: "questions.txt", fileUrl } }] });
+      if (path.endsWith("/submissions")) return response({ value: [] });
+      if (url === fileUrl) return response({ id: "file-1", file: { mimeType: "text/plain" }, size: 9, "@microsoft.graph.downloadUrl": temporaryUrl });
+      if (url === temporaryUrl) return new Response("Exercises", {status: 200});
+      throw new Error(`unexpected ${path}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["EduAssignments.Read", "Files.Read.All"], async item => { sources.push(item); }, fetcher);
+    const assignment = sources.find(item => item.kind === "assignment")!;
+    expect(assignment.attachments).toMatchObject([{filename:"questions.txt",mediaType:"text/plain"}]);
+    expect(new TextDecoder().decode(assignment.attachments![0].bytes)).toBe("Exercises");
+    expect(assignment.metadata).not.toHaveProperty("@microsoft.graph.downloadUrl");
+    expect(calls.find(call=>call.url===temporaryUrl)?.authorization).toBeNull();
+    expect(coverage.find(item=>item.dataset==="assignments")).toMatchObject({complete:true,contentComplete:true,limitations:[]});
+  });
+
+  it("rejects an untrusted assignment download host without sending it a request", async () => {
+    const calls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input);calls.push(url);
+      if (url === "https://graph.microsoft.com/v1.0/drives/d/items/i") return response({id:"i",file:{mimeType:"text/plain"},size:3,"@microsoft.graph.downloadUrl":"https://evil.example/secret"});
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    await expect(createGraphReader("secret",fetcher).downloadAssignmentFile("https://graph.microsoft.com/v1.0/drives/d/items/i")).rejects.toThrow("graph_download_host_untrusted");
+    expect(calls).toEqual(["https://graph.microsoft.com/v1.0/drives/d/items/i"]);
+  });
+
   it("collects education classes as course evidence before assignments", async () => {
     const sources: GraphSource[] = [];
     const fetcher = (async (input: string | URL | Request) => {
