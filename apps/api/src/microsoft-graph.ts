@@ -180,20 +180,45 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
       complete &&= resources.complete && submissions.complete;
       const title = str(detail.displayName) || str(summary.displayName) || "Assignment";
       const attachments: NonNullable<GraphSource["attachments"]> = [];
+      const attachmentManifest: Array<{index:number;role:"assignment"|"working"|"submitted";submissionId:string|null;resourceId:string|null;filename:string}> = [];
+      const submissionDetails: Array<{submissionId:string;resources:Record<string,any>[];submittedResources:Record<string,any>[];outcomes:Record<string,any>[];resourcesComplete:boolean;submittedResourcesComplete:boolean;outcomesComplete:boolean}> = [];
+      const resourceRefs: Array<{item:Record<string,any>;role:"assignment"|"working"|"submitted";submissionId:string|null}> = resources.items.map(item=>({item,role:"assignment",submissionId:null}));
+      for (const submission of submissions.items) {
+        const submissionId = str(submission.id);
+        if (!submissionId) { complete = false; continue; }
+        const base = `/education/classes/${encode(classId)}/assignments/${encode(id)}/submissions/${encode(submissionId)}`;
+        const [workingResult,submittedResult,outcomeResult] = await Promise.allSettled([
+          graph.list(path(`${base}/resources`),1000),
+          graph.list(path(`${base}/submittedResources`),1000),
+          graph.list(path(`${base}/outcomes`),1000)
+        ]);
+        const working = workingResult.status === "fulfilled" ? workingResult.value : {items:Array.isArray(submission.resources)?submission.resources:[],complete:false};
+        const submitted = submittedResult.status === "fulfilled" ? submittedResult.value : {items:Array.isArray(submission.submittedResources)?submission.submittedResources:[],complete:false};
+        const outcomes = outcomeResult.status === "fulfilled" ? outcomeResult.value : {items:Array.isArray(submission.outcomes)?submission.outcomes:[],complete:false};
+        complete &&= working.complete && submitted.complete && outcomes.complete;
+        if (!working.complete || !submitted.complete || !outcomes.complete) assignmentLimitations.push("Some submission resource or outcome lists could not be read completely.");
+        submissionDetails.push({submissionId,resources:working.items,submittedResources:submitted.items,outcomes:outcomes.items,resourcesComplete:working.complete,submittedResourcesComplete:submitted.complete,outcomesComplete:outcomes.complete});
+        resourceRefs.push(...working.items.map(item=>({item,role:"working" as const,submissionId})),...submitted.items.map(item=>({item,role:"submitted" as const,submissionId})));
+      }
       let missingForAssignment = 0;
-      for (const item of resources.items) {
+      let downloadedBytes = 0;
+      for (const {item,role,submissionId} of resourceRefs) {
         const fileUrl = str(item.resource?.fileUrl);
         if (!fileUrl) { if (item.resource) { missingFileCount++; missingForAssignment++; } continue; }
         if (!fileReadAllowed) { missingFileCount++; missingForAssignment++; continue; }
+        if (attachments.length >= 100 || downloadedBytes >= 100_000_000) { missingFileCount++; missingForAssignment++; continue; }
         try {
           const downloaded = await graph.downloadAssignmentFile(fileUrl);
-          attachments.push({ filename: (str(item.resource?.displayName) || str(item.displayName) || "Assignment file").slice(0, 240), mediaType: downloaded.mediaType, bytes: downloaded.bytes });
+          if (downloadedBytes + downloaded.bytes.byteLength > 100_000_000) { missingFileCount++; missingForAssignment++; continue; }
+          const filename=(str(item.resource?.displayName) || str(item.displayName) || "Assignment file").slice(0, 240);
+          attachmentManifest.push({index:attachments.length,role,submissionId,resourceId:str(item.id)||null,filename});
+          attachments.push({ filename, mediaType: downloaded.mediaType, bytes: downloaded.bytes });
+          downloadedBytes += downloaded.bytes.byteLength;
         } catch { missingFileCount++; missingForAssignment++; }
       }
-      if (submissions.items.some(item => Array.isArray(item.resources) && item.resources.length || Array.isArray(item.submittedResources) && item.submittedResources.length)) assignmentLimitations.push("Submission file bodies are not downloaded.");
       await emit({ providerObjectId: `education-assignment:${classId}:${id}`, containerId: classId, kind: "assignment", title, deepLink: str(detail.webUrl) || null,
         content: [title, htmlText(detail.instructions?.content), ...resources.items.map(item => [str(item.displayName), str(item.resource?.webUrl)].filter(Boolean).join(" "))].filter(Boolean).join("\n"),
-        metadata: { detail, resources: resources.items, submissions: submissions.items, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, linkedFileCount: attachments.length, missingLinkedFileCount: missingForAssignment }, attachments });
+        metadata: { detail, resources: resources.items, submissions: submissions.items, submissionDetails, resourcesComplete: resources.complete, submissionsComplete: submissions.complete, attachmentManifest, linkedFileCount: attachments.length, missingLinkedFileCount: missingForAssignment }, attachments });
     }
     if (missingFileCount) assignmentLimitations.push(`${missingFileCount} linked assignment file(s) were not downloaded.`);
     if (assignmentLimitations.length) assignmentLimitations.splice(0,assignmentLimitations.length,...new Set(assignmentLimitations));

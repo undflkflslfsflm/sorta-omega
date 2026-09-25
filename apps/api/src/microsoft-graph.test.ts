@@ -45,6 +45,7 @@ describe("Microsoft Graph ingestion", () => {
       const url = new URL(String(input));
       if (url.pathname === "/v1.0/education/me/assignments") return response({ value: [{ id: "a1", classId: "c1", displayName: "Essay" }] });
       if (url.pathname === "/v1.0/education/classes/c1/assignments/a1") return response({ id: "a1", displayName: "Essay", instructions: { content: "<p>Read chapter &amp; write notes</p>" }, dueDateTime: "2026-10-01T12:00:00Z" });
+      if (url.pathname.endsWith("/submissions/s1/resources") || url.pathname.endsWith("/submissions/s1/submittedResources") || url.pathname.endsWith("/submissions/s1/outcomes")) return response({ value: [] });
       if (url.pathname.endsWith("/resources")) return response({ value: [{ displayName: "Worksheet", resource: { webUrl: "https://school.example/file" } }] });
       if (url.pathname.endsWith("/submissions")) return response({ value: [{ id: "s1", status: "submitted" }] });
       throw new Error(`unexpected ${url.pathname}`);
@@ -93,6 +94,51 @@ describe("Microsoft Graph ingestion", () => {
     }) as typeof fetch;
     await expect(createGraphReader("secret",fetcher).downloadAssignmentFile("https://graph.microsoft.com/v1.0/drives/d/items/i")).rejects.toThrow("graph_download_host_untrusted");
     expect(calls).toEqual(["https://graph.microsoft.com/v1.0/drives/d/items/i"]);
+  });
+
+  it("retains working and submitted resource originals with their submission provenance", async () => {
+    const sources: GraphSource[]=[];
+    const workingUrl="https://graph.microsoft.com/v1.0/drives/d/items/working";
+    const submittedUrl="https://graph.microsoft.com/v1.0/drives/d/items/submitted";
+    const fetcher=(async(input:string|URL|Request)=>{
+      const url=String(input),path=new URL(url).pathname;
+      if(path==="/v1.0/education/me/assignments")return response({value:[{id:"a",classId:"c"}]});
+      if(path==="/v1.0/education/classes/c/assignments/a")return response({id:"a",displayName:"Maths"});
+      if(path.endsWith("/assignments/a/resources"))return response({value:[]});
+      if(path.endsWith("/assignments/a/submissions"))return response({value:[{id:"mine",status:"submitted",outcomes:[{id:"mark"}]}]});
+      if(path.endsWith("/submissions/mine/resources"))return response({value:[{id:"w",resource:{displayName:"draft.txt",fileUrl:workingUrl}}]});
+      if(path.endsWith("/submissions/mine/submittedResources"))return response({value:[{id:"s",resource:{displayName:"final.txt",fileUrl:submittedUrl}}]});
+      if(path.endsWith("/submissions/mine/outcomes"))return response({value:[{id:"mark", "@odata.type":"#microsoft.graph.educationPointsOutcome", publishedPoints:{points:4}}]});
+      if(url===workingUrl)return response({file:{mimeType:"text/plain"},size:5,"@microsoft.graph.downloadUrl":"https://school.sharepoint.com/draft"});
+      if(url===submittedUrl)return response({file:{mimeType:"text/plain"},size:5,"@microsoft.graph.downloadUrl":"https://school.sharepoint.com/final"});
+      if(path==="/draft")return new Response("Draft",{status:200});
+      if(path==="/final")return new Response("Final",{status:200});
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage=await collectMicrosoftGraph("secret",["EduAssignments.Read","Files.Read.All"],async item=>{sources.push(item);},fetcher);
+    expect(sources[0].attachments?.map(item=>new TextDecoder().decode(item.bytes))).toEqual(["Draft","Final"]);
+    expect(sources[0].metadata.attachmentManifest).toMatchObject([{index:0,role:"working",submissionId:"mine",resourceId:"w"},{index:1,role:"submitted",submissionId:"mine",resourceId:"s"}]);
+    expect(sources[0].metadata.submissions).toMatchObject([{outcomes:[{id:"mark"}]}]);
+    expect(sources[0].metadata.submissionDetails).toMatchObject([{submissionId:"mine",outcomes:[{publishedPoints:{points:4}}],outcomesComplete:true}]);
+    expect(coverage.find(item=>item.dataset==="assignments")).toMatchObject({complete:true,contentComplete:true});
+  });
+
+  it("keeps readable submission resources while reporting an unreadable outcome list", async () => {
+    const sources: GraphSource[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const pathname = new URL(String(input)).pathname;
+      if (pathname === "/v1.0/education/me/assignments") return response({ value: [{ id: "a", classId: "c" }] });
+      if (pathname === "/v1.0/education/classes/c/assignments/a") return response({ id: "a", displayName: "Maths" });
+      if (pathname.endsWith("/assignments/a/resources")) return response({ value: [] });
+      if (pathname.endsWith("/assignments/a/submissions")) return response({ value: [{ id: "mine", outcomes: [{ id: "expanded" }] }] });
+      if (pathname.endsWith("/submissions/mine/resources")) return response({ value: [{ id: "work", resource: { displayName: "working link", webUrl: "https://school.example/work" } }] });
+      if (pathname.endsWith("/submissions/mine/submittedResources")) return response({ value: [] });
+      if (pathname.endsWith("/submissions/mine/outcomes")) return response({ error: "forbidden" }, 403);
+      throw new Error(`unexpected ${pathname}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["EduAssignments.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources[0].metadata.submissionDetails).toMatchObject([{ resources: [{ id: "work" }], outcomes: [{ id: "expanded" }], outcomesComplete: false }]);
+    expect(coverage.find(item => item.dataset === "assignments")).toMatchObject({ complete: false, contentComplete: false, error: "provider_coverage_incomplete" });
   });
 
   it("collects education classes as course evidence before assignments", async () => {
