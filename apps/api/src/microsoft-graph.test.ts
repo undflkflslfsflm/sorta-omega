@@ -96,6 +96,54 @@ describe("Microsoft Graph ingestion", () => {
     expect(calls).toEqual(["https://graph.microsoft.com/v1.0/drives/d/items/i"]);
   });
 
+  it("captures a Teams channel reply file through Graph without sending the token to SharePoint", async () => {
+    const sources: GraphSource[] = [];
+    const link = "https://school.sharepoint.com/:w:/r/sites/Maths/Shared%20Documents/test.docx?d=abc";
+    const shareId = `u!${Buffer.from(link).toString("base64url")}`;
+    const temporaryUrl = "https://school.sharepoint.com/download?token=temporary";
+    const calls: Array<{url:string;authorization:string|null}> = [];
+    const fetcher = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      calls.push({ url, authorization: new Headers(init?.headers).get("authorization") });
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/joinedTeams") return response({ value: [{ id: "team" }] });
+      if (pathname === "/v1.0/teams/team/channels") return response({ value: [{ id: "general", displayName: "Generelt" }] });
+      if (pathname === "/v1.0/teams/team/channels/general/messages") return response({ value: [{ id: "parent", body: { content: "Test tomorrow" } }] });
+      if (pathname === "/v1.0/teams/team/channels/general/messages/parent/replies") return response({ value: [{ id: "reply", body: { content: "Use the worksheet" }, attachments: [{ id: "file", contentType: "reference", name: "test.docx", contentUrl: link }] }] });
+      if (pathname === `/v1.0/shares/${shareId}/driveItem`) return response({ file: { mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }, size: 9, "@microsoft.graph.downloadUrl": temporaryUrl });
+      if (url === temporaryUrl) return new Response("Worksheet", { status: 200 });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All", "Files.Read.All"], async item => { sources.push(item); }, fetcher);
+    const reply = sources.find(item => item.providerObjectId === "channel-reply:team:general:parent:reply")!;
+    expect(reply.content).toBe("Use the worksheet\ntest.docx");
+    expect(reply.attachments).toMatchObject([{ filename: "test.docx" }]);
+    expect(new TextDecoder().decode(reply.attachments![0].bytes)).toBe("Worksheet");
+    expect(reply.metadata.attachmentManifest).toMatchObject([{ index: 0, attachmentId: "file", filename: "test.docx" }]);
+    expect(calls.find(call => call.url === temporaryUrl)?.authorization).toBeNull();
+    expect(calls.every(call => call.url !== link)).toBe(true);
+    expect(coverage.find(item => item.dataset === "channels")).toMatchObject({ imported: 2, complete: true });
+  });
+
+  it("retains a Teams message and reports a linked-file gap when file access is unavailable", async () => {
+    const sources: GraphSource[] = [];
+    const calls: string[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const url = String(input); calls.push(url);
+      const pathname = new URL(url).pathname;
+      if (pathname === "/v1.0/me/chats") return response({ value: [{ id: "chat", topic: "Maths" }] });
+      if (pathname === "/v1.0/me/chats/chat/messages") return response({ value: [{ id: "message", body: { content: "See attachment" }, attachments: [{ contentType: "reference", name: "test.docx", contentUrl: "https://school.sharepoint.com/test.docx" }] }] });
+      throw new Error(`unexpected ${url}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Chat.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources).toHaveLength(1);
+    expect(sources[0].content).toBe("See attachment\ntest.docx");
+    expect(sources[0].metadata.missingLinkedFileCount).toBe(1);
+    expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: false });
+    expect(coverage.find(item => item.dataset === "chats")?.limitations).toContain("1 linked Teams file(s) were not downloaded.");
+    expect(calls).toHaveLength(2);
+  });
+
   it("retains working and submitted resource originals with their submission provenance", async () => {
     const sources: GraphSource[]=[];
     const workingUrl="https://graph.microsoft.com/v1.0/drives/d/items/working";
