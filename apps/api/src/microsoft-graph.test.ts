@@ -110,6 +110,7 @@ describe("Microsoft Graph ingestion", () => {
       if (pathname === "/v1.0/teams/team/channels") return response({ value: [{ id: "general", displayName: "Generelt" }] });
       if (pathname === "/v1.0/teams/team/channels/general/messages") return response({ value: [{ id: "parent", body: { content: "Test tomorrow" } }] });
       if (pathname === "/v1.0/teams/team/channels/general/messages/parent/replies") return response({ value: [{ id: "reply", body: { content: "Use the worksheet" }, attachments: [{ id: "file", contentType: "reference", name: "test.docx", contentUrl: link }] }] });
+      if (pathname.endsWith("/hostedContents")) return response({ value: [] });
       if (pathname === `/v1.0/shares/${shareId}/driveItem`) return response({ file: { mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }, size: 9, "@microsoft.graph.downloadUrl": temporaryUrl });
       if (url === temporaryUrl) return new Response("Worksheet", { status: 200 });
       throw new Error(`unexpected ${url}`);
@@ -133,6 +134,7 @@ describe("Microsoft Graph ingestion", () => {
       const pathname = new URL(url).pathname;
       if (pathname === "/v1.0/me/chats") return response({ value: [{ id: "chat", topic: "Maths" }] });
       if (pathname === "/v1.0/me/chats/chat/messages") return response({ value: [{ id: "message", body: { content: "See attachment" }, attachments: [{ contentType: "reference", name: "test.docx", contentUrl: "https://school.sharepoint.com/test.docx" }] }] });
+      if (pathname.endsWith("/hostedContents")) return response({ value: [] });
       throw new Error(`unexpected ${url}`);
     }) as typeof fetch;
     const coverage = await collectMicrosoftGraph("secret", ["Chat.Read"], async item => { sources.push(item); }, fetcher);
@@ -141,7 +143,39 @@ describe("Microsoft Graph ingestion", () => {
     expect(sources[0].metadata.missingLinkedFileCount).toBe(1);
     expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: false });
     expect(coverage.find(item => item.dataset === "chats")?.limitations).toContain("1 linked Teams file(s) were not downloaded.");
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(3);
+  });
+
+  it("stores inline Teams hosted content bytes alongside the source message", async () => {
+    const sources: GraphSource[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const pathname = new URL(String(input)).pathname;
+      if (pathname === "/v1.0/me/chats") return response({ value: [{ id: "chat" }] });
+      if (pathname === "/v1.0/me/chats/chat/messages") return response({ value: [{ id: "message", body: { content: "See diagram" } }] });
+      if (pathname === "/v1.0/chats/chat/messages/message/hostedContents") return response({ value: [{ id: "image-1" }] });
+      if (pathname === "/v1.0/chats/chat/messages/message/hostedContents/image-1/$value") return new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "content-type": "image/png" } });
+      throw new Error(`unexpected ${pathname}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Chat.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources[0].attachments).toMatchObject([{ mediaType: "image/png", bytes: new Uint8Array([1, 2, 3]) }]);
+    expect(sources[0].metadata.attachmentManifest).toMatchObject([{ hostedContentId: "image-1", index: 0 }]);
+    expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: true, limitations: [] });
+  });
+
+  it("keeps a Teams message but flags unreadable hosted content", async () => {
+    const sources: GraphSource[] = [];
+    const fetcher = (async (input: string | URL | Request) => {
+      const pathname = new URL(String(input)).pathname;
+      if (pathname === "/v1.0/me/chats") return response({ value: [{ id: "chat" }] });
+      if (pathname === "/v1.0/me/chats/chat/messages") return response({ value: [{ id: "message", body: { content: "See diagram" } }] });
+      if (pathname === "/v1.0/chats/chat/messages/message/hostedContents") return response({ value: [{ id: "image-1" }] });
+      if (pathname === "/v1.0/chats/chat/messages/message/hostedContents/image-1/$value") return response({ error: "forbidden" }, 403);
+      throw new Error(`unexpected ${pathname}`);
+    }) as typeof fetch;
+    const coverage = await collectMicrosoftGraph("secret", ["Chat.Read"], async item => { sources.push(item); }, fetcher);
+    expect(sources[0].metadata.missingHostedContentCount).toBe(1);
+    expect(coverage.find(item => item.dataset === "chats")).toMatchObject({ complete: true, contentComplete: false });
+    expect(coverage.find(item => item.dataset === "chats")?.limitations).toContain("1 hosted Teams content item(s) were not downloaded or enumerated.");
   });
 
   it("retains working and submitted resource originals with their submission provenance", async () => {

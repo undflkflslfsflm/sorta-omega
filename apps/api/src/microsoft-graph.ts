@@ -111,6 +111,13 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     const item = url.origin === origin ? await get(driveFileUrl(rawContentUrl)) : await get(sharedFileUrl(rawContentUrl));
     return downloadItem(item);
   }
+  async function downloadHostedContent(url: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
+    const parsed = new URL(url);
+    if (parsed.origin !== origin || parsed.search || parsed.hash || !/^\/v1\.0\/(chats|teams)\/.+\/hostedContents\/[^/]+\/\$value$/.test(parsed.pathname)) throw new Error("graph_hosted_content_url_invalid");
+    const response = await fetcher(parsed.toString(), { headers: { authorization: `Bearer ${token}`, accept: "application/octet-stream" }, redirect: "error", signal: AbortSignal.timeout(30_000) });
+    if (!response.ok) throw new GraphReadError(response.status, response.status === 403 ? "permission_denied" : `http_${response.status}`);
+    return { bytes: await boundedBytes(response, maxFileBytes), mediaType: response.headers.get("content-type") || "application/octet-stream" };
+  }
   async function getText(url: string): Promise<string> {
     const parsed = new URL(url, origin);
     if (parsed.origin !== origin || !parsed.pathname.startsWith("/v1.0/")) throw new Error("graph_nextlink_origin_invalid");
@@ -156,7 +163,7 @@ export function createGraphReader(token: string, fetcher: typeof fetch = fetch) 
     }
     return { items: items.slice(0, maximum), complete: !next && items.length <= maximum };
   }
-  return { get, getText, list, downloadAssignmentFile, downloadTeamsFile };
+  return { get, getText, list, downloadAssignmentFile, downloadTeamsFile, downloadHostedContent };
 }
 
 export async function collectMicrosoftGraph(token: string, scopes: string[], save: (source: GraphSource) => Promise<void>, fetcher: typeof fetch = fetch): Promise<GraphCoverage[]> {
@@ -165,8 +172,8 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   const has = (...required: string[]) => required.every(item => granted.has(item.toLowerCase()));
   const coverage: GraphCoverage[] = [];
   const assignmentLimitations: string[] = [];
-  const chatLimitations: string[] = ["Inline hosted images and code snippets are not downloaded."];
-  const channelLimitations: string[] = ["Inline hosted images and code snippets are not downloaded."];
+  const chatLimitations: string[] = [];
+  const channelLimitations: string[] = [];
   async function run(dataset: GraphDataset, authorized: boolean, work: () => Promise<boolean>) {
     const limitations = dataset === "assignments" ? assignmentLimitations : dataset === "files" ? ["File bodies are not downloaded; only file metadata is stored."] : dataset === "sharepoint" ? ["Only followed sites and joined Teams are discovered; other accessible sites may be absent.", "Document bodies are not downloaded; only library metadata and list fields are stored."] : dataset === "mail" ? ["Attachment bodies are not downloaded; message metadata is stored."] : dataset === "chats" ? chatLimitations : dataset === "channels" ? channelLimitations : dataset === "planner" ? ["Only tasks assigned to the signed-in user are collected; entire plans are not yet traversed."] : dataset === "onenote" ? ["Embedded image and attachment bodies are not downloaded."] : dataset === "contacts" ? ["Contacts in nested contact folders are not yet traversed."] : [];
     if (!authorized) { coverage.push({ dataset, imported: 0, complete: false, contentComplete: false, limitations, error: "scope_not_granted" }); return; }
@@ -177,9 +184,9 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
   let imported = 0;
   async function emit(source: GraphSource) { await save(source); imported++; }
   const fileReadAllowed = has("Files.Read") || has("Files.Read.All") || has("Sites.Read.All");
-  async function teamsMessageFiles(message: Record<string, any>, limitations: string[]) {
+  async function teamsMessageFiles(message: Record<string, any>, messageBase: string, limitations: string[]) {
     const attachments: NonNullable<GraphSource["attachments"]> = [];
-    const attachmentManifest: Array<{ index: number; attachmentId: string | null; filename: string }> = [];
+    const attachmentManifest: Array<{ index: number; attachmentId: string | null; hostedContentId?: string; filename: string }> = [];
     let missing = 0, downloadedBytes = 0;
     for (const item of Array.isArray(message.attachments) ? message.attachments : []) {
       if (str(item.contentType).toLowerCase() !== "reference") continue;
@@ -194,8 +201,26 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         downloadedBytes += file.bytes.byteLength;
       } catch { missing++; }
     }
+    let missingHostedContentCount = 0;
+    try {
+      const hosted = await graph.list(path(`${messageBase}/hostedContents`), 100);
+      if (!hosted.complete) { missingHostedContentCount++; limitations.push("Some Teams hosted content lists exceed the import limit."); }
+      for (const item of hosted.items) {
+        const hostedId = str(item.id);
+        if (!hostedId || attachments.length >= 100 || downloadedBytes >= 100_000_000) { missingHostedContentCount++; continue; }
+        try {
+          const content = await graph.downloadHostedContent(path(`${messageBase}/hostedContents/${encode(hostedId)}/$value`));
+          if (downloadedBytes + content.bytes.byteLength > 100_000_000) { missingHostedContentCount++; continue; }
+          const filename = `Teams inline content ${attachments.length + 1}`;
+          attachmentManifest.push({ index: attachments.length, attachmentId: null, hostedContentId: hostedId, filename });
+          attachments.push({ filename, mediaType: content.mediaType, bytes: content.bytes });
+          downloadedBytes += content.bytes.byteLength;
+        } catch { missingHostedContentCount++; }
+      }
+    } catch { missingHostedContentCount++; limitations.push("A Teams hosted content list could not be read."); }
     if (missing) limitations.push(`${missing} linked Teams file(s) were not downloaded.`);
-    return { attachments, attachmentManifest, missingLinkedFileCount: missing };
+    if (missingHostedContentCount) limitations.push(`${missingHostedContentCount} hosted Teams content item(s) were not downloaded or enumerated.`);
+    return { attachments, attachmentManifest, missingLinkedFileCount: missing, missingHostedContentCount };
   }
   await run("classes", has("EduRoster.ReadBasic"), async () => {
     const classes = await graph.list(path("/education/me/classes"));
@@ -271,10 +296,11 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
       const messages = await graph.list(path(`/me/chats/${encode(id)}/messages`)); complete &&= messages.complete;
       for (const message of messages.items) {
         if (!message.id) continue;
-        const files = await teamsMessageFiles(message, chatLimitations);
-        await emit({ providerObjectId: `chat:${id}:${message.id}`, containerId: id, kind: "teams_message", title: str(chat.topic) || "Teams chat", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { chatId: id, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount }, attachments: files.attachments });
+        const files = await teamsMessageFiles(message, `/chats/${encode(id)}/messages/${encode(str(message.id))}`, chatLimitations);
+        await emit({ providerObjectId: `chat:${id}:${message.id}`, containerId: id, kind: "teams_message", title: str(chat.topic) || "Teams chat", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { chatId: id, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
       }
     }
+    if (chatLimitations.length) chatLimitations.splice(0,chatLimitations.length,...new Set(chatLimitations));
     return complete;
   });
   await run("channels", has("Team.ReadBasic.All", "Channel.ReadBasic.All", "ChannelMessage.Read.All"), async () => {
@@ -288,13 +314,13 @@ export async function collectMicrosoftGraph(token: string, scopes: string[], sav
         const messages = await graph.list(path(base)); complete &&= messages.complete;
         for (const message of messages.items) {
           if (!message.id) continue;
-          const files = await teamsMessageFiles(message, channelLimitations);
-          await emit({ providerObjectId: `channel:${teamId}:${channelId}:${message.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { teamId, channelId, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount }, attachments: files.attachments });
+          const files = await teamsMessageFiles(message, `${base}/${encode(str(message.id))}`, channelLimitations);
+          await emit({ providerObjectId: `channel:${teamId}:${channelId}:${message.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel", deepLink: str(message.webUrl) || null, content: teamsMessageText(message), metadata: { teamId, channelId, message, attachmentManifest: files.attachmentManifest, missingLinkedFileCount: files.missingLinkedFileCount, missingHostedContentCount: files.missingHostedContentCount }, attachments: files.attachments });
           const replies = await graph.list(path(`${base}/${encode(str(message.id))}/replies`)); complete &&= replies.complete;
           for (const reply of replies.items) {
             if (!reply.id) continue;
-            const replyFiles = await teamsMessageFiles(reply, channelLimitations);
-            await emit({ providerObjectId: `channel-reply:${teamId}:${channelId}:${message.id}:${reply.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel reply", deepLink: str(reply.webUrl) || null, content: teamsMessageText(reply), metadata: { teamId, channelId, parentMessageId: message.id, message: reply, attachmentManifest: replyFiles.attachmentManifest, missingLinkedFileCount: replyFiles.missingLinkedFileCount }, attachments: replyFiles.attachments });
+            const replyFiles = await teamsMessageFiles(reply, `${base}/${encode(str(message.id))}/replies/${encode(str(reply.id))}`, channelLimitations);
+            await emit({ providerObjectId: `channel-reply:${teamId}:${channelId}:${message.id}:${reply.id}`, containerId: channelId, kind: "teams_message", title: str(channel.displayName) || "Teams channel reply", deepLink: str(reply.webUrl) || null, content: teamsMessageText(reply), metadata: { teamId, channelId, parentMessageId: message.id, message: reply, attachmentManifest: replyFiles.attachmentManifest, missingLinkedFileCount: replyFiles.missingLinkedFileCount, missingHostedContentCount: replyFiles.missingHostedContentCount }, attachments: replyFiles.attachments });
           }
         }
       }
