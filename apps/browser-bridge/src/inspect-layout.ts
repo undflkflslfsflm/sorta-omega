@@ -107,7 +107,15 @@ try {
       await cards.first().waitFor({ timeout: 15_000 });
       const count = await cards.count();
       if (count < 1 || count > 30) throw new Error("teams_class_card_count_unbounded");
-      await cards.first().click();
+      const classIndexText = args.get("class-index") ?? "0";
+      if (!/^\d{1,2}$/.test(classIndexText) || Number(classIndexText) >= count) throw new Error("teams_class_index_invalid");
+      const classIndex = Number(classIndexText);
+      const classCategories = [];
+      for (let index = 0; index < count; index++) {
+        const label = await cards.nth(index).textContent() ?? "";
+        classCategories.push({ math: /matematikk|math/i.test(label), history: /historie|history/i.test(label), economics: /økonomi|economics/i.test(label) });
+      }
+      await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
       const structure = await probe.evaluate(String.raw`(() => {
         const clean = node => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 6);
@@ -122,7 +130,7 @@ try {
           return { origin: url.origin, routeShape: url.pathname.split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), counts };
         } catch { return { origin: "unavailable", counts: null }; }
       }));
-      console.log(JSON.stringify({ provider, classCardCount: count, structure, frames }));
+      console.log(JSON.stringify({ provider, classCardCount: count, classIndex, classCategories, structure, frames }));
     } finally { await probe.close(); }
   } else if (args.get("teams-sidebar-shape") === "true" && provider === "teams") {
     const sidebar = await page.evaluate(String.raw`(() => {
