@@ -18,10 +18,13 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
   await table.locator("tbody tr").first().waitFor({ timeout: 20_000 });
   const headers = await table.locator("thead th").allTextContents();
   if (!headers.some(value => value.trim() === "Dato") || !headers.some(value => value.trim() === "Type")) throw new Error("inschool_attendance_layout_changed");
-  const rowCount = await table.locator("tbody tr").count();
-  if (rowCount < 1 || rowCount > 500) throw new Error("inschool_attendance_row_count_outside_bounds");
   const reportedRows = Number(await table.getAttribute("aria-rowcount"));
   const details: Detail[] = [];
+  let overviewRows = 0;
+  for (let pageIndex = 0; pageIndex < 20; pageIndex++) {
+  const rowCount = await table.locator("tbody tr").count();
+  if (rowCount < 1 || rowCount > 100) throw new Error("inschool_attendance_row_count_outside_bounds");
+  overviewRows += rowCount;
   for (let index = 0; index < rowCount; index++) {
     const row = table.locator("tbody tr").nth(index);
     const action = row.getByText("Se fravær", { exact: true });
@@ -41,6 +44,13 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
     }
     await modal.getByText("Lukk", { exact: true }).click();
     await modal.waitFor({ state: "hidden", timeout: 10_000 });
+  }
+  const next = page.getByRole("button", { name: "Neste side", exact: true });
+  if (await next.count() !== 1 || await next.isDisabled()) break;
+  const previousFirst = await table.locator("tbody tr").first().textContent();
+  await next.click();
+  await page.waitForFunction(before => document.querySelector("table tbody tr")?.textContent !== before, previousFirst, { timeout: 10_000 });
+  if (pageIndex === 19) throw new Error("inschool_attendance_pagination_limit_reached");
   }
   const unique = [...new Map(details.map(item => [JSON.stringify(item), item])).values()];
   const courses = base.records.filter(record => record.kind === "course");
@@ -80,5 +90,5 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
     ...lessons.filter(record => matchedLessonIds.has(record.externalId)),
     ...attendance,
   ];
-  return { snapshot: { version: "omega_school_json_v1" as const, source_timestamp: new Date().toISOString(), source_origin: sourceOrigin, timezone: "Europe/Oslo" as const, records }, coverage: { overviewRows: rowCount, reportedRows: Number.isFinite(reportedRows) ? reportedRows : null, detailRows: unique.length, importedRows: attendance.length, complete: reportedRows === rowCount && attendance.length === unique.length, limitations: [...new Set(limitations)] } };
+  return { snapshot: { version: "omega_school_json_v1" as const, source_timestamp: new Date().toISOString(), source_origin: sourceOrigin, timezone: "Europe/Oslo" as const, records }, coverage: { overviewRows, reportedRows: Number.isFinite(reportedRows) ? reportedRows : null, detailRows: unique.length, importedRows: attendance.length, complete: reportedRows === overviewRows && attendance.length === unique.length, limitations: [...new Set(limitations)] } };
 }
