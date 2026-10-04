@@ -85,6 +85,15 @@ try {
       }
       console.log(JSON.stringify({ provider, section, structure, detail }));
     } finally { await probe.close(); }
+  } else if (args.get("teams-sidebar-shape") === "true" && provider === "teams") {
+    const sidebar = await page.evaluate(() => {
+      const safeClasses = (node: Element) => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 8);
+      const shape = (node: Element, depth: number): unknown => ({ tag: node.tagName.toLowerCase(), role: node.getAttribute("role"), classes: safeClasses(node), attributes: [...node.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 12), children: depth < 4 ? [...node.children].slice(0, 12).map(child => shape(child, depth + 1)) : [] });
+      const buttons = [...document.querySelectorAll<HTMLElement>("button, [role=button]")];
+      const classes = buttons.find(node => /^Classes\s*\d+\s*teams$/i.test((node.textContent ?? "").replace(/\s+/g, " ").trim()));
+      return { found: !!classes, button: classes ? shape(classes, 0) : null, parent: classes?.parentElement ? shape(classes.parentElement, 0) : null, surroundingLinks: classes?.parentElement ? [...classes.parentElement.querySelectorAll("a")].slice(0, 30).map(node => ({ classes: safeClasses(node), hrefShape: (node.getAttribute("href") ?? "").split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), textLength: (node.textContent ?? "").trim().length })) : [] };
+    });
+    console.log(JSON.stringify({ provider, sidebar }));
   } else if (args.get("teams-tree-only") === "true" && provider === "teams") {
     const tree = await page.evaluate(() => {
       const items = [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')];
