@@ -28,6 +28,13 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
       if (!className) throw new Error("teams_class_name_missing");
       await cards.nth(index).click();
       await probe.locator('[data-reply-chain-id][data-mid]').first().waitFor({ timeout: 20_000 }).catch(() => undefined);
+      let previousCount = -1, stable = 0;
+      for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
+        await probe.waitForTimeout(500);
+        const count = await probe.locator('[data-reply-chain-id][data-mid]').count();
+        stable = count === previousCount ? stable + 1 : 0;
+        previousCount = count;
+      }
       const posts = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(element => ({
         messageId: element.getAttribute("data-mid") ?? "",
         chainId: element.getAttribute("data-reply-chain-id") ?? "",
