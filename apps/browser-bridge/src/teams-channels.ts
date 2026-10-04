@@ -31,7 +31,7 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
       const posts = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(element => ({
         messageId: element.getAttribute("data-mid") ?? "",
         chainId: element.getAttribute("data-reply-chain-id") ?? "",
-        text: element.innerText.replace(/\s+\n/g, "\n").trim(),
+        text: (element.closest<HTMLElement>('[role="group"]')?.innerText ?? element.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
       })));
       for (const post of posts) {
         if (!post.messageId || !post.chainId || !post.text) continue;
