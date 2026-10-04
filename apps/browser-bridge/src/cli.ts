@@ -4,13 +4,14 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { inSchoolTimetableSnapshot,teamsNotes,type InSchoolVisibleLesson } from "./normalize.js";
+import { collectTeamsAssignments } from "./teams-assignments.js";
 
 const args=new Map<string,string>();for(let index=2;index<process.argv.length;index+=2){const key=process.argv[index],value=process.argv[index+1];if(!key?.startsWith("--")||!value)throw new Error("usage: browser-bridge --provider teams|inschool --output <absolute-json-file> [--origin https://county.inschool.visma.no] (--profile <absolute-directory> OR --cdp http://127.0.0.1:9222 OR --cdp-profile <absolute-directory> --noninteractive true)");args.set(key.slice(2),value);}
 const provider=args.get("provider"),profile=args.get("profile"),cdpProfile=args.get("cdp-profile"),destination=args.get("output"),noninteractive=args.get("noninteractive")==="true";
 function boundedWeeks(name:string,defaultValue:number,max:number){const raw=args.get(name);if(raw===undefined)return defaultValue;if(!/^\d{1,2}$/.test(raw))throw new Error(`${name}_must_be_bounded_integer`);const value=Number(raw);if(value>max)throw new Error(`${name}_must_be_bounded_integer`);return value;}
 const weeksPast=boundedWeeks("weeks-past",2,8),weeksFuture=boundedWeeks("weeks-future",16,24);
 let cdp=args.get("cdp");
-if(!["teams","inschool"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
+if(!["teams","teams-assignments","inschool"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
 if(cdpProfile){const [portText,socketPath]=(await readFile(path.join(cdpProfile,"DevToolsActivePort"),"utf8")).trim().split(/\r?\n/),port=Number(portText);if(!Number.isInteger(port)||port<1024||port>65535||!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath??""))throw new Error("browser_bridge_cdp_profile_port_invalid");cdp=`ws://127.0.0.1:${port}${socketPath}`;}
 if(cdp){const url=new URL(cdp);if(!["http:","ws:"].includes(url.protocol)||!["127.0.0.1","localhost"].includes(url.hostname)||url.username||url.password||url.search||url.hash||url.protocol==="http:"&&url.pathname!=="/"||url.protocol==="ws:"&&!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(url.pathname))throw new Error("browser_bridge_cdp_must_be_local_loopback");}
 if(noninteractive&&!cdp)throw new Error("browser_bridge_noninteractive_requires_attached_browser");
@@ -19,7 +20,7 @@ for(const root of [profile,cdpProfile].filter((value):value is string=>Boolean(v
 
 async function writeNewArtifact(value:unknown){await mkdir(path.dirname(artifactPath),{recursive:true});const temporary=`${artifactPath}.${process.pid}.tmp`;await writeFile(temporary,`${JSON.stringify(value,null,2)}\n`,{flag:"wx"});try{await link(temporary,artifactPath);}finally{await unlink(temporary).catch(()=>undefined);}}
 
-function assertAllowed(page:Page){const url=new URL(page.url());if(url.protocol!=="https:")throw new Error("browser_bridge_https_required");if(provider==="teams"&&!['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname))throw new Error("teams_navigation_left_registered_origin");if(provider==="inschool"&&!url.hostname.endsWith(".inschool.visma.no"))throw new Error("inschool_navigation_left_registered_origin");}
+function assertAllowed(page:Page){const url=new URL(page.url());if(url.protocol!=="https:")throw new Error("browser_bridge_https_required");if(provider?.startsWith("teams")&&!['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname))throw new Error("teams_navigation_left_registered_origin");if(provider==="inschool"&&!url.hostname.endsWith(".inschool.visma.no"))throw new Error("inschool_navigation_left_registered_origin");}
 
 function isoWeek(unixText:string){const unix=Number(unixText);if(!Number.isSafeInteger(unix))return null;const local=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Oslo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(unix*1000));const date=new Date(`${local}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+4-(date.getUTCDay()||7));const start=new Date(Date.UTC(date.getUTCFullYear(),0,1));return Math.ceil(((date.getTime()-start.getTime())/86_400_000+1)/7);}
 
@@ -77,12 +78,19 @@ async function scrollToOldest(page:Page){for(let attempt=0,stable=0,previous="";
 const browser:Browser|null=cdp?await chromium.connectOverCDP(cdp).catch(()=>{throw new Error("browser_bridge_cdp_connection_failed");}):null;
 const context=browser?browser.contexts()[0]:await chromium.launchPersistentContext(path.resolve(profile!),{channel:"msedge",headless:false,acceptDownloads:false,args:["--disable-features=PasswordLeakDetection"]});
 if(!context){await browser?.close();throw new Error("browser_bridge_cdp_context_not_found");}
-const pages=context.pages(),existing=cdp?pages.find(candidate=>{try{const url=new URL(candidate.url());return provider==="teams"?['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname):url.hostname.endsWith(".inschool.visma.no");}catch{return false;}}):null;
+const pages=context.pages(),existing=cdp?pages.find(candidate=>{try{const url=new URL(candidate.url());return provider?.startsWith("teams")?['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname):url.hostname.endsWith(".inschool.visma.no");}catch{return false;}}):null;
 const terminal=createInterface({input,output});
 try{
   if(cdp&&!existing)throw new Error("browser_bridge_matching_signed_in_tab_not_found");
   const page=existing??pages[0]??await context.newPage();
-  if(provider==="teams"){
+  if(provider==="teams-assignments"){
+    if(!cdp)await page.goto("https://teams.microsoft.com/",{waitUntil:"domcontentloaded"});
+    if(!noninteractive)await terminal.question("Sign in interactively if needed, then press Enter to capture the Teams Assignments list. ");
+    assertAllowed(page);
+    const snapshot=await collectTeamsAssignments(page);
+    await writeNewArtifact(snapshot);
+    console.log(JSON.stringify({provider,format:snapshot.version,itemCount:snapshot.records.length,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageComplete:snapshot.coverage.complete,coverageLimitation:snapshot.coverage.limitation}));
+  }else if(provider==="teams"){
     if(!cdp)await page.goto("https://teams.microsoft.com/",{waitUntil:"domcontentloaded"});
     if(!noninteractive)await terminal.question("Sign in interactively if needed, open the exact chat or channel you want to export, then press Enter here. ");assertAllowed(page);await scrollToOldest(page);
     const selectors=['[data-tid="chat-pane-message"]','[data-tid="message-pane-list-runway"] [role="listitem"]','[role="log"] [role="listitem"]'];let texts:string[]=[];for(const selector of selectors){texts=await page.locator(selector).allTextContents();if(texts.length)break;}if(!texts.length)throw new Error("teams_message_elements_not_found_layout_review_required");const capturedAt=new Date().toISOString(),notes=teamsNotes(texts,capturedAt);await writeNewArtifact(notes);console.log(JSON.stringify({provider:"teams",format:"omega_notes_json_v1",visibleElementCount:texts.length,itemCount:notes.length,itemLimit:500,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:texts.length>500?"At most 500 normalized visible messages are exported per snapshot.":null}));
