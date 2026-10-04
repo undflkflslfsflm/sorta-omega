@@ -82,6 +82,19 @@ try {
             routeShape: `${location.pathname}${location.hash}`,
           }));
         }
+      } else if (section === "assessment" && args.get("inspect-first-detail") === "true") {
+        const first = probe.locator("table tbody tr").first();
+        if (await first.count() === 1) {
+          await first.click();
+          await probe.waitForTimeout(1_000);
+          detail = await probe.evaluate(() => ({
+            routeShape: `${location.pathname}${location.hash}`,
+            bodyCharacters: document.body?.innerText?.length ?? 0,
+            headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].map(element => (element.textContent ?? "").trim().slice(0, 70)).slice(0, 15),
+            tables: [...document.querySelectorAll("main table")].map(table => ({ headers: [...table.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").trim().slice(0, 70)), rows: table.querySelectorAll("tbody tr").length })),
+            actionLabels: [...document.querySelectorAll<HTMLElement>("main button, main a")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 25),
+          }));
+        }
       }
       console.log(JSON.stringify({ provider, section, structure, detail }));
     } finally { await probe.close(); }
