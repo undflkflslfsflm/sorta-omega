@@ -223,6 +223,18 @@ try {
             links: [...document.querySelectorAll<HTMLAnchorElement>("a")].slice(0, 30).map(element => ({ label: (element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), routeShape: (() => { try { return new URL(element.href).pathname.replace(/\/[a-f0-9-]{20,}/gi, "/*"); } catch { return ""; } })() })),
           }));
           console.log(JSON.stringify({ provider, assignmentControls: controls }));
+          const tabCounts = [];
+          for (const label of ["Upcoming", "Past due", "Completed"]) {
+            const tab = assignmentsFrame.getByRole("tab", { name: new RegExp(label, "i") });
+            if (await tab.count() !== 1) throw new Error("teams_assignment_tab_ambiguous");
+            await tab.click();
+            await probe.waitForTimeout(2_500);
+            tabCounts.push({ label, routeShape: new URL(assignmentsFrame.url()).pathname, cards: await assignmentsFrame.locator(".aui-assignmentListCard").count() });
+          }
+          const filter = assignmentsFrame.getByRole("button", { name: "Open filter pane" });
+          if (await filter.count() === 1) await filter.click();
+          const filterControls = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>("[role=checkbox], input[type=checkbox], [role=combobox], select, [role=option]")].slice(0, 60).map(element => ({ tag: element.tagName.toLowerCase(), role: element.getAttribute("role"), label: (element.getAttribute("aria-label") ?? element.parentElement?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), checked: element.getAttribute("aria-checked"), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(token => /filter|course|class/i.test(token)).slice(0, 5) })));
+          console.log(JSON.stringify({ provider, tabCounts, filterControls }));
         }
         if (args.get("probe-assignment-detail") === "true") {
           const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").first();
