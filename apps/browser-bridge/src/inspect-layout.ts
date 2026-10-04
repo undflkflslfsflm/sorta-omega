@@ -69,7 +69,19 @@ try {
           candidates: candidates.map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), classes: clean(item.getAttribute("class")), attributes: [...item.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 8), childCount: item.children.length, textLength: (item.textContent ?? "").trim().length })),
         };
       });
-      console.log(JSON.stringify({ provider, section, structure }));
+      let detail: unknown = null;
+      if (section === "attendance/lessons" && args.get("inspect-first-detail") === "true") {
+        const action = probe.locator("table").first().locator("tbody tr").first().getByText("Se fravær");
+        if (await action.count() === 1) {
+          await action.click();
+          await probe.waitForTimeout(1_000);
+          detail = await probe.evaluate(() => ({
+            dialogs: [...document.querySelectorAll<HTMLElement>('[role="dialog"], .modal, [class*="modal" i]')].slice(0, 8).map(element => ({ text: (element.innerText ?? "").trim().slice(0, 3_000), classes: element.className, tables: [...element.querySelectorAll("table")].map(table => ({ headers: [...table.querySelectorAll("th")].map(cell => cell.textContent?.trim()), rows: [...table.querySelectorAll("tbody tr")].slice(0, 8).map(row => [...row.querySelectorAll("td")].map(cell => cell.textContent?.trim())) })) })),
+            routeShape: `${location.pathname}${location.hash}`,
+          }));
+        }
+      }
+      console.log(JSON.stringify({ provider, section, structure, detail }));
     } finally { await probe.close(); }
   } else if (args.get("teams-tree-only") === "true" && provider === "teams") {
     const tree = await page.evaluate(() => {
