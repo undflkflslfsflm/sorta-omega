@@ -108,7 +108,7 @@ try{
       assertAllowed(timetablePage);
       if(new URL(timetablePage.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
       const {snapshot,coverage}=await collectInSchoolAttendance(timetablePage,base,origin.origin);
-      if(!snapshot.records.some(record=>record.kind==="attendance")){console.log(JSON.stringify({provider,coverage,baseCourses:base.records.filter((record:{kind:string})=>record.kind==="course").map((record:{teachingGroupId?:string})=>record.teachingGroupId).slice(0,25)}));throw new Error("inschool_attendance_no_mapped_records");}
+      if(!snapshot.records.some(record=>record.kind==="attendance")){console.log(JSON.stringify({provider,coverage,baseCourses:base.records.filter((record:{kind:string})=>record.kind==="course").map((record:{teachingGroupId?:string,title?:string})=>({group:record.teachingGroupId,title:record.title})).slice(0,25),baseSubjects:base.records.filter((record:{kind:string})=>record.kind==="subject").map((record:{code?:string,title?:string})=>({code:record.code,title:record.title})).slice(0,25)}));throw new Error("inschool_attendance_no_mapped_records");}
       await writeNewArtifact(snapshot);
       console.log(JSON.stringify({provider,format:snapshot.version,output:artifactPath,itemCount:snapshot.records.length,coverage,sessionRetainedInProfile:true,credentialsExported:false}));
     }else{
