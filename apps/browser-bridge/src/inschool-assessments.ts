@@ -27,8 +27,10 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
   const page = await source.context().newPage();
   const records: Record[] = [];
   const coveredGroups: Array<{ id: string; rowCount: number; publishedGrades: number }> = [];
+  let phase = "overview_navigation";
   try {
     await page.goto(`${origin}/#/app/assessment`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    phase = "overview_rows";
     await page.locator("table tbody tr a[href]").first().waitFor({ timeout: 20_000 });
     const groups = await page.locator("table tbody tr").evaluateAll(rows => rows.map(row => {
       const cells = [...row.querySelectorAll("td")];
@@ -39,6 +41,7 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
     const subjects = base.records.filter((item): item is Extract<BaseRecord, { kind: "subject" }> => item.kind === "subject");
     const courses = base.records.filter((item): item is Extract<BaseRecord, { kind: "course" }> => item.kind === "course");
     for (const group of groups) {
+      phase = "group_navigation";
       const groupId = /groups\/(\d+)/.exec(group.href)?.[1];
       if (!groupId) throw new Error("inschool_assessment_group_id_missing");
       const code = /(?:^|\/)([A-Z]{3}\d{4})(?:-\d+)?$/i.exec(group.codeLabel)?.[1]?.toUpperCase() ?? null;
@@ -51,6 +54,7 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
       const detailUrl = `${origin}/${group.href}`;
       await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.locator("main h1").waitFor({ timeout: 20_000 });
+      phase = "group_rows";
       for (let attempt = 0, stable = 0, last = -1; attempt < 16 && stable < 3; attempt++) {
         const count = await page.locator("main table tbody tr").count();
         stable = count === last ? stable + 1 : 0;
@@ -61,6 +65,7 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
       if (rows.length > 100 || rows.some(row => row.length < 5)) throw new Error("inschool_assessment_detail_layout_changed");
       let publishedGrades = 0;
       for (let index = 0; index < rows.length; index++) {
+        phase = "detail_panel";
         const row = rows[index]!;
         const title = clean(row[0]).replace(/\s*Se detaljer\s*$/i, "").trim();
         if (!title || title.length > 500) throw new Error("inschool_assessment_title_invalid");
@@ -86,6 +91,8 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
       }
       coveredGroups.push({ id: groupId, rowCount: rows.length, publishedGrades });
     }
+  } catch {
+    throw new Error(`inschool_assessment_capture_failed_at_${phase}`);
   } finally { await page.close(); }
   const unique = [...new Map(records.map(item => [`${item.kind}:${item.externalId}`, item])).values()];
   if (!unique.some(item => item.kind === "assessment")) throw new Error("inschool_assessment_records_not_found");

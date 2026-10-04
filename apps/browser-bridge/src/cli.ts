@@ -110,10 +110,10 @@ try{
       const basePath=args.get("base-snapshot");
       if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("inschool_assessment_base_snapshot_required");
       const base=JSON.parse(await readFile(basePath,"utf8"));
-      await timetablePage.goto(`${origin.origin}/#/app/dashboard`,{waitUntil:"domcontentloaded",timeout:30_000});
-      assertAllowed(timetablePage);
-      if(new URL(timetablePage.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
-      const {snapshot,coverage}=await collectInSchoolAssessments(timetablePage,base,origin.origin);
+      if(!cdp)await timetablePage.goto(`${origin.origin}/#/app/dashboard`,{waitUntil:"domcontentloaded",timeout:30_000});
+      assertAllowed(page);
+      if(new URL(page.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
+      const {snapshot,coverage}=await collectInSchoolAssessments(page,base,origin.origin);
       await writeNewArtifact(snapshot);
       console.log(JSON.stringify({provider,format:snapshot.version,output:artifactPath,itemCount:snapshot.records.length,coverage,sessionRetainedInProfile:true,credentialsExported:false}));
     }else if(provider==="inschool-attendance"){
