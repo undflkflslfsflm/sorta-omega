@@ -495,7 +495,7 @@ function SchoolAssignmentsWorkspace() {
 
 function AssessmentScopeDetail({description}:{description:string}){
   const parts=assessmentScopeParts(description);
-  return <details className="assessment-source-detail"><summary>Test details and sources</summary><div className="assessment-source-parts">{parts.map((part,index)=><section key={`${index}-${part.heading??"detail"}`}><strong>{part.heading??"Detail"}</strong><p>{part.text}</p></section>)}</div></details>;
+  return <details className="assessment-source-detail"><summary>Test details and sources</summary><div className="assessment-source-parts">{parts.map((part,index)=><section key={`${index}-${part.heading??"detail"}`}>{part.heading&&<strong>{part.heading}</strong>}<p>{part.text}</p></section>)}</div></details>;
 }
 
 function SchoolAssessmentsWorkspace() {
