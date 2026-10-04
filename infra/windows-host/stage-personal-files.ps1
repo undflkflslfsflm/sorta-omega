@@ -23,10 +23,12 @@ $inventory = @{}
 foreach ($root in $roots) {
   if (-not (Test-Path -LiteralPath $root.Path)) { continue }
   $pending = [System.Collections.Generic.Stack[string]]::new()
+  $visited = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   $pending.Push($root.Path)
   while ($pending.Count -gt 0) {
   $directory = $pending.Pop()
-  Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\(\.git|node_modules|Codex|\.codex)($|\\)|\\ChatGPT\\(calendar app|homelab)($|\\)' } | ForEach-Object { $pending.Push($_.FullName) }
+  if (-not $visited.Add($directory)) { continue }
+  Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $_.FullName -notmatch '\\(\.git|node_modules|Codex|\.codex|\.venv|venv|site-packages|vendor|dist|build|target|out)($|\\)|\\ChatGPT\\(calendar app|homelab)($|\\)' } | ForEach-Object { $pending.Push($_.FullName) }
   Get-ChildItem -LiteralPath $directory -File -ErrorAction SilentlyContinue | ForEach-Object {
     $file = $_
     $relative = $file.FullName.Substring($root.Path.TrimEnd('\').Length + 1)
