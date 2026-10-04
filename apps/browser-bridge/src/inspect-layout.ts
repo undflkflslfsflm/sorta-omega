@@ -85,7 +85,9 @@ try {
       } else if (section === "assessment" && args.get("inspect-first-detail") === "true") {
         const first = probe.locator("table tbody tr").first();
         if (await first.count() === 1) {
-          await first.click();
+          const link = first.getByRole("link").first();
+          if (await link.count() === 1) await link.click();
+          else await first.click();
           await probe.waitForTimeout(1_000);
           detail = await probe.evaluate(() => ({
             routeShape: `${location.pathname}${location.hash}`,
