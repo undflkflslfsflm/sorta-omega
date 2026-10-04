@@ -28,7 +28,7 @@ foreach ($root in $roots) {
   while ($pending.Count -gt 0) {
   $directory = $pending.Pop()
   if (-not $visited.Add($directory)) { continue }
-  Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and $_.FullName -notmatch '\\(\.git|node_modules|Codex|\.codex|\.venv|venv|site-packages|vendor|dist|build|target|out)($|\\)|\\ChatGPT\\(calendar app|homelab)($|\\)' } | ForEach-Object { $pending.Push($_.FullName) }
+  Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue | Where-Object { -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and -not (Test-Path -LiteralPath (Join-Path $_.FullName 'project.godot')) -and -not (Test-Path -LiteralPath (Join-Path $_.FullName '.git')) -and $_.FullName -notmatch '\\(\.git|node_modules|Codex|\.codex|\.venv|venv|site-packages|vendor|dist|build|target|out)($|\\)|\\ChatGPT\\(calendar app|homelab)($|\\)' } | ForEach-Object { $pending.Push($_.FullName) }
   Get-ChildItem -LiteralPath $directory -File -ErrorAction SilentlyContinue | ForEach-Object {
     $file = $_
     $relative = $file.FullName.Substring($root.Path.TrimEnd('\').Length + 1)
