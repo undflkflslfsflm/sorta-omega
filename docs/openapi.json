@@ -395,6 +395,32 @@
         }
       }
     },
+    "/setup/ios-dns.mobileconfig": {
+      "get": {
+        "operationId": "downloadIosDnsProfile",
+        "tags": [
+          "Installation"
+        ],
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/x-apple-aspen-config": {
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/meta": {
       "get": {
         "operationId": "getMeta",

@@ -22,6 +22,7 @@ export const httpOperations: HttpOperation[] = [
   { method:"post",path:"/api/v1/vaults/{vaultId}/people/{personId}/availability-proposals",operationId:"proposeSocialTime",tag:"People",success:202,requestSchema:"ProposeSocialTime",responseSchema:"JobHandle" },
   { method: "get", path: "/health/live", operationId: "healthLive", tag: "Health", success: 200, public: true, responseSchema: "Health" },
   { method: "get", path: "/health/ready", operationId: "healthReady", tag: "Health", success: 200, public: true, responseSchema: "Health" },
+  { method: "get", path: "/setup/ios-dns.mobileconfig", operationId: "downloadIosDnsProfile", tag: "Installation", success: 200, public: true, responseMediaType: "application/x-apple-aspen-config" },
   { method: "get", path: "/api/v1/meta", operationId: "getMeta", tag: "Installation", success: 200, public: true, responseSchema: "Meta" },
   { method: "get", path: "/api/v1/preferences", operationId: "getPreferences", tag: "Installation", success: 200, responseSchema: "Preferences" },
   { method: "patch", path: "/api/v1/preferences", operationId: "updatePreferences", tag: "Installation", success: 200, requestSchema: "UpdatePreferences", responseSchema: "Preferences" },

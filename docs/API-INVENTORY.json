@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 425,
+  "operationCount": 426,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -104,6 +104,16 @@
       "success": 200,
       "requestSchema": null,
       "responseSchema": "Health"
+    },
+    {
+      "operationId": "downloadIosDnsProfile",
+      "method": "GET",
+      "path": "/setup/ios-dns.mobileconfig",
+      "tag": "Installation",
+      "authentication": "public",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": null
     },
     {
       "operationId": "getMeta",
