@@ -4,7 +4,7 @@ The stock Mullvad Base encrypted-DNS profile intercepted the private Tailscale n
 
 `apps/web/public/downloads/sorta-mullvad-base-tailscale.mobileconfig` is a manually installable, unsigned alternative DNS profile. It contains exactly one DNS-settings payload: Mullvad Base DNS-over-HTTPS (`https://base.dns.mullvad.net/dns-query`) for normal domains, with an Apple `OnDemandRules` `NeverConnect` exception for `tail19ab4a.ts.net`. That exception is intended to leave this tailnet's DNS lookup to Tailscale. It adds no VPN, root certificate, MDM enrollment, or device restrictions and can be removed. The app serves it as a file download with the iOS configuration-profile MIME type at `/setup/ios-dns.mobileconfig`.
 
-This profile is **prepared, not yet verified on the owner's iPhone**. To test it safely:
+On 04.10.2026, the owner installed the profile on their iPhone and reported that its installation showed only a DNS setting. With the new profile selected and Tailscale connected, Sorta loaded in Safari without a certificate warning. Public-site and cellular checks are still pending; this does not yet prove that all non-tailnet DNS is going through Mullvad. To test it safely:
 
 1. Keep Tailscale connected and its **Use Tailscale DNS Settings** preference enabled. Do not delete the existing signed Mullvad profile.
 2. Open `https://silent-4090.tail19ab4a.ts.net/setup/ios-dns.mobileconfig` in iPhone Safari while Automatic DNS is selected. If Safari puts the file in Downloads rather than showing **Profile Downloaded**, open the `.mobileconfig` file from the Files app. Inspect the installation screen: it should show only a DNS setting, with no certificate, VPN, or device management. Stop if it shows anything else.
