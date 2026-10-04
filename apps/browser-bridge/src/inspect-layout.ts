@@ -111,6 +111,12 @@ try {
         if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
         await viewAssignments.click();
         await probe.waitForTimeout(8_000);
+        if (args.get("probe-assignment-detail") === "true") {
+          const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").first();
+          if (await firstCard.count() !== 1) throw new Error("teams_assignment_card_missing");
+          await firstCard.click();
+          await probe.waitForTimeout(8_000);
+        }
       }
       const structure = await probe.evaluate(() => {
         const known = /^(assignments|assigned|completed|upcoming|past due|returned|turned in|to do|due|all|oppgaver|tildelt|fullført|kommende|forsinket|levert|alle)$/i;
@@ -137,6 +143,7 @@ try {
               candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
               structuralClasses: [...new Set([...document.querySelectorAll<HTMLElement>('[class*="assignment" i], [class*="course" i], [class*="task" i]')].flatMap(element => (element.getAttribute("class") ?? "").split(/\s+/)).filter(token => /assignment|course|task|filter|list/i.test(token) && /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)))].slice(0, 60),
               listItemShape: [...document.querySelectorAll<HTMLElement>('[role="listitem"]')].slice(0, 4).map(element => ({ tag: element.tagName.toLowerCase(), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(Boolean).slice(0, 6), attributes: [...element.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class"), childTags: [...element.children].slice(0, 8).map(child => child.tagName.toLowerCase()) })),
+              cardTree: (() => { const card = document.querySelector<HTMLElement>(".aui-assignmentListCard"); const shape = (element: Element, depth: number): unknown => ({ tag: element.tagName.toLowerCase(), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 5), role: element.getAttribute("role"), attributes: [...element.attributes].map(attribute => attribute.name).filter(name => !["style", "class"].includes(name)).slice(0, 8), textLength: element.children.length ? null : (element.textContent ?? "").trim().length, children: depth < 3 ? [...element.children].slice(0, 10).map(child => shape(child, depth + 1)) : [] }); return card ? shape(card, 0) : null; })(),
             };
           });
           return { origin, ...layout };
