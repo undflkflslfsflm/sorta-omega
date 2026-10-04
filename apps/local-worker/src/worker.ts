@@ -160,18 +160,22 @@ async function processJob(lease: z.infer<typeof workerLeaseSchema>) {
         if (source.contentHash !== note.contentHash || source.revision !== note.revision) throw new Error("source_revision_mismatch");
         const chunks = chunkText(source.text);
         if (!chunks.length) throw new Error("source_has_no_indexable_text");
-        const embeddings = await embeddingProvider.embed(chunks.map((chunk) => chunk.text), 1024);
-        await hubRequest(`api/v1/worker/jobs/${lease.jobId}/index-batches`, {
-          method: "POST",
-          body: JSON.stringify({
-            leaseToken: lease.leaseToken,
-            generationId: input.payload.generationId,
-            noteId: note.noteId,
-            noteRevision: note.revision,
-            sourceHash: note.contentHash,
-            chunks: chunks.map((chunk, index) => ({ ...chunk, embedding: embeddings[index] }))
-          })
-        });
+        for (let offset = 0; offset < chunks.length; offset += 16) {
+          stage = `embedding_${noteIndex + 1}_of_${input.payload.notes.length}_batch_${Math.floor(offset / 16) + 1}`;
+          const batch = chunks.slice(offset, offset + 16);
+          const embeddings = await embeddingProvider.embed(batch.map((chunk) => chunk.text), 1024);
+          await hubRequest(`api/v1/worker/jobs/${lease.jobId}/index-batches`, {
+            method: "POST",
+            body: JSON.stringify({
+              leaseToken: lease.leaseToken,
+              generationId: input.payload.generationId,
+              noteId: note.noteId,
+              noteRevision: note.revision,
+              sourceHash: note.contentHash,
+              chunks: batch.map((chunk, index) => ({ ...chunk, embedding: embeddings[index] }))
+            })
+          });
+        }
         indexedRevisions += 1;
       }
       result = { type: "index_rebuild", indexedRevisions };

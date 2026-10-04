@@ -77245,7 +77245,7 @@
           },
           "text": {
             "type": "string",
-            "maxLength": 200000
+            "maxLength": 1000000
           }
         },
         "required": [

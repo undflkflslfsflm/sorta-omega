@@ -750,7 +750,7 @@ export const workerJobInputSchema = z.object({
     z.object({type:z.literal("task_breakdown"),taskId:idSchema,taskRevision:z.number().int().positive(),taskTitle:z.string().trim().min(1).max(500),maxSessionMinutes:z.number().int().min(5).max(240).nullable(),remainingWork:z.object({minutes:z.number().int().positive().max(100000).optional(),description:z.string().min(1).max(4000).optional()}).strict().nullable(),sources:z.array(z.object({sourceId:idSchema,contentHash:z.string().length(64),text:z.string().min(1).max(200000)})).min(1).max(30)})
   ])
 });
-export const workerSourceInputSchema = z.object({ sourceId: idSchema, noteId: idSchema, revision: z.number().int().positive(), contentHash: z.string().length(64), text: z.string().max(200000) });
+export const workerSourceInputSchema = z.object({ sourceId: idSchema, noteId: idSchema, revision: z.number().int().positive(), contentHash: z.string().length(64), text: z.string().max(1000000) });
 export const workerIndexBatchSchema = z.object({
   leaseToken: z.string().min(32).max(256),
   generationId: idSchema,

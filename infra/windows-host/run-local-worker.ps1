@@ -11,5 +11,9 @@ $logDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData'))
 New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 Set-Location -LiteralPath $root
 $ErrorActionPreference = 'Continue'
-& $node $worker 1>> (Join-Path $logDirectory 'local-worker.out.log') 2>> (Join-Path $logDirectory 'local-worker.err.log')
-exit $LASTEXITCODE
+for (;;) {
+  & $node $worker 1>> (Join-Path $logDirectory 'local-worker.out.log') 2>> (Join-Path $logDirectory 'local-worker.err.log')
+  $exitCode = if ($null -eq $LASTEXITCODE) { 'unknown' } else { $LASTEXITCODE }
+  Add-Content -LiteralPath (Join-Path $logDirectory 'local-worker.err.log') -Value "worker_process_exit=$exitCode"
+  Start-Sleep -Seconds 5
+}

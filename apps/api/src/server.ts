@@ -4621,8 +4621,8 @@ app.get("/api/v1/vaults/:vaultId/index/status", async (request) => {
       [vaultId]
     ),
     query<{ count: string }>(
-      `SELECT count(*)::text AS count FROM notes n
-       WHERE n.vault_id = $1 AND n.trashed_at IS NULL
+      `SELECT count(*)::text AS count FROM notes n JOIN sources s ON s.id = n.source_id
+       WHERE n.vault_id = $1 AND n.trashed_at IS NULL AND nullif(btrim(s.original_text), '') IS NOT NULL
        AND NOT EXISTS (SELECT 1 FROM semantic_chunks c JOIN index_generations g ON g.id = c.generation_id
                        WHERE c.note_id = n.id AND c.note_revision = n.revision AND g.status = 'active')`,
       [vaultId]
@@ -4668,7 +4668,7 @@ app.post("/api/v1/vaults/:vaultId/index/rebuild", async (request, reply) => {
     const targets = await client.query(
       `SELECT n.id AS note_id, n.source_id, n.revision, s.content_hash
        FROM notes n JOIN sources s ON s.id = n.source_id
-       WHERE n.vault_id = $1 AND n.trashed_at IS NULL
+       WHERE n.vault_id = $1 AND n.trashed_at IS NULL AND nullif(btrim(s.original_text), '') IS NOT NULL
        AND ($2::uuid[] IS NULL OR n.id = ANY($2::uuid[])) ORDER BY n.id`,
       [vaultId, input.scope?.noteIds ?? null]
     );
@@ -4937,7 +4937,13 @@ app.post("/api/v1/worker/jobs/:jobId/index-batches", async (request, reply) => {
       if (chunk.endOffset <= chunk.startOffset || source.rows[0].original_text.slice(chunk.startOffset, chunk.endOffset) !== chunk.text) return "chunk_anchor_mismatch" as const;
       if (createHash("sha256").update(chunk.text).digest("hex") !== chunk.contentHash) return "chunk_hash_mismatch" as const;
     }
-    await client.query("DELETE FROM semantic_chunks WHERE generation_id = $1 AND note_id = $2 AND note_revision = $3", [input.generationId, input.noteId, input.noteRevision]);
+    if (input.chunks[0]?.sequence === 0) await client.query("DELETE FROM semantic_chunks WHERE generation_id = $1 AND note_id = $2 AND note_revision = $3", [input.generationId, input.noteId, input.noteRevision]);
+    const previous = await client.query<{ next_sequence: number }>(
+      "SELECT coalesce(max(sequence) + 1, 0)::int AS next_sequence FROM semantic_chunks WHERE generation_id = $1 AND note_id = $2 AND note_revision = $3",
+      [input.generationId, input.noteId, input.noteRevision]
+    );
+    const nextSequence = previous.rows[0].next_sequence;
+    if (input.chunks.some((chunk, index) => chunk.sequence !== nextSequence + index)) return "chunk_sequence_mismatch" as const;
     for (const chunk of input.chunks) {
       const inserted = await client.query(
         `INSERT INTO semantic_chunks(generation_id, vault_id, note_id, note_revision, sequence, text, start_offset, end_offset, content_hash)
