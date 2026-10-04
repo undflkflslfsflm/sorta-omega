@@ -92,7 +92,7 @@ try {
       const buttons = [...document.querySelectorAll("button, [role=button]")];
       const classes = buttons.find(node => /^Classes\s*\d+\s*teams$/i.test((node.textContent ?? "").replace(/\s+/g, " ").trim()));
       const panel = classes?.parentElement?.parentElement?.querySelector(".fui-AccordionPanel");
-      const teamRows = panel ? [...panel.querySelectorAll(":scope > div > div > div")].filter(node => (node.textContent ?? "").includes("Assignments")) : [];
+      const teamRows = panel ? [...panel.querySelectorAll(":scope > div > div > div")] : [];
       return { found: !!classes, expanded: classes?.getAttribute("aria-expanded"), button: classes ? shape(classes, 0) : null, parent: classes?.parentElement ? shape(classes.parentElement, 0) : null, grandparent: classes?.parentElement?.parentElement ? shape(classes.parentElement.parentElement, 0) : null, firstTeam: teamRows[0] ? shape(teamRows[0], 0) : null, teamRowCount: teamRows.length, surroundingLinks: classes?.parentElement?.parentElement ? [...classes.parentElement.parentElement.querySelectorAll("a")].slice(0, 30).map(node => ({ classes: safeClasses(node), hrefShape: (node.getAttribute("href") ?? "").split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), textLength: (node.textContent ?? "").trim().length })) : [] };
     })()`);
     console.log(JSON.stringify({ provider, sidebar }));
