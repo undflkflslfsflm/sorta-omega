@@ -229,12 +229,15 @@ try {
             if (await tab.count() !== 1) throw new Error("teams_assignment_tab_ambiguous");
             await tab.click();
             await probe.waitForTimeout(2_500);
-            tabCounts.push({ label, routeShape: new URL(assignmentsFrame.url()).pathname, cards: await assignmentsFrame.locator(".aui-assignmentListCard").count() });
+            tabCounts.push({ label, routeShape: new URL(assignmentsFrame.url()).pathname, cards: await assignmentsFrame.locator(".aui-assignmentListCard").count(), cardIds: await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)) });
           }
           const filter = assignmentsFrame.getByRole("button", { name: "Open filter pane" });
           if (await filter.count() === 1) await filter.click();
           const filterControls = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>("[role=checkbox], input[type=checkbox], [role=combobox], select, [role=option]")].slice(0, 60).map(element => ({ tag: element.tagName.toLowerCase(), role: element.getAttribute("role"), label: (element.getAttribute("aria-label") ?? element.parentElement?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), checked: element.getAttribute("aria-checked"), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(token => /filter|course|class/i.test(token)).slice(0, 5) })));
-          console.log(JSON.stringify({ provider, tabCounts, filterControls }));
+          const combo = assignmentsFrame.locator('[role="combobox"]');
+          if (await combo.count() === 1) await combo.click();
+          const filterOptions = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>('[role="option"], [role="listbox"], [role="checkbox"]')].slice(0, 60).map(element => ({ role: element.getAttribute("role"), labelLength: (element.textContent ?? "").trim().length, selected: element.getAttribute("aria-selected"), checked: element.getAttribute("aria-checked") })));
+          console.log(JSON.stringify({ provider, tabCounts, filterControls, filterOptions }));
         }
         if (args.get("probe-assignment-detail") === "true") {
           const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").first();
