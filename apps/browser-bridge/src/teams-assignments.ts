@@ -105,7 +105,11 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         stage = `detail_open_${listSection}_${index}`;
         await card.click();
         stage = `detail_wait_${listSection}_${index}`;
-        await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
+        await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 }).catch(async () => {
+          const url = new URL(frame.url());
+          console.log(JSON.stringify({ provider: "teams-assignments", stage, routeShape: url.pathname.replace(/[0-9a-f-]{36}/gi, "*"), remainingCards: await frame.locator(".aui-assignmentListCard").count() }));
+          throw new Error("teams_assignment_detail_not_loaded");
+        });
         const ids = assignmentIdentity(frame.url());
         stage = `detail_read_${listSection}_${index}`;
         const detail = await frame.evaluate(String.raw`(() => {
