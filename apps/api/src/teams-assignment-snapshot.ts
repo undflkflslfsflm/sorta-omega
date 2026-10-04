@@ -13,6 +13,7 @@ const item = z.object({
   cardText: z.string().min(1).max(8_000),
   linkedFileNames: z.array(z.string().trim().min(1).max(500)).max(100),
   detailUrl: z.string().url(),
+  listSection: z.enum(["upcoming", "past_due", "completed"]).optional(),
 }).strict().superRefine((record, context) => {
   const canonical = `https://assignments.edu.cloud.microsoft/classes/${record.classExternalId}/assignments/${record.assignmentExternalId}`;
   if (record.detailUrl !== canonical) context.addIssue({ code: "custom", path: ["detailUrl"], message: "Assignment link does not match its identities" });

@@ -17,6 +17,7 @@ export type TeamsAssignmentSnapshot = {
     cardText: string;
     linkedFileNames: string[];
     detailUrl: string;
+    listSection: "upcoming" | "past_due" | "completed";
   }>;
 };
 
@@ -67,40 +68,58 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
     const parsedList = new URL(listUrl);
     if (parsedList.origin !== assignmentOrigin || parsedList.pathname !== "/classes/all/list" || parsedList.search || parsedList.hash) throw new Error("teams_assignment_list_route_changed");
     stage = "list_read";
-    const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
-      id: element.id,
-      text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
-      dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
-      courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? "").replace(/\s+/g, " ").trim(),
-    })));
-    if (cards.length === 0 || cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) throw new Error("teams_assignment_list_invalid_or_unbounded");
     const records: TeamsAssignmentSnapshot["records"] = [];
-    for (let index = 0; index < cards.length; index++) {
-      if (index > 0) {
-        stage = "list_return";
-        await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-        await frame.locator(".aui-assignmentListCard").first().waitFor({ timeout: 25_000 });
+    const sections = [["upcoming", "Upcoming"], ["past_due", "Past due"], ["completed", "Completed"]] as const;
+    for (const [listSection, label] of sections) {
+      stage = "section_open";
+      await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      const tab = frame.getByRole("tab", { name: new RegExp(label, "i") });
+      await tab.waitFor({ timeout: 25_000 });
+      if (await tab.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
+      await tab.click();
+      let previous = "", stable = 0;
+      for (let attempt = 0; attempt < 24 && stable < 4; attempt++) {
+        await probe.waitForTimeout(500);
+        const ids = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id).join("|"));
+        stable = ids === previous ? stable + 1 : 0;
+        previous = ids;
       }
-      const current = frame.locator(".aui-assignmentListCard");
-      if (await current.count() !== cards.length) throw new Error("teams_assignment_list_changed_during_capture");
-      const card = current.nth(index);
-      if (await card.getAttribute("id") !== cards[index].id) throw new Error("teams_assignment_list_reordered_during_capture");
-      stage = "detail_open";
-      await card.click();
-      await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
-      const ids = assignmentIdentity(frame.url());
-      stage = "detail_read";
-      const detail = await frame.evaluate(String.raw`(() => {
-        const text = selector => (document.querySelector(selector)?.innerText ?? "").replace(/\s+/g, " ").trim();
-        const linkedFileNames = [...document.querySelectorAll('[class*="assignment-details-files-container"] a')].map(element => (element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 100);
-        return { title: text('[class*="assignment-title"]'), instructions: text('[class*="assignment-details-description"]'), metadataText: text('[class*="assignment-metadata-container"]'), pointsText: text('[class*="assignment-details-right-pane"]'), linkedFileNames };
-      })()`) as { title: string; instructions: string; metadataText: string; pointsText: string; linkedFileNames: string[] };
-      if (!detail.title || detail.title.length > 500 || detail.instructions.length > 100_000 || detail.metadataText.length > 8_000 || detail.pointsText.length > 8_000) throw new Error("teams_assignment_detail_invalid_or_unbounded");
-      const detailUrl = new URL(frame.url());
-      records.push({ ...ids, ...detail, cardText: cards[index].text, courseTitle: cards[index].courseTitle, dueSummary: cards[index].dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
+      const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
+        id: element.id,
+        text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+        dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
+        courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? "").replace(/\s+/g, " ").trim(),
+      })));
+      if (records.length + cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) throw new Error("teams_assignment_list_invalid_or_unbounded");
+      for (const [index, captured] of cards.entries()) {
+        if (index > 0) {
+          stage = "list_return";
+          await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          const reopened = frame.getByRole("tab", { name: new RegExp(label, "i") });
+          await reopened.waitFor({ timeout: 25_000 });
+          await reopened.click();
+          await frame.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
+        }
+        const card = frame.locator(`[id="${captured.id}"]`);
+        if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
+        stage = "detail_open";
+        await card.click();
+        await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
+        const ids = assignmentIdentity(frame.url());
+        stage = "detail_read";
+        const detail = await frame.evaluate(String.raw`(() => {
+          const text = selector => (document.querySelector(selector)?.innerText ?? "").replace(/\s+/g, " ").trim();
+          const linkedFileNames = [...document.querySelectorAll('[class*="assignment-details-files-container"] a')].map(element => (element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 100);
+          return { title: text('[class*="assignment-title"]'), instructions: text('[class*="assignment-details-description"]'), metadataText: text('[class*="assignment-metadata-container"]'), pointsText: text('[class*="assignment-details-right-pane"]'), linkedFileNames };
+        })()`) as { title: string; instructions: string; metadataText: string; pointsText: string; linkedFileNames: string[] };
+        if (!detail.title || detail.title.length > 500 || detail.instructions.length > 100_000 || detail.metadataText.length > 8_000 || detail.pointsText.length > 8_000) throw new Error("teams_assignment_detail_invalid_or_unbounded");
+        const detailUrl = new URL(frame.url());
+        records.push({ ...ids, ...detail, listSection, cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
+      }
     }
+    if (!records.length) throw new Error("teams_assignment_list_empty");
     if (new Set(records.map(item => `${item.classExternalId}:${item.assignmentExternalId}`)).size !== records.length) throw new Error("teams_assignment_duplicate_identity");
-    return { version: "omega_teams_assignments_json_v1", source_timestamp: new Date().toISOString(), source_origin: assignmentOrigin, coverage: { listRoute: parsedList.pathname, visibleCardCount: cards.length, capturedDetailCount: records.length, complete: false, limitation: "Only cards visible in the Teams Assignments list were captured. Other filters, classes, pagination, attachments, and submission details have not been verified." }, records };
+    return { version: "omega_teams_assignments_json_v1", source_timestamp: new Date().toISOString(), source_origin: assignmentOrigin, coverage: { listRoute: parsedList.pathname, visibleCardCount: records.length, capturedDetailCount: records.length, complete: false, limitation: "Upcoming, Past due and Completed list cards were captured. Pagination, attachments, filters, and submission details have not been verified." }, records };
   } catch (caught) {
     if (caught instanceof Error && /^teams_[a-z0-9_]+$/.test(caught.message)) throw caught;
     throw new Error(`teams_assignment_${stage}_failed`);

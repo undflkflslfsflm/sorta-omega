@@ -55230,6 +55230,15 @@
                     "provider"
                   ]
                 },
+                "providerListSection": {
+                  "type": "string",
+                  "enum": [
+                    "upcoming",
+                    "past_due",
+                    "completed"
+                  ],
+                  "nullable": true
+                },
                 "sourceObjectId": {
                   "type": "string",
                   "format": "uuid",
@@ -57928,6 +57937,15 @@
               "provider"
             ]
           },
+          "providerListSection": {
+            "type": "string",
+            "enum": [
+              "upcoming",
+              "past_due",
+              "completed"
+            ],
+            "nullable": true
+          },
           "sourceObjectId": {
             "type": "string",
             "format": "uuid",
@@ -58099,6 +58117,15 @@
                     "owner",
                     "provider"
                   ]
+                },
+                "providerListSection": {
+                  "type": "string",
+                  "enum": [
+                    "upcoming",
+                    "past_due",
+                    "completed"
+                  ],
+                  "nullable": true
                 },
                 "sourceObjectId": {
                   "type": "string",
