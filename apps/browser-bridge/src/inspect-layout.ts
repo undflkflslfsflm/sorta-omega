@@ -117,8 +117,16 @@ try {
       const frames = await Promise.all(probe.frames().map(async frame => {
         try {
           const origin = new URL(frame.url()).origin;
-          const counts = await frame.evaluate(() => ({ assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 }));
-          return { origin, counts };
+          const layout = await frame.evaluate(() => {
+            const candidate = document.querySelector<HTMLElement>('[class*="assignment" i], [role="listitem"]');
+            const known = /^(assignments|upcoming|past due|completed|view assignments|oppgaver|kommende|forsinket|fullført|se oppgaver)$/i;
+            return {
+              counts: { assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 },
+              knownLabels: [...new Set([...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").trim()).filter(label => known.test(label)))],
+              candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
+            };
+          });
+          return { origin, ...layout };
         } catch { return { origin: "unavailable", counts: null }; }
       }));
       console.log(JSON.stringify({ provider, structure, frames }));
