@@ -65,7 +65,7 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
       if (rows.length > 100 || rows.some(row => row.length < 5)) throw new Error("inschool_assessment_detail_layout_changed");
       let publishedGrades = 0;
       for (let index = 0; index < rows.length; index++) {
-        phase = "detail_panel";
+        phase = "detail_row_parse";
         const row = rows[index]!;
         const title = clean(row[0]).replace(/\s*Se detaljer\s*$/i, "").trim();
         if (!title || title.length > 500) throw new Error("inschool_assessment_title_invalid");
@@ -74,14 +74,21 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
         const link = page.locator("main table tbody tr").nth(index).getByText("Se detaljer", { exact: true });
         let detailText = "";
         if (await link.count() === 1) {
+          phase = "detail_click";
           await link.click();
           const modal = page.locator(".VsModal").first();
+          phase = "detail_modal_wait";
           await modal.waitFor({ timeout: 10_000 });
+          phase = "detail_modal_read";
           detailText = (await modal.innerText()).trim().slice(0, 10_000);
+          phase = "detail_return_navigation";
           await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          phase = "detail_return_heading";
           await page.locator("main h1").waitFor({ timeout: 20_000 });
+          phase = "detail_return_rows";
           await page.waitForFunction(expected => document.querySelectorAll("main table tbody tr").length === expected, rows.length, { timeout: 15_000 }).catch(() => { throw new Error("inschool_assessment_rows_changed_during_capture"); });
         }
+        phase = "detail_store";
         records.push({ kind: "assessment", externalId, courseExternalId, title, date, theme: clean(row[2]).slice(0, 500), assessmentType: clean(row[3]).slice(0, 240), detailText });
         const rawGrade = clean(row[4]);
         if (rawGrade && rawGrade !== "-") {
