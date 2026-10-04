@@ -89,6 +89,10 @@ try {
     const probe = await browser.contexts()[0].newPage();
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+      const teamsNavigation = probe.getByRole("button", { name: /^Teams \(Ctrl\+Shift\+5\)$/ });
+      await teamsNavigation.waitFor({ timeout: 20_000 });
+      if (await teamsNavigation.count() !== 1) throw new Error("teams_navigation_ambiguous");
+      await teamsNavigation.click();
       const classes = probe.locator(".fui-AccordionItem").filter({ has: probe.getByRole("button", { name: /^Classes\s*\d+\s*teams$/i }) });
       await classes.waitFor({ timeout: 20_000 });
       if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
