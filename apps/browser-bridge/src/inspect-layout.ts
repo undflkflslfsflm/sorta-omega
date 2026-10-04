@@ -102,7 +102,9 @@ try {
           }));
         }
       } else if (section === "assessment" && args.get("inspect-first-detail") === "true") {
-        const first = probe.locator("table tbody tr").first();
+        const selectedIndex = Number(args.get("assessment-group-index") ?? "0");
+        if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex > 49) throw new Error("inschool_assessment_group_index_invalid");
+        const first = probe.locator("table tbody tr").nth(selectedIndex);
         if (await first.count() === 1) {
           const link = first.getByRole("link").first();
           if (await link.count() === 1) await link.click();
