@@ -27,9 +27,24 @@ const expectedOrigin = provider === "inschool" ? new URL(args.get("origin") ?? "
 if (provider === "inschool" && (!expectedOrigin || !new URL(expectedOrigin).hostname.endsWith(".inschool.visma.no"))) throw new Error("inschool_origin_invalid");
 const browser = await chromium.connectOverCDP(endpoint.toString()).catch(() => { throw new Error("cdp_connection_failed"); });
 try {
-  const page = browser.contexts().flatMap(context => context.pages()).find(candidate => {
+  let page = browser.contexts().flatMap(context => context.pages()).find(candidate => {
     try { const origin = new URL(candidate.url()).origin; return provider === "teams" ? ["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(origin) : origin === expectedOrigin; } catch { return false; }
   });
+  let authProbed = false;
+  if (!page && provider === "inschool" && args.get("probe-inschool-auth") === "true") {
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(expectedOrigin!, { waitUntil: "domcontentloaded", timeout: 15_000 });
+      const destination = new URL(probe.url());
+      const auth = await probe.evaluate(() => ({
+        passwordFields: document.querySelectorAll('input[type="password"]').length,
+        timetableVisible: document.querySelectorAll(".userTimetable_currentWeek").length === 1,
+      }));
+      console.log(JSON.stringify({ provider, probe: { origin: destination.origin, routeShape: destination.pathname.replace(/\d+/g, "*"), ...auth } }));
+    } finally { await probe.close(); }
+    authProbed = true;
+  }
+  if (!authProbed) {
   if (!page) throw new Error("matching_tab_not_found");
   if (args.get("teams-tree-only") === "true" && provider === "teams") {
     const tree = await page.evaluate(() => {
@@ -181,6 +196,7 @@ try {
     return { counts, shape, hierarchy, headings, itemProperties };
   })()`);
   console.log(JSON.stringify({ provider, origin: new URL(page.url()).origin, tabCount: browser.contexts().reduce((count, context) => count + context.pages().length, 0), structure }));
+  }
   }
 } finally {
   await browser.close();
