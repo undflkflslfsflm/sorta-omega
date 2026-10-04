@@ -1,6 +1,12 @@
 import { createHash } from "node:crypto";
 import type { Page } from "playwright-core";
-import type { InSchoolSnapshot } from "../../api/src/school-snapshot.js";
+type InSchoolSnapshot = { version: "omega_school_json_v1"; source_timestamp: string; source_origin: string; timezone: "Europe/Oslo"; records: Array<
+  | { kind: "subject"; externalId: string; title: string; code: string | null }
+  | { kind: "course"; externalId: string; title: string; subjectExternalId: string; teachingGroupId: string | null }
+  | { kind: "lesson"; externalId: string; title: string; courseExternalId: string; subjectExternalId: string; startsAt: string; endsAt: string; timezone: "Europe/Oslo"; room: string | null; teachers: string | null; lessonType: string | null; sourceEntityId: string | null }
+  | { kind: "attendance"; externalId: string; courseExternalId: string; lessonExternalId: string | null; date: string; rawStatus: string; normalizedStatus: "present" | "absent" | "late" | "unknown"; excusalStatus: "excused" | "unexcused" | "unknown" | "not_applicable"; duration: number | null; units: "minutes" | "lessons" | "source_defined" | null }
+  | { kind: "grade"; externalId: string; courseExternalId: string; date: string; rawGrade: string; scale: string; officialWeight: number | null }
+> };
 
 type Detail = { date: string; code: string; time: string; hours: string; group: string; recordedBy: string; countsTowardSubject: string; onCertificate: string; term: string };
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
