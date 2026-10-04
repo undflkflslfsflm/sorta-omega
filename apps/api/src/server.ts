@@ -4709,13 +4709,43 @@ app.post("/api/v1/worker/jobs/claim", async (request, reply) => {
   const leaseToken = randomBytes(32).toString("base64url");
   const leaseExpiresAt = new Date(Date.now() + 60_000);
   const leased = await transaction(async (client) => {
-    await client.query(
-      `UPDATE jobs SET status = CASE WHEN cancel_requested THEN 'cancelled' ELSE 'waiting_for_worker' END,
-       stage = CASE WHEN cancel_requested THEN 'cancelled' ELSE 'lease_expired' END,
+    const expired = await client.query(
+      `UPDATE jobs SET status = CASE WHEN cancel_requested THEN 'cancelled' WHEN attempts >= max_attempts THEN 'failed' ELSE 'waiting_for_worker' END,
+       stage = CASE WHEN cancel_requested THEN 'cancelled' WHEN attempts >= max_attempts THEN 'lease_exhausted' ELSE 'lease_expired' END,
+       error_code = CASE WHEN NOT cancel_requested AND attempts >= max_attempts THEN 'worker_lease_exhausted' ELSE error_code END,
+       safe_error_detail = CASE WHEN NOT cancel_requested AND attempts >= max_attempts THEN 'The worker stopped before completing this job.' ELSE safe_error_detail END,
        assigned_worker_id = NULL, lease_token_hash = NULL, lease_expires_at = NULL, updated_at = now(),
-       finished_at = CASE WHEN cancel_requested THEN now() ELSE finished_at END
-       WHERE status = 'running' AND lease_expires_at < now()`
+       finished_at = CASE WHEN cancel_requested OR attempts >= max_attempts THEN now() ELSE finished_at END
+       WHERE status = 'running' AND lease_expires_at < now() RETURNING id,kind,input,status,error_code`
     );
+    const exhausted = await client.query(
+      `UPDATE jobs SET status='failed',stage='lease_exhausted',error_code='worker_lease_exhausted',
+       safe_error_detail='The worker stopped before completing this job.',finished_at=now(),updated_at=now()
+       WHERE status='waiting_for_worker' AND attempts >= max_attempts RETURNING id,kind,input,status,error_code`
+    );
+    for (const terminal of [...expired.rows, ...exhausted.rows].filter((row) => row.status === 'failed' || row.status === 'cancelled')) {
+      if (terminal.kind === 'answer_generation') await client.query(
+        'UPDATE chat_messages SET status=$2,updated_at=now() WHERE id=$1',
+        [terminal.input.assistantMessageId, terminal.status]
+      );
+      if (terminal.status === 'failed' && terminal.kind === 'study_plan_generate') await client.query(
+        "UPDATE study_plans SET status='generation_failed',revision=revision+1,updated_at=now() WHERE id=$1 AND status='generating'",
+        [terminal.input.studyPlanId]
+      );
+      if (terminal.status === 'failed' && terminal.kind === 'study_exercise_generate' && terminal.input.activityId) await client.query(
+        "UPDATE study_activities SET state='generation_failed',revision=revision+1,updated_at=now() WHERE id=$1 AND generation_job_id=$2 AND state='generating'",
+        [terminal.input.activityId, terminal.id]
+      );
+      if (terminal.status === 'failed' && terminal.kind === 'study_attempt_feedback') await client.query(
+        "UPDATE study_attempts SET feedback_status='failed',revision=revision+1,updated_at=now() WHERE id=$1 AND feedback_job_id=$2",
+        [terminal.input.attemptId, terminal.id]
+      );
+      const next = await client.query<{ sequence: number }>(
+        'SELECT coalesce(max(sequence),0)::int+1 AS sequence FROM job_events WHERE job_id=$1', [terminal.id]
+      );
+      await client.query('INSERT INTO job_events(job_id,sequence,kind,data) VALUES ($1,$2,$3,$4::jsonb)',
+        [terminal.id, next.rows[0].sequence, terminal.status, JSON.stringify({ status: terminal.status, error_code: terminal.error_code })]);
+    }
     const selected = await client.query(
       `SELECT j.* FROM jobs j JOIN worker_vault_access a ON a.vault_id = j.vault_id AND a.worker_id = $1
        WHERE j.status IN ('queued', 'waiting_for_worker') AND j.cancel_requested = false

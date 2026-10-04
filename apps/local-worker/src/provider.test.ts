@@ -17,9 +17,11 @@ describe("Ollama provider", () => {
   });
 
   it("rejects an embedding with the wrong runtime dimension", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ embeddings: [[0.1, 0.2]] }), { status: 200 })));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ embeddings: [[0.1, 0.2]] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
     const provider = new OllamaProvider(new URL("http://127.0.0.1:11434/"), "chat-model", "embed-model");
     await expect(provider.embed("test", 1024)).rejects.toThrow("ollama_invalid_embedding_response");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toMatchObject({ model: "embed-model", dimensions: 1024, truncate: false, options: { num_gpu: 0 } });
   });
 });
 

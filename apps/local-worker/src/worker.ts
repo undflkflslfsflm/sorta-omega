@@ -94,13 +94,13 @@ const classificationValidator = z.object({
 const capabilitySchema = { type: "object", properties: { ok: { const: true } }, required: ["ok"], additionalProperties: false };
 
 async function processJob(lease: z.infer<typeof workerLeaseSchema>) {
-  const inputResponse = await hubRequest(`api/v1/worker/jobs/${lease.jobId}/input`, { headers: { "x-job-lease-token": lease.leaseToken } });
-  const input = workerJobInputSchema.parse(await inputResponse.json());
   let stage = "starting";
   const heartbeatTimer = setInterval(() => {
     void hubRequest(`api/v1/worker/jobs/${lease.jobId}/heartbeat`, { method: "POST", body: JSON.stringify({ leaseToken: lease.leaseToken, stage }) }).catch(() => undefined);
   }, 20_000);
   try {
+    const inputResponse = await hubRequest(`api/v1/worker/jobs/${lease.jobId}/input`, { headers: { "x-job-lease-token": lease.leaseToken } });
+    const input = workerJobInputSchema.parse(await inputResponse.json());
     let result: unknown;
     if (input.payload.type === "note_processing") {
       stage = "classifying";
@@ -207,7 +207,11 @@ async function run() {
         continue;
       }
       await processJob(workerLeaseSchema.parse(await response.json()));
-    } catch {
+    } catch (error) {
+      const safeCode = error instanceof z.ZodError ? "worker_input_or_result_invalid"
+        : error instanceof Error && /^[a-z0-9_]+$/.test(error.message) ? error.message
+        : "worker_unhandled_error";
+      process.stderr.write(`worker_loop_error=${safeCode}\n`);
       await new Promise((resolve) => setTimeout(resolve, 5_000));
     }
   }

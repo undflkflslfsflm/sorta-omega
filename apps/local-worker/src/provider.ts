@@ -33,7 +33,7 @@ export class OllamaProvider implements AiProvider {
   }
 
   async embed(input: string | string[], dimensions = 1024) {
-    const result = await this.post("api/embed", { model: this.embeddingModel, input, dimensions, truncate: false });
+    const result = await this.post("api/embed", { model: this.embeddingModel, input, dimensions, truncate: false, options: { num_gpu: 0 } });
     if (!Array.isArray(result.embeddings) || result.embeddings.length !== (Array.isArray(input) ? input.length : 1) || result.embeddings.some((vector: unknown) => !Array.isArray(vector) || vector.length !== dimensions || vector.some((value) => typeof value !== "number" || !Number.isFinite(value)))) {
       throw new Error("ollama_invalid_embedding_response");
     }
