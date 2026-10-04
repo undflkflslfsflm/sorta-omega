@@ -67,12 +67,12 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
     const parsedList = new URL(listUrl);
     if (parsedList.origin !== assignmentOrigin || parsedList.pathname !== "/classes/all/list" || parsedList.search || parsedList.hash) throw new Error("teams_assignment_list_route_changed");
     stage = "list_read";
-    const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(String.raw`elements => elements.map(element => {
-      const description = element.querySelector('[class*="CardHeader__description"]');
-      const rows = description ? Array.from(description.children) : [];
-      const clean = value => (value ?? "").replace(/\s+/g, " ").trim();
-      return { id: element.id, text: clean(element.textContent), dueSummary: clean(rows[0]?.textContent), courseTitle: clean(rows[1]?.textContent) };
-    })`) as Array<{ id: string; text: string; dueSummary: string; courseTitle: string }>;
+    const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
+      id: element.id,
+      text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+      dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
+      courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? "").replace(/\s+/g, " ").trim(),
+    })));
     if (cards.length === 0 || cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) throw new Error("teams_assignment_list_invalid_or_unbounded");
     const records: TeamsAssignmentSnapshot["records"] = [];
     for (let index = 0; index < cards.length; index++) {
