@@ -1046,6 +1046,13 @@ function AskWorkspace({ onOpen }: { onOpen: (item: Pick<SearchItem, "kind" | "id
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { void api.chats().then(async result => { const first = result.items[0] ?? null; setChat(first); if (first) setMessages((await api.chatMessages(first.id)).items); }).catch(() => setError("Chats are unavailable while the home host is offline.")); }, []);
+  useEffect(() => {
+    void Promise.all([api.indexStatus(), api.modelProfiles()]).then(async ([index, profiles]) => {
+      if (index.pending > 0 && profiles.items.some(profile => profile.id === "local-qwen-embedding" && profile.tested)) {
+        await api.rebuildIndex();
+      }
+    }).catch(() => undefined);
+  }, []);
 
   async function askQuestion(text: string, answerMode: "grounded" | "brainstorm", clearComposer = false) {
     if (!text.trim() || busy) return;

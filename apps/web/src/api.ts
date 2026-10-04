@@ -239,6 +239,7 @@ export const api = {
   cancelJob: (jobId: string) => request<Job>(`${vaultPath}/jobs/${jobId}/cancel`, { method: "POST", body: "{}" }),
   aiStatus: () => request<AiStatus>(`${vaultPath}/ai/status`),
   indexStatus: () => request<IndexStatus>(`${vaultPath}/index/status`),
+  rebuildIndex: () => request<JobHandle>(`${vaultPath}/index/rebuild`, { method: "POST", body: JSON.stringify({ modelProfileId: "local-qwen-embedding", chunkerVersion: "1" }) }),
   aiOperations: () => request<{ items: AiOperation[] }>(`${vaultPath}/ai-operations`),
   activity: () => request<{ items: ActivityEvent[]; nextCursor: string | null }>(`${vaultPath}/activity?limit=25`),
   schoolSubjects: () => request<{ items: SchoolSubject[]; nextCursor: string | null }>(`${vaultPath}/school/subjects`),

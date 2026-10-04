@@ -4653,6 +4653,13 @@ app.post("/api/v1/vaults/:vaultId/index/rebuild", async (request, reply) => {
     if (Number(owned.rows[0]?.count ?? 0) !== input.scope.noteIds.length) return reply.code(404).send({ error: "note_not_found" });
   }
   const result = await transaction(async (client) => {
+    await client.query("SELECT id FROM vaults WHERE id = $1 FOR UPDATE", [vaultId]);
+    const existing = await client.query(
+      `SELECT * FROM jobs WHERE vault_id = $1 AND kind = 'index_rebuild'
+       AND status IN ('queued', 'waiting_for_worker', 'running')
+       ORDER BY created_at DESC LIMIT 1`, [vaultId]
+    );
+    if (existing.rows[0]) return existing.rows[0];
     const generation = await client.query(
       `INSERT INTO index_generations(vault_id, model_profile_id, embedding_dimension, chunker_version, status)
        VALUES ($1, $2, 1024, $3, 'building') RETURNING id`,
@@ -4724,6 +4731,10 @@ app.post("/api/v1/worker/jobs/claim", async (request, reply) => {
        WHERE status='waiting_for_worker' AND attempts >= max_attempts RETURNING id,kind,input,status,error_code`
     );
     for (const terminal of [...expired.rows, ...exhausted.rows].filter((row) => row.status === 'failed' || row.status === 'cancelled')) {
+      if (terminal.kind === 'index_rebuild') await client.query(
+        "UPDATE index_generations SET status='failed' WHERE id=$1 AND status='building'",
+        [terminal.input.generationId]
+      );
       if (terminal.kind === 'answer_generation') await client.query(
         'UPDATE chat_messages SET status=$2,updated_at=now() WHERE id=$1',
         [terminal.input.assistantMessageId, terminal.status]
@@ -5275,6 +5286,10 @@ app.post("/api/v1/worker/jobs/:jobId/fail", async (request, reply) => {
     if (job.kind === "answer_generation") await client.query(
       "UPDATE chat_messages SET status = $2, updated_at = now() WHERE id = $1",
       [job.input.assistantMessageId, willRetry ? "waiting_for_worker" : status]
+    );
+    if (job.kind === "index_rebuild" && !willRetry) await client.query(
+      "UPDATE index_generations SET status='failed' WHERE id=$1 AND status='building'",
+      [job.input.generationId]
     );
     if (job.kind === "study_plan_generate" && !willRetry) await client.query(
       "UPDATE study_plans SET status='generation_failed',revision=revision+1,updated_at=now() WHERE id=$1 AND status='generating'",
