@@ -4227,7 +4227,7 @@ app.get("/api/v1/vaults/:vaultId/chats/:chatId/messages", async (request, reply)
   if(cursor)idSchema.parse(cursor);
   const exists = await query("SELECT 1 FROM chats WHERE vault_id = $1 AND id = $2", [vaultId, chatId]);
   if (!exists.rowCount) return reply.code(404).send({ error: "chat_not_found" });
-  const result = await query(`SELECT m.* FROM chat_messages m WHERE m.chat_id=$1 AND ($2::uuid IS NULL OR (m.created_at,m.id)>(SELECT c.created_at,c.id FROM chat_messages c WHERE c.chat_id=$1 AND c.id=$2)) ORDER BY m.created_at,m.id LIMIT $3`,[chatId,cursor??null,limit+1]);
+  const result = await query(`SELECT m.* FROM chat_messages m WHERE m.chat_id=$1 AND ($2::uuid IS NULL OR (m.created_at, CASE WHEN m.role = 'user' THEN 0 ELSE 1 END, m.id)>(SELECT c.created_at, CASE WHEN c.role = 'user' THEN 0 ELSE 1 END, c.id FROM chat_messages c WHERE c.chat_id=$1 AND c.id=$2)) ORDER BY m.created_at, CASE WHEN m.role = 'user' THEN 0 ELSE 1 END, m.id LIMIT $3`,[chatId,cursor??null,limit+1]);
   const hasMore=result.rows.length>limit,rows=result.rows.slice(0,limit);
   return { items: rows.map(mapChatMessage),nextCursor:hasMore?rows.at(-1)!.id:null };
 });
