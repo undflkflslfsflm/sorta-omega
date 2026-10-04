@@ -104,6 +104,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
         stage = `detail_open_${listSection}_${index}`;
         await card.click();
+        stage = `detail_wait_${listSection}_${index}`;
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
         const ids = assignmentIdentity(frame.url());
         stage = `detail_read_${listSection}_${index}`;
