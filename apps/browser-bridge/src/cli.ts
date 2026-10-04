@@ -6,13 +6,14 @@ import { stdin as input, stdout as output } from "node:process";
 import { inSchoolTimetableSnapshot,teamsNotes,type InSchoolVisibleLesson } from "./normalize.js";
 import { collectTeamsAssignments } from "./teams-assignments.js";
 import { collectInSchoolAttendance } from "./inschool-attendance.js";
+import { collectTeamsClassPosts } from "./teams-channels.js";
 
 const args=new Map<string,string>();for(let index=2;index<process.argv.length;index+=2){const key=process.argv[index],value=process.argv[index+1];if(!key?.startsWith("--")||!value)throw new Error("usage: browser-bridge --provider teams|inschool --output <absolute-json-file> [--origin https://county.inschool.visma.no] (--profile <absolute-directory> OR --cdp http://127.0.0.1:9222 OR --cdp-profile <absolute-directory> --noninteractive true)");args.set(key.slice(2),value);}
 const provider=args.get("provider"),profile=args.get("profile"),cdpProfile=args.get("cdp-profile"),destination=args.get("output"),noninteractive=args.get("noninteractive")==="true";
 function boundedWeeks(name:string,defaultValue:number,max:number){const raw=args.get(name);if(raw===undefined)return defaultValue;if(!/^\d{1,2}$/.test(raw))throw new Error(`${name}_must_be_bounded_integer`);const value=Number(raw);if(value>max)throw new Error(`${name}_must_be_bounded_integer`);return value;}
 const weeksPast=boundedWeeks("weeks-past",2,8),weeksFuture=boundedWeeks("weeks-future",16,24),startOffsetWeeks=boundedWeeks("start-offset-weeks",0,52);
 let cdp=args.get("cdp");
-if(!["teams","teams-assignments","inschool","inschool-attendance"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
+if(!["teams","teams-assignments","teams-channels","inschool","inschool-attendance"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
 if(cdpProfile){const [portText,socketPath]=(await readFile(path.join(cdpProfile,"DevToolsActivePort"),"utf8")).trim().split(/\r?\n/),port=Number(portText);if(!Number.isInteger(port)||port<1024||port>65535||!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath??""))throw new Error("browser_bridge_cdp_profile_port_invalid");cdp=`ws://127.0.0.1:${port}${socketPath}`;}
 if(cdp){const url=new URL(cdp);if(!["http:","ws:"].includes(url.protocol)||!["127.0.0.1","localhost"].includes(url.hostname)||url.username||url.password||url.search||url.hash||url.protocol==="http:"&&url.pathname!=="/"||url.protocol==="ws:"&&!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(url.pathname))throw new Error("browser_bridge_cdp_must_be_local_loopback");}
 if(noninteractive&&!cdp)throw new Error("browser_bridge_noninteractive_requires_attached_browser");
@@ -84,7 +85,12 @@ const terminal=createInterface({input,output});
 try{
   if(cdp&&!existing)throw new Error("browser_bridge_matching_signed_in_tab_not_found");
   const page=existing??pages[0]??await context.newPage();
-  if(provider==="teams-assignments"){
+  if(provider==="teams-channels"){
+    assertAllowed(page);
+    const { notes, coverage } = await collectTeamsClassPosts(page);
+    await writeNewArtifact(notes);
+    console.log(JSON.stringify({provider,format:"omega_notes_json_v1",itemCount:notes.length,output:artifactPath,coverage,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false}));
+  }else if(provider==="teams-assignments"){
     if(!cdp)await page.goto("https://teams.microsoft.com/",{waitUntil:"domcontentloaded"});
     if(!noninteractive)await terminal.question("Sign in interactively if needed, then press Enter to capture the Teams Assignments list. ");
     assertAllowed(page);
