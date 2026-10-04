@@ -53,6 +53,13 @@ try {
     try {
       await probe.goto(`${expectedOrigin}/#/app/${section}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await probe.waitForTimeout(5_000);
+      if (section === "assessment" && args.get("assessment-expand") === "true") {
+        const more = probe.getByRole("button", { name: "Se mer", exact: true });
+        if (await more.count() === 1) {
+          await more.click();
+          await probe.waitForTimeout(1_000);
+        }
+      }
       const structure = await probe.evaluate(() => {
         const clean = (value: string | null) => (value ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 6);
         const candidates = [...document.querySelectorAll<HTMLElement>('main [class*="attendance" i], main [class*="assessment" i], main [class*="grade" i], main [class*="frav" i], main table, main [role="grid"], main [role="row"], main [role="tab"]')].slice(0, 100);
