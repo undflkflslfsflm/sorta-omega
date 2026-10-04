@@ -5,13 +5,14 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { inSchoolTimetableSnapshot,teamsNotes,type InSchoolVisibleLesson } from "./normalize.js";
 import { collectTeamsAssignments } from "./teams-assignments.js";
+import { collectInSchoolAttendance } from "./inschool-attendance.js";
 
 const args=new Map<string,string>();for(let index=2;index<process.argv.length;index+=2){const key=process.argv[index],value=process.argv[index+1];if(!key?.startsWith("--")||!value)throw new Error("usage: browser-bridge --provider teams|inschool --output <absolute-json-file> [--origin https://county.inschool.visma.no] (--profile <absolute-directory> OR --cdp http://127.0.0.1:9222 OR --cdp-profile <absolute-directory> --noninteractive true)");args.set(key.slice(2),value);}
 const provider=args.get("provider"),profile=args.get("profile"),cdpProfile=args.get("cdp-profile"),destination=args.get("output"),noninteractive=args.get("noninteractive")==="true";
 function boundedWeeks(name:string,defaultValue:number,max:number){const raw=args.get(name);if(raw===undefined)return defaultValue;if(!/^\d{1,2}$/.test(raw))throw new Error(`${name}_must_be_bounded_integer`);const value=Number(raw);if(value>max)throw new Error(`${name}_must_be_bounded_integer`);return value;}
 const weeksPast=boundedWeeks("weeks-past",2,8),weeksFuture=boundedWeeks("weeks-future",16,24),startOffsetWeeks=boundedWeeks("start-offset-weeks",0,52);
 let cdp=args.get("cdp");
-if(!["teams","teams-assignments","inschool"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
+if(!["teams","teams-assignments","inschool","inschool-attendance"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
 if(cdpProfile){const [portText,socketPath]=(await readFile(path.join(cdpProfile,"DevToolsActivePort"),"utf8")).trim().split(/\r?\n/),port=Number(portText);if(!Number.isInteger(port)||port<1024||port>65535||!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath??""))throw new Error("browser_bridge_cdp_profile_port_invalid");cdp=`ws://127.0.0.1:${port}${socketPath}`;}
 if(cdp){const url=new URL(cdp);if(!["http:","ws:"].includes(url.protocol)||!["127.0.0.1","localhost"].includes(url.hostname)||url.username||url.password||url.search||url.hash||url.protocol==="http:"&&url.pathname!=="/"||url.protocol==="ws:"&&!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(url.pathname))throw new Error("browser_bridge_cdp_must_be_local_loopback");}
 if(noninteractive&&!cdp)throw new Error("browser_bridge_noninteractive_requires_attached_browser");
@@ -20,7 +21,7 @@ for(const root of [profile,cdpProfile].filter((value):value is string=>Boolean(v
 
 async function writeNewArtifact(value:unknown){await mkdir(path.dirname(artifactPath),{recursive:true});const temporary=`${artifactPath}.${process.pid}.tmp`;await writeFile(temporary,`${JSON.stringify(value,null,2)}\n`,{flag:"wx"});try{await link(temporary,artifactPath);}finally{await unlink(temporary).catch(()=>undefined);}}
 
-function assertAllowed(page:Page){const url=new URL(page.url());if(url.protocol!=="https:")throw new Error("browser_bridge_https_required");if(provider?.startsWith("teams")&&!['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname))throw new Error("teams_navigation_left_registered_origin");if(provider==="inschool"&&!url.hostname.endsWith(".inschool.visma.no"))throw new Error("inschool_navigation_left_registered_origin");}
+function assertAllowed(page:Page){const url=new URL(page.url());if(url.protocol!=="https:")throw new Error("browser_bridge_https_required");if(provider?.startsWith("teams")&&!['teams.microsoft.com','teams.cloud.microsoft'].includes(url.hostname))throw new Error("teams_navigation_left_registered_origin");if(provider?.startsWith("inschool")&&!url.hostname.endsWith(".inschool.visma.no"))throw new Error("inschool_navigation_left_registered_origin");}
 
 function isoWeek(unixText:string){const unix=Number(unixText);if(!Number.isSafeInteger(unix))return null;const local=new Intl.DateTimeFormat("sv-SE",{timeZone:"Europe/Oslo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(unix*1000));const date=new Date(`${local}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+4-(date.getUTCDay()||7));const start=new Date(Date.UTC(date.getUTCFullYear(),0,1));return Math.ceil(((date.getTime()-start.getTime())/86_400_000+1)/7);}
 
@@ -98,6 +99,19 @@ try{
     const origin=new URL(args.get("origin")??"");if(origin.protocol!=="https:"||!origin.hostname.endsWith(".inschool.visma.no")||origin.username||origin.password)throw new Error("registered_inschool_origin_required");if(!cdp)await page.goto(origin.origin,{waitUntil:"domcontentloaded"});
     const timetablePage=cdp?await context.newPage():page;
     try{
+    if(provider==="inschool-attendance"){
+      const basePath=args.get("base-snapshot");
+      if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("inschool_attendance_base_snapshot_required");
+      const base=JSON.parse(await readFile(basePath,"utf8"));
+      if(base.version!=="omega_school_json_v1"||base.source_origin!==origin.origin||!Array.isArray(base.records))throw new Error("inschool_attendance_base_snapshot_invalid");
+      await timetablePage.goto(`${origin.origin}/#/app/attendance/lessons`,{waitUntil:"domcontentloaded",timeout:30_000});
+      assertAllowed(timetablePage);
+      if(new URL(timetablePage.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
+      const {snapshot,coverage}=await collectInSchoolAttendance(timetablePage,base,origin.origin);
+      if(!snapshot.records.some(record=>record.kind==="attendance"))throw new Error("inschool_attendance_no_mapped_records");
+      await writeNewArtifact(snapshot);
+      console.log(JSON.stringify({provider,format:snapshot.version,output:artifactPath,itemCount:snapshot.records.length,coverage,sessionRetainedInProfile:true,credentialsExported:false}));
+    }else{
     if(cdp)await timetablePage.goto(`${origin.origin}/#/app/dashboard`,{waitUntil:"domcontentloaded",timeout:30_000});
     if(!noninteractive)await terminal.question("Sign in through Feide interactively if needed, open the timetable, then press Enter here. ");
     assertAllowed(timetablePage);
@@ -121,6 +135,7 @@ try{
     if(!snapshot.records.some(record=>record.kind==="lesson"))throw new Error("inschool_lesson_times_not_parsed_layout_review_required");
     await writeNewArtifact(snapshot);
     console.log(JSON.stringify({provider:"inschool",format:"omega_school_json_v1",startOffsetWeeks,visitedWeekCount:visitedWeeks.length,distinctWeekCount:new Set(visitedWeeks).size,visibleElementCount:items.length,uniqueLessonCount:uniqueItems.length,itemCount:snapshot.records.length,itemLimit:1000,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:`This capture starts ${startOffsetWeeks} week(s) from the current timetable week and covers ${weeksPast} week(s) before and ${weeksFuture} week(s) after it. Absence and grade details are not yet included.`}));
+    }
     }finally{if(cdp)await timetablePage.close();}
   }
 }catch(caught){const message=caught instanceof Error?caught.message:"";console.log(JSON.stringify({provider,errorCode:/^[a-z0-9_]{1,100}$/.test(message)?message:"browser_bridge_failed"}));process.exitCode=1;}finally{terminal.close();if(browser)await browser.close();else await context.close();}
