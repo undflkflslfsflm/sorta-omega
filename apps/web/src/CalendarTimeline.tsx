@@ -15,7 +15,9 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [now, setNow] = useState(() => new Date());
   const dates = useMemo(() => days.map(day => timelineDateKey(day.toISOString(), timezone)), [days, timezone]);
-  const bounds = useMemo(() => timelineBounds(dates, items, timezone), [dates, items, timezone]);
+  const timedItems = useMemo(() => items.filter(item => item.layer !== "deadline"), [items]);
+  const deadlines = useMemo(() => items.filter(item => item.layer === "deadline"), [items]);
+  const bounds = useMemo(() => timelineBounds(dates, timedItems, timezone), [dates, timedItems, timezone]);
   const height = (bounds.endHour - bounds.startHour) * hourHeight;
   const currentDate = timelineDateKey(now.toISOString(), timezone);
   const nowMinute = timelineMinute(now.toISOString(), timezone);
@@ -41,6 +43,14 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
           <strong>{new Intl.DateTimeFormat("nb-NO", { timeZone: timezone, day: "numeric" }).format(day)}</strong>
         </div>)}
       </div>
+      {deadlines.some(item => dates.includes(timelineDateKey(item.startsAt, timezone))) && <div className="calendar-timeline-dated" aria-label="Assignment deadlines">
+        <div className="calendar-timeline-dated-label">Due</div>
+        {dates.map(date => <div className="calendar-timeline-dated-day" key={date}>
+          {deadlines.filter(item => timelineDateKey(item.startsAt, timezone) === date).map(item => <div className="calendar-timeline-marker deadline" key={item.id} title={`${item.title} · due ${time(item.startsAt)}`}>
+            <strong>{item.title}</strong><small>Due {time(item.startsAt)}</small>
+          </div>)}
+        </div>)}
+      </div>}
       {markers.some(marker => dates.includes(marker.date ?? "")) && <div className="calendar-timeline-dated">
         <div className="calendar-timeline-dated-label">Time unknown</div>
         {dates.map(date => <div className="calendar-timeline-dated-day" key={date}>
@@ -55,7 +65,7 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
         </div>
         {dates.map((date, index) => <div className={date === currentDate ? "calendar-timeline-day today" : "calendar-timeline-day"} style={{ height }} key={date} aria-label={new Intl.DateTimeFormat("nb-NO", { dateStyle: "full", timeZone: timezone }).format(days[index])}>
           {date === currentDate && nowMinute >= bounds.startHour * 60 && nowMinute <= bounds.endHour * 60 && <span className="calendar-timeline-now" style={{ top: ((nowMinute - bounds.startHour * 60) / 60) * hourHeight }} aria-label="Current time"/>}
-          {placeTimelineDay(items, date, timezone).map(item => {
+          {placeTimelineDay(timedItems, date, timezone).map(item => {
             const top = ((item.startMinute - bounds.startHour * 60) / 60) * hourHeight;
             const blockHeight = Math.max(20, ((item.endMinute - item.startMinute) / 60) * hourHeight - 2);
             const width = 100 / item.laneCount;

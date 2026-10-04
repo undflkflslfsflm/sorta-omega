@@ -164,6 +164,7 @@ main { min-width: 0; }
 .calendar-timeline-dated-day { display: grid; align-content: start; gap: 3px; min-width: 0; padding: 3px; border-left: 1px solid var(--line); }
 .calendar-timeline-marker { padding: 5px 7px; border-radius: 5px; background: #ffe8e2; color: #802c18; }.calendar-timeline-marker strong,.calendar-timeline-marker small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .66rem; }.calendar-timeline-marker small { opacity: .8; }
 .calendar-timeline-marker.attendance-absent { background: #fbd5d1; color: #8d2118; }.calendar-timeline-marker.attendance-late { background: #fff0ae; color: #644b00; }
+.calendar-timeline-marker.deadline { background: #fff0d7; color: #743b08; }
 .calendar-timeline-hours { position: sticky; left: 0; }.calendar-timeline-hours span { position: absolute; right: 7px; transform: translateY(-50%); color: var(--muted); font-size: .62rem; }
 .calendar-timeline-hours span:first-child { transform: none; }.calendar-timeline-hours span:last-child { transform: translateY(-100%); }
 .calendar-timeline-day { position: relative; min-width: 0; border-left: 1px solid var(--line); border-top: 1px solid var(--line); background: repeating-linear-gradient(to bottom, #fff 0, #fff 63px, #e3e9ed 63px, #e3e9ed 64px); }

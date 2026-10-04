@@ -27,4 +27,10 @@ describe("calendar timeline", () => {
     expect(placeTimelineDay([overnight],"2026-10-24","Europe/Oslo")[0]).toMatchObject({startMinute:1410,endMinute:1440});
     expect(placeTimelineDay([overnight],"2026-10-25","Europe/Oslo")[0]).toMatchObject({startMinute:0,endMinute:210});
   });
+
+  it("keeps a 23:59 deadline on its due date rather than spilling into tomorrow", () => {
+    const deadline = { ...item("due", "2026-10-05T21:59:00.000Z", ""), endsAt: null, layer: "deadline" };
+    expect(placeTimelineDay([deadline], "2026-10-05", "Europe/Oslo").map(value => [value.startMinute, value.endMinute])).toEqual([[1439, 1440]]);
+    expect(placeTimelineDay([deadline], "2026-10-06", "Europe/Oslo")).toEqual([]);
+  });
 });

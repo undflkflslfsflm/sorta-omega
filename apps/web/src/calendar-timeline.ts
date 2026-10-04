@@ -37,7 +37,7 @@ export function timelineInitialScrollLeft(dayIndex: number, dayCount: number, sc
 
 export function placeTimelineDay<T extends TimelineItem>(items: T[], date: string, timezone: string): PlacedTimelineItem<T>[] {
   const visible = items.flatMap(item => {
-    const endTimestamp = item.endsAt ? Date.parse(item.endsAt) : Date.parse(item.startsAt) + 30 * 60_000;
+    const endTimestamp = item.endsAt ? Date.parse(item.endsAt) : Date.parse(item.startsAt) + (item.layer === "deadline" ? 60_000 : 30 * 60_000);
     if (!Number.isFinite(endTimestamp) || endTimestamp <= Date.parse(item.startsAt)) return [];
     const startDate = timelineDateKey(item.startsAt, timezone);
     const endDate = timelineDateKey(new Date(endTimestamp - 1).toISOString(), timezone);
