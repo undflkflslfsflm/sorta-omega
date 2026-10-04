@@ -107,7 +107,7 @@ try {
           try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; }
         });
         if (!assignmentsFrame) throw new Error("teams_assignments_frame_missing");
-        const viewAssignments = assignmentsFrame.getByText(/^View assignments$/i);
+        const viewAssignments = assignmentsFrame.getByRole("link", { name: /^View assignments$/i });
         if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
         await viewAssignments.click();
         await probe.waitForTimeout(8_000);
