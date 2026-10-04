@@ -72,6 +72,25 @@ try {
         };
       });
       let detail: unknown = null;
+      let allDetails: unknown = null;
+      if (section === "assessment" && args.get("inspect-all-details") === "true") {
+        const links = await probe.locator("table tbody tr a[href]").evaluateAll(elements => elements.map(element => element.getAttribute("href") ?? "").filter(value => /^#\/app\/assessment\/groups\/\d+\/details$/.test(value)));
+        if (links.length < 1 || links.length > 50) throw new Error("inschool_assessment_links_unbounded");
+        const summaries: Array<{ groupId: string; rowCount: number; gradeCount: number; headingCount: number }> = [];
+        for (const href of links) {
+          await probe.goto(`${expectedOrigin}/${href}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          await probe.locator("main h1").waitFor({ timeout: 15_000 });
+          const summary = await probe.evaluate(() => ({
+            rowCount: document.querySelectorAll("main table tbody tr").length,
+            gradeCount: [...document.querySelectorAll("main table tbody tr")].filter(row => { const cells = row.querySelectorAll("td"); const value = (cells[4]?.textContent ?? "").trim(); return Boolean(value && value !== "-"); }).length,
+            headingCount: document.querySelectorAll("main h2, main h3").length,
+          }));
+          summaries.push({ groupId: /groups\/(\d+)/.exec(href)?.[1] ?? "unknown", ...summary });
+        }
+        allDetails = summaries;
+        await probe.goto(`${expectedOrigin}/#/app/assessment`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await probe.locator("table tbody tr").first().waitFor({ timeout: 15_000 });
+      }
       if (section === "attendance/lessons" && args.get("inspect-first-detail") === "true") {
         const action = probe.locator("table").first().locator("tbody tr").first().getByText("Se fravær");
         if (await action.count() === 1) {
@@ -98,7 +117,7 @@ try {
           }));
         }
       }
-      console.log(JSON.stringify({ provider, section, structure, detail }));
+      console.log(JSON.stringify({ provider, section, structure, detail, allDetails }));
     } finally { await probe.close(); }
   } else if (args.get("teams-first-class-open") === "true" && provider === "teams") {
     const probe = await browser.contexts()[0].newPage();
