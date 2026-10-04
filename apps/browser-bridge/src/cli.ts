@@ -96,21 +96,24 @@ try{
     const selectors=['[data-tid="chat-pane-message"]','[data-tid="message-pane-list-runway"] [role="listitem"]','[role="log"] [role="listitem"]'];let texts:string[]=[];for(const selector of selectors){texts=await page.locator(selector).allTextContents();if(texts.length)break;}if(!texts.length)throw new Error("teams_message_elements_not_found_layout_review_required");const capturedAt=new Date().toISOString(),notes=teamsNotes(texts,capturedAt);await writeNewArtifact(notes);console.log(JSON.stringify({provider:"teams",format:"omega_notes_json_v1",visibleElementCount:texts.length,itemCount:notes.length,itemLimit:500,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:texts.length>500?"At most 500 normalized visible messages are exported per snapshot.":null}));
   }else{
     const origin=new URL(args.get("origin")??"");if(origin.protocol!=="https:"||!origin.hostname.endsWith(".inschool.visma.no")||origin.username||origin.password)throw new Error("registered_inschool_origin_required");if(!cdp)await page.goto(origin.origin,{waitUntil:"domcontentloaded"});
+    const timetablePage=cdp?await context.newPage():page;
+    try{
+    if(cdp)await timetablePage.goto(`${origin.origin}/#/app/dashboard`,{waitUntil:"domcontentloaded",timeout:30_000});
     if(!noninteractive)await terminal.question("Sign in through Feide interactively if needed, open the timetable, then press Enter here. ");
-    assertAllowed(page);
-    if(new URL(page.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
-    if(new URL(page.url()).pathname.toLowerCase().endsWith("/login.jsp"))throw new Error("inschool_login_required");
-    if(await page.locator(".userTimetable_currentWeek").count()!==1)throw new Error("inschool_timetable_not_open_layout_review_required");
+    assertAllowed(timetablePage);
+    if(new URL(timetablePage.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
+    if(new URL(timetablePage.url()).pathname.toLowerCase().endsWith("/login.jsp"))throw new Error("inschool_login_required");
+    await timetablePage.locator(".userTimetable_currentWeek").waitFor({timeout:25_000}).catch(()=>{throw new Error("inschool_timetable_not_open_layout_review_required");});
+    if(await timetablePage.locator(".userTimetable_currentWeek").count()!==1)throw new Error("inschool_timetable_not_open_layout_review_required");
     const items:InSchoolVisibleLesson[]=[];const visitedWeeks:string[]=[];let offset=0;
     try{
-      const collect=async()=>{const week=await visibleInSchoolWeek(page);visitedWeeks.push(week.heading);items.push(...week.items);};
-      for(let index=0;index<startOffsetWeeks;index++){await moveInSchoolWeek(page,1);offset++;}
+      const collect=async()=>{const week=await visibleInSchoolWeek(timetablePage);visitedWeeks.push(week.heading);items.push(...week.items);};
+      for(let index=0;index<startOffsetWeeks;index++){await moveInSchoolWeek(timetablePage,1);offset++;}
       await collect();
-      for(let index=0;index<weeksPast;index++){await moveInSchoolWeek(page,-1);offset--;await collect();}
-      for(let index=0;index<weeksPast+weeksFuture;index++){await moveInSchoolWeek(page,1);offset++;await collect();}
+      for(let index=0;index<weeksPast;index++){await moveInSchoolWeek(timetablePage,-1);offset--;await collect();}
+      for(let index=0;index<weeksPast+weeksFuture;index++){await moveInSchoolWeek(timetablePage,1);offset++;await collect();}
     }finally{
-      while(offset>0){await moveInSchoolWeek(page,-1);offset--;}
-      while(offset<0){await moveInSchoolWeek(page,1);offset++;}
+      if(!cdp){while(offset>0){await moveInSchoolWeek(timetablePage,-1);offset--;}while(offset<0){await moveInSchoolWeek(timetablePage,1);offset++;}}
     }
     if(!items.length)throw new Error("inschool_lesson_elements_not_found_layout_review_required");
     const uniqueItems=[...new Map(items.map(item=>[`${item.entityId}:${item.teachingGroupId}:${item.startUnix}:${item.lessonType}`,item])).values()];
@@ -118,5 +121,6 @@ try{
     if(!snapshot.records.some(record=>record.kind==="lesson"))throw new Error("inschool_lesson_times_not_parsed_layout_review_required");
     await writeNewArtifact(snapshot);
     console.log(JSON.stringify({provider:"inschool",format:"omega_school_json_v1",startOffsetWeeks,visitedWeekCount:visitedWeeks.length,distinctWeekCount:new Set(visitedWeeks).size,visibleElementCount:items.length,uniqueLessonCount:uniqueItems.length,itemCount:snapshot.records.length,itemLimit:1000,output:artifactPath,sessionRetainedInProfile:true,credentialsExported:false,liveConnectionCreated:false,coverageLimitation:`This capture starts ${startOffsetWeeks} week(s) from the current timetable week and covers ${weeksPast} week(s) before and ${weeksFuture} week(s) after it. Absence and grade details are not yet included.`}));
+    }finally{if(cdp)await timetablePage.close();}
   }
 }catch(caught){const message=caught instanceof Error?caught.message:"";console.log(JSON.stringify({provider,errorCode:/^[a-z0-9_]{1,100}$/.test(message)?message:"browser_bridge_failed"}));process.exitCode=1;}finally{terminal.close();if(browser)await browser.close();else await context.close();}
