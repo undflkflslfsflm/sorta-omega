@@ -118,8 +118,7 @@ try {
         try {
           const origin = new URL(frame.url()).origin;
           const counts = await frame.evaluate(() => ({ assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 }));
-          const bodySample = origin === "https://assignments.edu.cloud.microsoft" ? await frame.evaluate(() => (document.body?.innerText ?? "").slice(0, 160).replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")) : null;
-          return { origin, counts, bodySample };
+          return { origin, counts };
         } catch { return { origin: "unavailable", counts: null }; }
       }));
       console.log(JSON.stringify({ provider, structure, frames }));
