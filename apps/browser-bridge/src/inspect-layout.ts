@@ -117,6 +117,8 @@ try {
       }
       await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
+      const screenshotPath = args.get("screenshot-path");
+      if (screenshotPath) await probe.screenshot({ path: screenshotPath, fullPage: false });
       const structure = await probe.evaluate(String.raw`(() => {
         const clean = node => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 6);
         const candidate = document.querySelector('[role="tablist"], [class*="channel" i], [class*="post" i], [role="list"]');
