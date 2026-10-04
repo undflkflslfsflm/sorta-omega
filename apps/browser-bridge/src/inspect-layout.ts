@@ -194,6 +194,13 @@ try {
       await page.waitForFunction(previous => document.querySelector(".userTimetable_currentWeek")?.textContent?.trim() === previous, before, { timeout: 15_000 });
     }
     console.log(JSON.stringify({ provider, before, counts, responses }));
+  } else if (args.get("inschool-nav-only") === "true" && provider === "inschool") {
+    const navigation = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('nav a, nav button, [class*="nav-item"]')].map(element => {
+      const label = (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim();
+      const href = element instanceof HTMLAnchorElement ? element.getAttribute("href") ?? "" : "";
+      return { label, tag: element.tagName.toLowerCase(), hrefShape: href.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120) };
+    }).filter(item => item.label.length <= 80 && /^(timeplan|timetable|fravær|absence|karakterer|grades|vurderinger|assessment|historikk|history|fag|subjects|oversikt|overview|oppgaver|assignments)/i.test(item.label)).slice(0, 30));
+    console.log(JSON.stringify({ provider, navigation }));
   } else if (args.get("navigation-only") === "true" && provider === "inschool") {
     const navigation = await page.evaluate(() => ({
       routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120),
