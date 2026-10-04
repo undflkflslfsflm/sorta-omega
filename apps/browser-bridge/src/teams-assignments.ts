@@ -102,11 +102,11 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         }
         const card = frame.locator(`[id="${captured.id}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
-        stage = "detail_open";
+        stage = `detail_open_${listSection}_${index}`;
         await card.click();
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
         const ids = assignmentIdentity(frame.url());
-        stage = "detail_read";
+        stage = `detail_read_${listSection}_${index}`;
         const detail = await frame.evaluate(String.raw`(() => {
           const text = selector => (document.querySelector(selector)?.innerText ?? "").replace(/\s+/g, " ").trim();
           const linkedFileNames = [...document.querySelectorAll('[class*="assignment-details-files-container"] a')].map(element => (element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 100);
