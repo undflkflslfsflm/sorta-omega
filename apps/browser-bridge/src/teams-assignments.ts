@@ -93,7 +93,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? "").replace(/\s+/g, " ").trim(),
       })));
       if (records.length + cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) {
-        console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, cardCount: cards.length, cardShape: cards.map(card => ({ idPresent: Boolean(card.id), textLength: card.text.length, titleLength: card.title.length, dueLength: card.dueSummary.length, courseLength: card.courseTitle.length })).slice(0, 30) }));
+        console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, cardCount: cards.length, cardShape: cards.map(card => ({ idPresent: Boolean(card.id), textLength: card.text.length, titleLength: card.title.length, dueLength: card.dueSummary.length, courseLength: card.courseTitle.length })).slice(0, 30), incompleteCards: cards.filter(card => !card.courseTitle).map(card => ({ text: card.text, dueSummary: card.dueSummary })) }));
         throw new Error("teams_assignment_list_invalid_or_unbounded");
       }
       for (const [index, captured] of cards.entries()) {
