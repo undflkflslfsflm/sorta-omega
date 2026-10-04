@@ -12400,6 +12400,8 @@ export interface components {
                 origin: "owner" | "provider";
                 /** @enum {string|null} */
                 providerListSection?: "upcoming" | "past_due" | "completed" | null;
+                /** @enum {string|null} */
+                providerDetailState?: "available" | "not_assigned" | null;
                 /** Format: uuid */
                 sourceObjectId?: string | null;
                 /** Format: date-time */
@@ -13050,6 +13052,8 @@ export interface components {
             origin: "owner" | "provider";
             /** @enum {string|null} */
             providerListSection?: "upcoming" | "past_due" | "completed" | null;
+            /** @enum {string|null} */
+            providerDetailState?: "available" | "not_assigned" | null;
             /** Format: uuid */
             sourceObjectId?: string | null;
             /** Format: date-time */
@@ -13093,6 +13097,8 @@ export interface components {
                 origin: "owner" | "provider";
                 /** @enum {string|null} */
                 providerListSection?: "upcoming" | "past_due" | "completed" | null;
+                /** @enum {string|null} */
+                providerDetailState?: "available" | "not_assigned" | null;
                 /** Format: uuid */
                 sourceObjectId?: string | null;
                 /** Format: date-time */

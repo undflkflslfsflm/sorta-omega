@@ -18,6 +18,7 @@ export type TeamsAssignmentSnapshot = {
     linkedFileNames: string[];
     detailUrl: string;
     listSection: "upcoming" | "past_due" | "completed";
+    detailState: "available" | "not_assigned";
   }>;
 };
 
@@ -87,6 +88,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
         id: element.id,
         text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+        title: (element.querySelector('[class*="CardHeader__title"], h2, h3')?.textContent ?? "").replace(/\s+/g, " ").trim(),
         dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
         courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? "").replace(/\s+/g, " ").trim(),
       })));
@@ -105,13 +107,16 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         stage = `detail_open_${listSection}_${index}`;
         await card.click();
         stage = `detail_wait_${listSection}_${index}`;
-        await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 }).catch(async () => {
-          const url = new URL(frame.url());
-          const state = await frame.evaluate(() => ({ bodyLength: document.body?.innerText?.length ?? 0, visibleText: document.body?.innerText?.slice(0, 500) ?? "", detailClasses: [...new Set([...document.querySelectorAll<HTMLElement>('[class*="assignment" i]')].flatMap(element => (element.getAttribute("class") ?? "").split(/\s+/)).filter(token => /assignment/i.test(token)))].slice(0, 25) }));
-          console.log(JSON.stringify({ provider: "teams-assignments", stage, routeShape: url.pathname.replace(/[0-9a-f-]{36}/gi, "*"), remainingCards: await frame.locator(".aui-assignmentListCard").count(), state }));
-          throw new Error("teams_assignment_detail_not_loaded");
-        });
+        await Promise.race([
+          frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 }),
+          frame.getByText("Looks like you haven't been added to this assignment.", { exact: true }).waitFor({ timeout: 25_000 }),
+        ]);
         const ids = assignmentIdentity(frame.url());
+        if (await frame.getByText("Looks like you haven't been added to this assignment.", { exact: true }).count() === 1) {
+          const detailUrl = new URL(frame.url());
+          records.push({ ...ids, title: captured.title || captured.text.slice(0, 500), instructions: "", metadataText: captured.dueSummary, pointsText: "", linkedFileNames: [], listSection, detailState: "not_assigned", cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
+          continue;
+        }
         stage = `detail_read_${listSection}_${index}`;
         const detail = await frame.evaluate(String.raw`(() => {
           const text = selector => (document.querySelector(selector)?.innerText ?? "").replace(/\s+/g, " ").trim();
@@ -120,7 +125,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         })()`) as { title: string; instructions: string; metadataText: string; pointsText: string; linkedFileNames: string[] };
         if (!detail.title || detail.title.length > 500 || detail.instructions.length > 100_000 || detail.metadataText.length > 8_000 || detail.pointsText.length > 8_000) throw new Error("teams_assignment_detail_invalid_or_unbounded");
         const detailUrl = new URL(frame.url());
-        records.push({ ...ids, ...detail, listSection, cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
+        records.push({ ...ids, ...detail, listSection, detailState: "available", cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
       }
     }
     if (!records.length) throw new Error("teams_assignment_list_empty");

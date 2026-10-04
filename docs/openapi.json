@@ -55239,6 +55239,14 @@
                   ],
                   "nullable": true
                 },
+                "providerDetailState": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "not_assigned"
+                  ],
+                  "nullable": true
+                },
                 "sourceObjectId": {
                   "type": "string",
                   "format": "uuid",
@@ -57946,6 +57954,14 @@
             ],
             "nullable": true
           },
+          "providerDetailState": {
+            "type": "string",
+            "enum": [
+              "available",
+              "not_assigned"
+            ],
+            "nullable": true
+          },
           "sourceObjectId": {
             "type": "string",
             "format": "uuid",
@@ -58124,6 +58140,14 @@
                     "upcoming",
                     "past_due",
                     "completed"
+                  ],
+                  "nullable": true
+                },
+                "providerDetailState": {
+                  "type": "string",
+                  "enum": [
+                    "available",
+                    "not_assigned"
                   ],
                   "nullable": true
                 },
