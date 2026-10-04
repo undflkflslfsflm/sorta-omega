@@ -117,7 +117,9 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         const ids = assignmentIdentity(frame.url());
         if (await frame.getByText("Looks like you haven't been added to this assignment.", { exact: true }).count() === 1) {
           const detailUrl = new URL(frame.url());
-          records.push({ ...ids, title: captured.title || captured.text.split(captured.courseTitle)[0].trim().slice(0, 500) || captured.text.slice(0, 500), instructions: "", metadataText: captured.dueSummary, pointsText: "", linkedFileNames: [], listSection, detailState: "not_assigned", cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
+          const visibleTitle = captured.title || captured.text.split(captured.courseTitle)[0].trim().slice(0, 500) || captured.text.slice(0, 500);
+          const title = captured.dueSummary && visibleTitle.endsWith(captured.dueSummary) ? visibleTitle.slice(0, -captured.dueSummary.length).trim() : visibleTitle;
+          records.push({ ...ids, title, instructions: "", metadataText: captured.dueSummary, pointsText: "", linkedFileNames: [], listSection, detailState: "not_assigned", cardText: captured.text, courseTitle: captured.courseTitle, dueSummary: captured.dueSummary, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
           continue;
         }
         stage = `detail_read_${listSection}_${index}`;
