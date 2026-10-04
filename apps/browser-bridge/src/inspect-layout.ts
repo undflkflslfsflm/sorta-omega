@@ -115,7 +115,14 @@ try {
         const postCandidates = [...document.querySelectorAll('[data-tid*="post" i], [class*="post" i], [class*="message" i], [role="article"]')].filter(node => (node.textContent ?? '').trim().length > 20).slice(0, 20).map(node => ({ tag: node.tagName.toLowerCase(), classes: clean(node), role: node.getAttribute('role'), attributes: [...node.attributes].map(attribute => attribute.name).filter(name => name !== 'class' && name !== 'style').slice(0, 10), textLength: (node.textContent ?? '').trim().length, childCount: node.children.length }));
         return { routeShape: (location.pathname + location.hash).split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), candidate: candidate ? { tag: candidate.tagName.toLowerCase(), classes: clean(candidate), role: candidate.getAttribute("role"), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style"), childCount: candidate.children.length } : null, counts: { tabs: document.querySelectorAll('[role="tab"]').length, links: document.querySelectorAll("a").length, groups: document.querySelectorAll('[role="group"]').length, messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"]').length }, genericLabels: [...document.querySelectorAll("button, a, [role=button], [role=tab]")].map(node => (node.getAttribute("aria-label") ?? node.getAttribute("title") ?? node.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /^(general|generelt|posts|innlegg|files|filer|assignments|oppgaver|classwork|kanaler|channels|see all|vis alle)$/i.test(label)).slice(0, 40), postCandidates };
       })()`);
-      console.log(JSON.stringify({ provider, classCardCount: count, structure }));
+      const frames = await Promise.all(probe.frames().map(async frame => {
+        try {
+          const url = new URL(frame.url());
+          const counts = await frame.evaluate(() => ({ bodyLength: document.body?.innerText?.length ?? 0, roleArticles: document.querySelectorAll('[role="article"]').length, roleListItems: document.querySelectorAll('[role="listitem"]').length, postClasses: document.querySelectorAll('[class*="post" i], [class*="conversation" i], [class*="message" i]').length }));
+          return { origin: url.origin, routeShape: url.pathname.split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), counts };
+        } catch { return { origin: "unavailable", counts: null }; }
+      }));
+      console.log(JSON.stringify({ provider, classCardCount: count, structure, frames }));
     } finally { await probe.close(); }
   } else if (args.get("teams-sidebar-shape") === "true" && provider === "teams") {
     const sidebar = await page.evaluate(String.raw`(() => {
