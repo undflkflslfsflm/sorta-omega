@@ -375,7 +375,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
       {error && <div className="error-banner" role="status">{error}<button onClick={() => void refresh()}>Retry</button></div>}
       <section className="content">
         {view === "today" && <>
-          <div className="page-heading"><div><p className="eyebrow">{dateLabel}</p><h1>Good morning.</h1><p>Start with one useful thing. The rest can wait.</p></div><div className="focus-score"><span>{tasks.filter(t => !t.completed).length}</span><small>open tasks</small></div></div>
+          <div className="page-heading"><div><p className="eyebrow">{dateLabel}</p><h1>Your day.</h1><p>Start with one useful thing. The rest can wait.</p></div><div className="focus-score"><span>{tasks.filter(t => !t.completed).length}</span><small>open tasks</small></div></div>
           <div className="today-grid">
             <article className="next-action card">
               <div className="card-label"><Sparkles size={16}/> Next action</div>
