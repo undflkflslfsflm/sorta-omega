@@ -45,6 +45,7 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
   const unique = [...new Map(details.map(item => [JSON.stringify(item), item])).values()];
   const courses = base.records.filter(record => record.kind === "course");
   const lessons = base.records.filter(record => record.kind === "lesson");
+  const subjects = base.records.filter(record => record.kind === "subject");
   const matchedCourseIds = new Set<string>();
   const matchedLessonIds = new Set<string>();
   const attendance: InSchoolSnapshot["records"] = [];
@@ -54,8 +55,12 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
     const hours = /^(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})$/.exec(item.time);
     if (!date || !hours || !item.group || !item.code) { limitations.push("An absence detail lacked a date, time, group, or code."); continue; }
     const isoDate = `${date[3]}-${date[2]}-${date[1]}`;
-    const course = courses.find(record => record.teachingGroupId === item.group);
-    if (!course) { limitations.push(`No captured timetable course matched one absence teaching group: ${item.group}.`); continue; }
+    const groupCode = /(?:^|\/)([A-Z]{3}\d{4})(?:-\d+)?$/i.exec(item.group)?.[1]?.toUpperCase();
+    const subject = subjects.find(record => record.code?.toUpperCase() === groupCode);
+    const candidates = courses.filter(record => record.teachingGroupId === item.group || subject && record.subjectExternalId === subject.externalId);
+    const timed = candidates.map(course => ({ course, lesson: lessons.find(record => record.courseExternalId === course.externalId && localDateTime(record.startsAt) === `${isoDate} ${hours[1]}`) })).filter(item => item.lesson);
+    const course = timed.length === 1 ? timed[0].course : candidates.length === 1 ? candidates[0] : null;
+    if (!course) { limitations.push(`No unambiguous captured timetable course matched one absence teaching group: ${item.group}.`); continue; }
     matchedCourseIds.add(course.externalId);
     const lesson = lessons.find(record => record.courseExternalId === course.externalId && localDateTime(record.startsAt) === `${isoDate} ${hours[1]}`);
     if (lesson) matchedLessonIds.add(lesson.externalId);

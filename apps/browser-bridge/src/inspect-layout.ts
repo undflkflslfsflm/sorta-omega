@@ -62,9 +62,11 @@ try {
           counts: { tables: document.querySelectorAll("table").length, rows: document.querySelectorAll('tr, [role="row"]').length, tabs: document.querySelectorAll('[role="tab"]').length },
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.textContent ?? "").trim().slice(0, 60), selected: item.getAttribute("aria-selected"), hrefShape: item.getAttribute("href")?.replace(/\d+/g, "*") ?? null })),
           table: [...document.querySelectorAll<HTMLTableElement>("table")].map(item => ({
+            reportedRows: item.getAttribute("aria-rowcount"),
             headers: [...item.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80)),
             rows: [...item.querySelectorAll("tbody tr")].slice(0, 3).map(row => [...row.querySelectorAll("td")].map(cell => ({ text: (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 120), classes: clean(cell.className), attributes: [...cell.attributes].map(attribute => attribute.name).filter(name => name !== "style").slice(0, 8) }))),
           })),
+          pagingControls: [...document.querySelectorAll<HTMLElement>('main button, main select, main [role="combobox"]')].map(item => ({ tag: item.tagName.toLowerCase(), label: (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), disabled: item.hasAttribute("disabled"), classes: clean(item.className) })).filter(item => /page|side|neste|forrige|rad|row|vis|show|\b\d+\b/i.test(item.label)).slice(0, 30),
           headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].slice(0, 15).map(item => ({ tag: item.tagName.toLowerCase(), text: (item.textContent ?? "").trim().slice(0, 60), classes: clean(item.className) })),
           candidates: candidates.map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), classes: clean(item.getAttribute("class")), attributes: [...item.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 8), childCount: item.children.length, textLength: (item.textContent ?? "").trim().length })),
         };
