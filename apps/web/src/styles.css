@@ -151,8 +151,8 @@ main { min-width: 0; }
 
 /* Time-based day and week views. Month keeps the compact card grid above. */
 .calendar-timeline-scroll { overflow-x: auto; overscroll-behavior-inline: contain; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
-.calendar-timeline-inner { min-width: calc(54px + var(--timeline-days) * 180px); }
-.calendar-timeline-header,.calendar-timeline-dated,.calendar-timeline-body { display: grid; grid-template-columns: 54px repeat(var(--timeline-days), minmax(180px, 1fr)); }
+.calendar-timeline-inner { min-width: calc(54px + var(--timeline-days) * 110px); }
+.calendar-timeline-header,.calendar-timeline-dated,.calendar-timeline-body { display: grid; grid-template-columns: 54px repeat(var(--timeline-days), minmax(110px, 1fr)); }
 .calendar-timeline-header { border-bottom: 1px solid var(--line); }
 .calendar-timeline-zone { align-self: end; padding: 0 4px 8px; color: var(--muted); font-size: .62rem; text-align: center; }
 .calendar-timeline-zone,.calendar-timeline-dated-label,.calendar-timeline-hours { position: sticky; left: 0; z-index: 3; background: #fff; }
