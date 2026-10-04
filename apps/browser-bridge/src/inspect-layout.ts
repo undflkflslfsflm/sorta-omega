@@ -93,7 +93,7 @@ try {
             routeShape: `${location.pathname}${location.hash}`,
             bodyCharacters: document.body?.innerText?.length ?? 0,
             headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].map(element => (element.textContent ?? "").trim().slice(0, 70)).slice(0, 15),
-            tables: [...document.querySelectorAll("main table")].map(table => ({ headers: [...table.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").trim().slice(0, 70)), rows: table.querySelectorAll("tbody tr").length })),
+            tables: [...document.querySelectorAll("main table")].map(table => ({ headers: [...table.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").trim().slice(0, 70)), rows: table.querySelectorAll("tbody tr").length, sample: [...table.querySelectorAll("tbody tr")].slice(0, 3).map(row => [...row.querySelectorAll("td")].map(cell => (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 150))) })),
             actionLabels: [...document.querySelectorAll<HTMLElement>("main button, main a")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 25),
           }));
         }
