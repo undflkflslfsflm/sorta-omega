@@ -82,7 +82,7 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
           phase = "detail_modal_read";
           detailText = (await modal.innerText()).trim().slice(0, 10_000);
           phase = "detail_return_navigation";
-          await page.goto(detailUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
           phase = "detail_return_heading";
           await page.locator("main h1").waitFor({ timeout: 20_000 });
           phase = "detail_return_rows";
