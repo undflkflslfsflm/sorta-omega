@@ -3,8 +3,9 @@ param(
   [Parameter(Mandatory = $true)][string]$OutputDirectory
 )
 $ErrorActionPreference = 'Stop'
+if (-not [System.IO.Path]::IsPathRooted($OutputDirectory)) { throw 'Use a new absolute staging directory.' }
 $output = [System.IO.Path]::GetFullPath($OutputDirectory)
-if (-not [System.IO.Path]::IsPathFullyQualified($output) -or (Test-Path -LiteralPath $output)) { throw 'Use a new absolute staging directory.' }
+if (Test-Path -LiteralPath $output) { throw 'Use a new absolute staging directory.' }
 $profileRoot = [Environment]::GetFolderPath('UserProfile')
 if (-not $output.StartsWith([System.IO.Path]::Combine($profileRoot, 'AppData', 'Local', 'SortaOmega', 'Imports') + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Staging must remain in the owner-private SortaOmega Imports directory.' }
 $allowed = @('.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.md', '.csv', '.eml', '.html', '.htm')
@@ -21,7 +22,7 @@ foreach ($root in $roots) {
   if (-not (Test-Path -LiteralPath $root.Path)) { continue }
   Get-ChildItem -LiteralPath $root.Path -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
     $file = $_
-    $relative = [System.IO.Path]::GetRelativePath($root.Path, $file.FullName)
+    $relative = $file.FullName.Substring($root.Path.TrimEnd('\').Length + 1)
     $display = "$($root.Label)/$($relative.Replace('\', '/'))"
     if ($file.FullName -match '\\(\.git|node_modules|Codex|\.codex)\\|\\ChatGPT\\(calendar app|homelab)\\') { return }
     if ($file.Name -match '(?i)(\.env|secret|credential|private.?key|recovery.?code|password|token)') { $skipped.Add([pscustomobject]@{ Path = $display; Reason = 'sensitive_name' }); return }
