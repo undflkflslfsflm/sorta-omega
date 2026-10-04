@@ -26,7 +26,7 @@ for (const item of items) {
 if (totalBytes > 300 * 1024 * 1024) throw new Error("personal_file_batch_too_large");
 const vault = await pool.query("SELECT id FROM vaults WHERE id=$1", [vaultId]);
 if (!vault.rowCount) throw new Error("personal_file_vault_not_found");
-const mediaType = (filename: string) => ({ ".pdf": "application/pdf", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".csv": "text/csv", ".md": "text/markdown", ".txt": "text/plain", ".eml": "message/rfc822", ".html": "text/html", ".htm": "text/html" } as Record<string, string>)[path.extname(filename).toLowerCase()] ?? "application/octet-stream";
+const mediaType = (filename: string) => ({ ".pdf": "application/pdf", ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".csv": "text/csv", ".md": "text/markdown", ".txt": "text/plain", ".eml": "message/rfc822", ".html": "text/html", ".htm": "text/html", ".ics": "text/calendar", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic" } as Record<string, string>)[path.extname(filename).toLowerCase()] ?? "application/octet-stream";
 const counts = { created: 0, updated: 0, unchanged: 0, originalsStored: 0, textExtracted: 0, textUnavailable: 0 };
 try {
 for (const item of items) {

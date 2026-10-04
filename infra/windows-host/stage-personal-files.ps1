@@ -9,7 +9,7 @@ $output = [System.IO.Path]::GetFullPath($OutputDirectory)
 if (Test-Path -LiteralPath $output) { throw 'Use a new absolute staging directory.' }
 $profileRoot = [Environment]::GetFolderPath('UserProfile')
 if (-not $output.StartsWith([System.IO.Path]::Combine($profileRoot, 'AppData', 'Local', 'SortaOmega', 'Imports') + [System.IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw 'Staging must remain in the owner-private SortaOmega Imports directory.' }
-$allowed = @('.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.md', '.csv', '.eml', '.html', '.htm')
+$allowed = @('.pdf', '.docx', '.pptx', '.xlsx', '.txt', '.md', '.csv', '.eml', '.html', '.htm', '.ics', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.heic')
 $roots = @(
   [pscustomobject]@{ Label = 'Documents'; Path = [System.IO.Path]::Combine($profileRoot, 'Documents') },
   [pscustomobject]@{ Label = 'Desktop'; Path = [System.IO.Path]::Combine($profileRoot, 'Desktop') },
