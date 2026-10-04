@@ -28,6 +28,13 @@ export function timelineMinute(value: string, timezone: string): number {
   return part("hour") * 60 + part("minute");
 }
 
+export function timelineInitialScrollLeft(dayIndex: number, dayCount: number, scrollWidth: number, clientWidth: number): number {
+  if (dayIndex < 0 || dayCount < 1 || scrollWidth <= clientWidth) return 0;
+  const hourGutter = 54;
+  const dayWidth = (scrollWidth - hourGutter) / dayCount;
+  return Math.max(0, dayWidth * dayIndex);
+}
+
 export function placeTimelineDay<T extends TimelineItem>(items: T[], date: string, timezone: string): PlacedTimelineItem<T>[] {
   const visible = items.flatMap(item => {
     const endTimestamp = item.endsAt ? Date.parse(item.endsAt) : Date.parse(item.startsAt) + 30 * 60_000;

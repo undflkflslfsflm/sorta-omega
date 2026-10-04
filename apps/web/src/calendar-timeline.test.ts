@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { placeTimelineDay, timelineBounds, timelineDateKey, type TimelineItem } from "./calendar-timeline";
+import { placeTimelineDay, timelineBounds, timelineDateKey, timelineInitialScrollLeft, type TimelineItem } from "./calendar-timeline";
 
 const item = (id: string, startsAt: string, endsAt: string): TimelineItem => ({ id, title: id, startsAt, endsAt, layer: "school", attendanceStatus: null, attendanceLabel: null, detail: "" });
 
 describe("calendar timeline", () => {
+  it("returns to Monday when the displayed week no longer contains today", () => {
+    expect(timelineInitialScrollLeft(-1, 7, 1384, 400)).toBe(0);
+    expect(timelineInitialScrollLeft(6, 7, 1384, 400)).toBe(1140);
+    expect(timelineInitialScrollLeft(6, 7, 400, 400)).toBe(0);
+  });
+
   it("places lessons by local time rather than stacking them", () => {
     const lessons = placeTimelineDay([item("maths", "2026-09-24T07:55:00.000Z", "2026-09-24T08:40:00.000Z"), item("history", "2026-09-24T08:45:00.000Z", "2026-09-24T09:30:00.000Z")], "2026-09-24", "Europe/Oslo");
     expect(lessons.map(value => [value.id, value.startMinute, value.endMinute])).toEqual([["maths", 595, 640], ["history", 645, 690]]);

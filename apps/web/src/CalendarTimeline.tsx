@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { CalendarView } from "@sorta/contracts";
-import { placeTimelineDay, timelineBounds, timelineDateKey, timelineMinute, type TimelineItem } from "./calendar-timeline";
+import { placeTimelineDay, timelineBounds, timelineDateKey, timelineInitialScrollLeft, timelineMinute, type TimelineItem } from "./calendar-timeline";
 
 type Props = {
   days: Date[];
@@ -25,9 +25,8 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
   useEffect(() => {
     const scroller = scrollRef.current;
     const index = dates.indexOf(currentDate);
-    if (!scroller || index < 0 || scroller.scrollWidth <= scroller.clientWidth) return;
-    const dayWidth = (scroller.scrollWidth - 54) / days.length;
-    scroller.scrollLeft = Math.max(0, 54 + dayWidth * index - 54);
+    if (!scroller) return;
+    scroller.scrollLeft = timelineInitialScrollLeft(index, days.length, scroller.scrollWidth, scroller.clientWidth);
   }, [dates, currentDate, days.length]);
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 60_000); return () => window.clearInterval(timer); }, []);
 
