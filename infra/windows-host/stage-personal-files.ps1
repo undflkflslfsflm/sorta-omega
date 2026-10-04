@@ -20,7 +20,12 @@ $items = [System.Collections.Generic.List[object]]::new()
 $skipped = [System.Collections.Generic.List[object]]::new()
 foreach ($root in $roots) {
   if (-not (Test-Path -LiteralPath $root.Path)) { continue }
-  Get-ChildItem -LiteralPath $root.Path -File -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+  $pending = [System.Collections.Generic.Stack[string]]::new()
+  $pending.Push($root.Path)
+  while ($pending.Count -gt 0) {
+  $directory = $pending.Pop()
+  Get-ChildItem -LiteralPath $directory -Directory -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\(\.git|node_modules|Codex|\.codex)($|\\)|\\ChatGPT\\(calendar app|homelab)($|\\)' } | ForEach-Object { $pending.Push($_.FullName) }
+  Get-ChildItem -LiteralPath $directory -File -ErrorAction SilentlyContinue | ForEach-Object {
     $file = $_
     $relative = $file.FullName.Substring($root.Path.TrimEnd('\').Length + 1)
     $display = "$($root.Label)/$($relative.Replace('\', '/'))"
@@ -35,6 +40,7 @@ foreach ($root in $roots) {
       if ((Get-FileHash -LiteralPath $staged -Algorithm SHA256).Hash.ToLowerInvariant() -ne $hash) { throw 'staged_checksum_mismatch' }
       $items.Add([pscustomobject]@{ relativePath = $display; stagedName = $hash; sha256 = $hash; byteLength = $file.Length; modifiedAt = $file.LastWriteTimeUtc.ToString('o') })
     } catch { $skipped.Add([pscustomobject]@{ Path = $display; Reason = 'unreadable_or_staging_failed' }) }
+  }
   }
 }
 $manifest = [ordered]@{ version = 'omega_personal_files_v1'; deviceKey = $DeviceKey; stagedAt = [DateTime]::UtcNow.ToString('o'); items = @($items); skipped = @($skipped) }
