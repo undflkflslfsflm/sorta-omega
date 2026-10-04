@@ -6,6 +6,7 @@ const course = { kind: "course", externalId: "course:42", title: "Matematikk 2P"
 const lesson = { kind: "lesson", externalId: "lesson:123", title: "Matematikk 2P", courseExternalId: course.externalId, subjectExternalId: subject.externalId, startsAt: "2026-09-24T07:55:00.000Z", endsAt: "2026-09-24T08:40:00.000Z", timezone: "Europe/Oslo", room: "H370", teachers: null, lessonType: null, sourceEntityId: "123" } as const;
 const attendance = { kind: "attendance", externalId: "absence:456", courseExternalId: course.externalId, lessonExternalId: lesson.externalId, date: "2026-09-24", rawStatus: "For sent", normalizedStatus: "late", excusalStatus: "unknown", duration: 10, units: "minutes" } as const;
 const grade = { kind: "grade", externalId: "grade:789", courseExternalId: course.externalId, date: "2026-09-24", rawGrade: "5+", scale: "1-6", officialWeight: null } as const;
+const assessment = { kind: "assessment", externalId: "assessment:789", courseExternalId: course.externalId, title: "Retorisk analyse", date: "2026-09-09", theme: "Underveisvurdering", assessmentType: "Karakter og kommentar", detailText: "Tilbakemelding i OneNote" } as const;
 const snapshot = { version: "omega_school_json_v1", source_timestamp: "2026-09-23T20:00:00.000Z", source_origin: "https://mailand.inschool.visma.no", timezone: "Europe/Oslo", records: [subject, course, lesson] } as const;
 
 describe("InSchool snapshot gate", () => {
@@ -26,6 +27,12 @@ describe("InSchool snapshot gate", () => {
   });
   it("accepts exact provider attendance and grade facts without inventing weight or excusal", () => {
     expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, lesson, attendance, grade] }).success).toBe(true);
+  });
+  it("accepts sourced assessments with linked grades but rejects an orphan or mismatched grade", () => {
+    const linked = { ...grade, assessmentExternalId: assessment.externalId };
+    expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, assessment, linked] }).success).toBe(true);
+    expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, linked] }).success).toBe(false);
+    expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, { ...assessment, courseExternalId: "course:elsewhere" }, linked] }).success).toBe(false);
   });
   it("rejects unlinked, ambiguous or malformed sensitive records", () => {
     const records = [subject, course, lesson, attendance, grade];

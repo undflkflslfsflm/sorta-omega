@@ -6,6 +6,7 @@ import { stdin as input, stdout as output } from "node:process";
 import { inSchoolTimetableSnapshot,teamsNotes,type InSchoolVisibleLesson } from "./normalize.js";
 import { collectTeamsAssignments } from "./teams-assignments.js";
 import { collectInSchoolAttendance } from "./inschool-attendance.js";
+import { collectInSchoolAssessments } from "./inschool-assessments.js";
 import { collectTeamsClassPosts } from "./teams-channels.js";
 
 const args=new Map<string,string>();for(let index=2;index<process.argv.length;index+=2){const key=process.argv[index],value=process.argv[index+1];if(!key?.startsWith("--")||!value)throw new Error("usage: browser-bridge --provider teams|inschool --output <absolute-json-file> [--origin https://county.inschool.visma.no] (--profile <absolute-directory> OR --cdp http://127.0.0.1:9222 OR --cdp-profile <absolute-directory> --noninteractive true)");args.set(key.slice(2),value);}
@@ -13,7 +14,7 @@ const provider=args.get("provider"),profile=args.get("profile"),cdpProfile=args.
 function boundedWeeks(name:string,defaultValue:number,max:number){const raw=args.get(name);if(raw===undefined)return defaultValue;if(!/^\d{1,2}$/.test(raw))throw new Error(`${name}_must_be_bounded_integer`);const value=Number(raw);if(value>max)throw new Error(`${name}_must_be_bounded_integer`);return value;}
 const weeksPast=boundedWeeks("weeks-past",2,8),weeksFuture=boundedWeeks("weeks-future",16,24),startOffsetWeeks=boundedWeeks("start-offset-weeks",0,52);
 let cdp=args.get("cdp");
-if(!["teams","teams-assignments","teams-channels","inschool","inschool-attendance"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
+if(!["teams","teams-assignments","teams-channels","inschool","inschool-attendance","inschool-assessments"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
 if(cdpProfile){const [portText,socketPath]=(await readFile(path.join(cdpProfile,"DevToolsActivePort"),"utf8")).trim().split(/\r?\n/),port=Number(portText);if(!Number.isInteger(port)||port<1024||port>65535||!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath??""))throw new Error("browser_bridge_cdp_profile_port_invalid");cdp=`ws://127.0.0.1:${port}${socketPath}`;}
 if(cdp){const url=new URL(cdp);if(!["http:","ws:"].includes(url.protocol)||!["127.0.0.1","localhost"].includes(url.hostname)||url.username||url.password||url.search||url.hash||url.protocol==="http:"&&url.pathname!=="/"||url.protocol==="ws:"&&!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(url.pathname))throw new Error("browser_bridge_cdp_must_be_local_loopback");}
 if(noninteractive&&!cdp)throw new Error("browser_bridge_noninteractive_requires_attached_browser");
@@ -105,7 +106,17 @@ try{
     const origin=new URL(args.get("origin")??"");if(origin.protocol!=="https:"||!origin.hostname.endsWith(".inschool.visma.no")||origin.username||origin.password)throw new Error("registered_inschool_origin_required");if(!cdp)await page.goto(origin.origin,{waitUntil:"domcontentloaded"});
     const timetablePage=cdp?await context.newPage():page;
     try{
-    if(provider==="inschool-attendance"){
+    if(provider==="inschool-assessments"){
+      const basePath=args.get("base-snapshot");
+      if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("inschool_assessment_base_snapshot_required");
+      const base=JSON.parse(await readFile(basePath,"utf8"));
+      await timetablePage.goto(`${origin.origin}/#/app/dashboard`,{waitUntil:"domcontentloaded",timeout:30_000});
+      assertAllowed(timetablePage);
+      if(new URL(timetablePage.url()).origin!==origin.origin)throw new Error("inschool_tab_origin_does_not_match_registered_origin");
+      const {snapshot,coverage}=await collectInSchoolAssessments(timetablePage,base,origin.origin);
+      await writeNewArtifact(snapshot);
+      console.log(JSON.stringify({provider,format:snapshot.version,output:artifactPath,itemCount:snapshot.records.length,coverage,sessionRetainedInProfile:true,credentialsExported:false}));
+    }else if(provider==="inschool-attendance"){
       const basePath=args.get("base-snapshot");
       if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("inschool_attendance_base_snapshot_required");
       const base=JSON.parse(await readFile(basePath,"utf8"));

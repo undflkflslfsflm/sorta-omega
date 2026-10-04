@@ -31,7 +31,13 @@ const attendance = z.object({
 const grade = z.object({
   kind: z.literal("grade"), externalId: identifier, courseExternalId: identifier,
   date: z.string().date(), rawGrade: z.string().trim().min(1).max(80),
-  scale: z.string().trim().min(1).max(80), officialWeight: z.number().min(0).max(1).nullable()
+  scale: z.string().trim().min(1).max(80), officialWeight: z.number().min(0).max(1).nullable(),
+  assessmentExternalId: identifier.optional()
+}).strict();
+const assessment = z.object({
+  kind: z.literal("assessment"), externalId: identifier, courseExternalId: identifier,
+  title, date: z.string().date(), theme: z.string().trim().max(500),
+  assessmentType: z.string().trim().max(240), detailText: z.string().trim().max(10_000)
 }).strict();
 
 export const inSchoolSnapshotSchema = z.object({
@@ -39,7 +45,7 @@ export const inSchoolSnapshotSchema = z.object({
   source_timestamp: z.string().datetime(),
   source_origin: z.string().url(),
   timezone: z.literal("Europe/Oslo"),
-  records: z.array(z.discriminatedUnion("kind", [subject, course, lesson, attendance, grade])).min(1).max(1000)
+  records: z.array(z.discriminatedUnion("kind", [subject, course, lesson, attendance, grade, assessment])).min(1).max(1000)
 }).strict().superRefine((snapshot, context) => {
   let origin: URL;
   try { origin = new URL(snapshot.source_origin); }
@@ -67,6 +73,8 @@ export const inSchoolSnapshotSchema = z.object({
       if ((item.duration === null) !== (item.units === null)) context.addIssue({ code: "custom", path: ["records", index, "duration"], message: "Attendance duration and units must travel together" });
     }
     if (item.kind === "grade" && !courses.has(item.courseExternalId)) context.addIssue({ code: "custom", path: ["records", index, "courseExternalId"], message: "Grade course is missing" });
+    if (item.kind === "assessment" && !courses.has(item.courseExternalId)) context.addIssue({ code: "custom", path: ["records", index, "courseExternalId"], message: "Assessment course is missing" });
+    if (item.kind === "grade" && item.assessmentExternalId && !snapshot.records.some(record => record.kind === "assessment" && record.externalId === item.assessmentExternalId && record.courseExternalId === item.courseExternalId)) context.addIssue({ code: "custom", path: ["records", index, "assessmentExternalId"], message: "Grade assessment is missing or mismatched" });
   });
 });
 

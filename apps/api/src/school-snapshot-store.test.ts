@@ -36,7 +36,7 @@ describe("school snapshot sensitive record storage", () => {
       }
       if (sql.startsWith("INSERT INTO school_snapshot_links")) {
         const kind = String(values[2]), externalId = String(values[3]);
-        links.set(`${kind}:${externalId}`, { content_hash: values[9], source_timestamp: values[11], [`${kind}_id`]: values[kind === "attendance" ? 7 : kind === "grade" ? 8 : kind === "lesson" ? 6 : kind === "course" ? 5 : 4] });
+        links.set(`${kind}:${externalId}`, { content_hash: values[10], source_timestamp: values[12], [`${kind}_id`]: values[kind === "assessment" ? 9 : kind === "attendance" ? 7 : kind === "grade" ? 8 : kind === "lesson" ? 6 : kind === "course" ? 5 : 4] });
         return { rows: [] };
       }
       throw new Error(`Unexpected query: ${sql}`);

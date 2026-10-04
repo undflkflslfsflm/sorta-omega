@@ -2,13 +2,13 @@ import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import type { InSchoolSnapshot } from "./school-snapshot.js";
 
-type Kind = "subject" | "course" | "lesson" | "attendance" | "grade";
+type Kind = "subject" | "course" | "lesson" | "attendance" | "grade" | "assessment";
 type Action = "created" | "updated" | "linked" | "unchanged" | "stale";
 export type SchoolSnapshotApplyCounts = Record<Kind, Record<Action, number>>;
 
 function emptyCounts(): SchoolSnapshotApplyCounts {
   const actions = () => ({ created: 0, updated: 0, linked: 0, unchanged: 0, stale: 0 });
-  return { subject: actions(), course: actions(), lesson: actions(), attendance: actions(), grade: actions() };
+  return { subject: actions(), course: actions(), lesson: actions(), attendance: actions(), grade: actions(), assessment: actions() };
 }
 
 function hashRecord(value: unknown): string {
@@ -18,7 +18,7 @@ function hashRecord(value: unknown): string {
 export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string, snapshot: InSchoolSnapshot): Promise<SchoolSnapshotApplyCounts> {
   await client.query("SELECT pg_advisory_xact_lock(hashtext($1),hashtext($2))", [vaultId, snapshot.source_origin]);
   const counts = emptyCounts();
-  const subjectIds = new Map<string, string>(), courseIds = new Map<string, string>(), lessonIds = new Map<string, string>();
+  const subjectIds = new Map<string, string>(), courseIds = new Map<string, string>(), lessonIds = new Map<string, string>(), assessmentIds = new Map<string, string>();
   const timestamp = Date.parse(snapshot.source_timestamp);
 
   async function existing(kind: Kind, externalId: string) {
@@ -26,13 +26,13 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
     return result.rows[0] ?? null;
   }
   async function saveLink(kind: Kind, externalId: string, id: string, record: unknown, contentHash: string) {
-    await client.query(`INSERT INTO school_snapshot_links(vault_id,source_origin,record_kind,external_id,subject_id,course_id,lesson_id,attendance_id,grade_id,content_hash,source_record,source_timestamp)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12)
+    await client.query(`INSERT INTO school_snapshot_links(vault_id,source_origin,record_kind,external_id,subject_id,course_id,lesson_id,attendance_id,grade_id,assessment_id,content_hash,source_record,source_timestamp)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13)
       ON CONFLICT(vault_id,source_origin,record_kind,external_id) DO UPDATE SET
       content_hash=excluded.content_hash,source_record=excluded.source_record,source_timestamp=excluded.source_timestamp,last_seen_at=now()`,
-    [vaultId, snapshot.source_origin, kind, externalId, kind === "subject" ? id : null, kind === "course" ? id : null, kind === "lesson" ? id : null, kind === "attendance" ? id : null, kind === "grade" ? id : null, contentHash, JSON.stringify(record), snapshot.source_timestamp]);
+    [vaultId, snapshot.source_origin, kind, externalId, kind === "subject" ? id : null, kind === "course" ? id : null, kind === "lesson" ? id : null, kind === "attendance" ? id : null, kind === "grade" ? id : null, kind === "assessment" ? id : null, contentHash, JSON.stringify(record), snapshot.source_timestamp]);
   }
-  async function linkedRow(table: "school_subjects" | "school_courses" | "school_lessons" | "attendance_records" | "performance_grades", id: string) {
+  async function linkedRow(table: "school_subjects" | "school_courses" | "school_lessons" | "attendance_records" | "performance_grades" | "school_assessments", id: string) {
     const result = await client.query(`SELECT * FROM ${table} WHERE vault_id=$1 AND id=$2 AND archived_at IS NULL FOR UPDATE`, [vaultId, id]);
     if (!result.rows[0]) throw new Error("school_snapshot_linked_record_unavailable");
     return result.rows[0];
@@ -137,9 +137,35 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
     }
     await saveLink("attendance", record.externalId, id, record, hash);
   }
+  for (const record of snapshot.records.filter(item => item.kind === "assessment")) {
+    const courseId = courseIds.get(record.courseExternalId);
+    if (!courseId) throw new Error("school_snapshot_assessment_course_unavailable");
+    const hash = hashRecord(record), link = await existing("assessment", record.externalId);
+    if (link && new Date(link.source_timestamp).getTime() > timestamp) { assessmentIds.set(record.externalId, link.assessment_id); counts.assessment.stale++; continue; }
+    const timeSpec = JSON.stringify({ kind: "date_only", date: record.date, timezone: "Europe/Oslo" });
+    const description = [`InSchool assessment type: ${record.assessmentType || "unknown"}`, record.theme && `Theme: ${record.theme}`, record.detailText].filter(Boolean).join("\n").slice(0, 2000);
+    const materialScope = JSON.stringify({ description: description || null, sourceIds: [] });
+    let id: string;
+    if (link) {
+      const row = await linkedRow("school_assessments", link.assessment_id);
+      id = row.id;
+      if (link.content_hash === hash) counts.assessment.unchanged++;
+      else if (row.origin === "provider") {
+        await client.query("UPDATE school_assessments SET course_id=$3,title=$4,time_spec=$5::jsonb,material_scope=$6::jsonb,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2", [vaultId,id,courseId,record.title,timeSpec,materialScope]);
+        counts.assessment.updated++;
+      } else counts.assessment.linked++;
+    } else {
+      const created = await client.query("INSERT INTO school_assessments(vault_id,course_id,title,kind,time_spec,material_scope,origin) VALUES ($1,$2,$3,'other',$4::jsonb,$5::jsonb,'provider') RETURNING id", [vaultId,courseId,record.title,timeSpec,materialScope]);
+      id = created.rows[0].id; counts.assessment.created++;
+    }
+    await saveLink("assessment", record.externalId, id, record, hash);
+    assessmentIds.set(record.externalId, id);
+  }
   for (const record of snapshot.records.filter(item => item.kind === "grade")) {
     const courseId = courseIds.get(record.courseExternalId);
     if (!courseId) throw new Error("school_snapshot_grade_course_unavailable");
+    const assessmentId = record.assessmentExternalId ? assessmentIds.get(record.assessmentExternalId) : null;
+    if (record.assessmentExternalId && !assessmentId) throw new Error("school_snapshot_grade_assessment_unavailable");
     const hash = hashRecord(record), link = await existing("grade", record.externalId);
     if (link && new Date(link.source_timestamp).getTime() > timestamp) { counts.grade.stale++; continue; }
     let id: string;
@@ -148,11 +174,11 @@ export async function applyInSchoolSnapshot(client: PoolClient, vaultId: string,
       id = row.id;
       if (link.content_hash === hash) counts.grade.unchanged++;
       else if (row.origin === "provider") {
-        await client.query("UPDATE performance_grades SET course_id=$3,grade_value=$4,grade_scale=$5,grade_date=$6,official_weight=$7,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2", [vaultId,id,courseId,record.rawGrade,record.scale,record.date,record.officialWeight]);
+        await client.query("UPDATE performance_grades SET course_id=$3,grade_value=$4,grade_scale=$5,grade_date=$6,official_weight=$7,assessment_id=$8,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2", [vaultId,id,courseId,record.rawGrade,record.scale,record.date,record.officialWeight,assessmentId]);
         counts.grade.updated++;
       } else counts.grade.linked++;
     } else {
-      const created = await client.query("INSERT INTO performance_grades(vault_id,course_id,grade_value,grade_scale,grade_date,official_weight,origin,record_kind) VALUES ($1,$2,$3,$4,$5,$6,'provider','official') RETURNING id", [vaultId,courseId,record.rawGrade,record.scale,record.date,record.officialWeight]);
+      const created = await client.query("INSERT INTO performance_grades(vault_id,course_id,assessment_id,grade_value,grade_scale,grade_date,official_weight,origin,record_kind) VALUES ($1,$2,$3,$4,$5,$6,$7,'provider','official') RETURNING id", [vaultId,courseId,assessmentId,record.rawGrade,record.scale,record.date,record.officialWeight]);
       id = created.rows[0].id; counts.grade.created++;
     }
     await saveLink("grade", record.externalId, id, record, hash);
