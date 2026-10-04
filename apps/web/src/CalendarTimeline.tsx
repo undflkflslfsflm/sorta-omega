@@ -10,6 +10,13 @@ type Props = {
 };
 
 const hourHeight = 64;
+const compactAttendance = (label: string | null, status: "present" | "absent" | "late" | "unknown" | null) => {
+  if (!status || status === "present") return "";
+  const code = /^([A-Z!§])\s*-/i.exec(label ?? "")?.[1]?.toUpperCase();
+  if (status === "late") return code ? `Forsinket · ${code}` : "Forsinket";
+  if (status === "absent") return code ? `Fravær · ${code}` : "Fravær";
+  return "Oppmøte ukjent";
+};
 
 export function CalendarTimeline({ days, items, markers, timezone }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -70,7 +77,7 @@ export function CalendarTimeline({ days, items, markers, timezone }: Props) {
             const blockHeight = Math.max(20, ((item.endMinute - item.startMinute) / 60) * hourHeight - 2);
             const width = 100 / item.laneCount;
             return <article className={`calendar-timeline-event ${item.layer} ${item.attendanceStatus ? `attendance-${item.attendanceStatus}` : ""}`} key={item.id} style={{ top, height: blockHeight, left: `${item.lane * width}%`, width: `calc(${width}% - 3px)` }} title={`${item.title} · ${item.detail}`}>
-              <strong>{item.title}</strong><small>{time(item.startsAt)}–{item.endsAt ? time(item.endsAt) : "time unknown"}{item.attendanceLabel ? ` · ${item.attendanceLabel}` : item.attendanceStatus === "absent" ? " · Absent" : item.attendanceStatus === "late" ? " · Late" : ""}</small>
+              <strong>{item.title}</strong><small>{time(item.startsAt)}–{item.endsAt ? time(item.endsAt) : "time unknown"}{compactAttendance(item.attendanceLabel, item.attendanceStatus) ? ` · ${compactAttendance(item.attendanceLabel, item.attendanceStatus)}` : ""}</small>
             </article>;
           })}
         </div>)}
