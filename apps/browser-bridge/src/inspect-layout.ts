@@ -85,6 +85,28 @@ try {
       }
       console.log(JSON.stringify({ provider, section, structure, detail }));
     } finally { await probe.close(); }
+  } else if (args.get("teams-first-class-open") === "true" && provider === "teams") {
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(page.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+      const classes = probe.locator(".fui-AccordionItem").filter({ has: probe.getByRole("button", { name: /^Classes\s*\d+\s*teams$/i }) });
+      await classes.waitFor({ timeout: 20_000 });
+      if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
+      const header = classes.getByRole("button", { name: /^Classes\s*\d+\s*teams$/i });
+      if (await header.getAttribute("aria-expanded") === "false") await header.click();
+      const cards = classes.locator('[role="group"]');
+      await cards.first().waitFor({ timeout: 15_000 });
+      const count = await cards.count();
+      if (count < 1 || count > 30) throw new Error("teams_class_card_count_unbounded");
+      await cards.first().click();
+      await probe.waitForTimeout(5_000);
+      const structure = await probe.evaluate(String.raw`(() => {
+        const clean = node => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 6);
+        const candidate = document.querySelector('[role="tablist"], [class*="channel" i], [class*="post" i], [role="list"]');
+        return { routeShape: (location.pathname + location.hash).split("/").map(segment => segment.length > 30 || /\d/.test(segment) ? "*" : segment).join("/"), candidate: candidate ? { tag: candidate.tagName.toLowerCase(), classes: clean(candidate), role: candidate.getAttribute("role"), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style"), childCount: candidate.children.length } : null, counts: { tabs: document.querySelectorAll('[role="tab"]').length, links: document.querySelectorAll("a").length, groups: document.querySelectorAll('[role="group"]').length, messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"]').length }, genericLabels: [...document.querySelectorAll("button, a, [role=button], [role=tab]")].map(node => (node.getAttribute("aria-label") ?? node.getAttribute("title") ?? node.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /^(general|generelt|posts|innlegg|files|filer|assignments|oppgaver|classwork|kanaler|channels|see all|vis alle)$/i.test(label)).slice(0, 40) };
+      })()`);
+      console.log(JSON.stringify({ provider, classCardCount: count, structure }));
+    } finally { await probe.close(); }
   } else if (args.get("teams-sidebar-shape") === "true" && provider === "teams") {
     const sidebar = await page.evaluate(String.raw`(() => {
       const safeClasses = node => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 8);
