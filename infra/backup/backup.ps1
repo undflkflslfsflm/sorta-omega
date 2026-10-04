@@ -25,7 +25,8 @@ if($LASTEXITCODE-eq 0){
 }
 $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $dump).Hash.ToLowerInvariant()
 $blobFiles=@(Get-ChildItem -LiteralPath $blobs -File -Recurse | Sort-Object FullName)
-$blobManifest=@($blobFiles | ForEach-Object {[ordered]@{path=[IO.Path]::GetRelativePath($blobs,$_.FullName).Replace('\','/');sha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant();bytes=$_.Length}})
+$blobRoot=[IO.Path]::GetFullPath($blobs).TrimEnd([char]'\')+'\'
+$blobManifest=@($blobFiles | ForEach-Object {[ordered]@{path=$_.FullName.Substring($blobRoot.Length).Replace('\','/');sha256=(Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash.ToLowerInvariant();bytes=$_.Length}})
 $blobBytes=($blobManifest|Measure-Object -Property bytes -Sum).Sum;if($null-eq $blobBytes){$blobBytes=0}
 $manifest=[ordered]@{format='sorta-omega-backup-v2';created_at=(Get-Date).ToUniversalTime().ToString('o');database='sorta_omega';dump_file='database.dump';dump_sha256=$hash;dump_bytes=(Get-Item -LiteralPath $dump).Length;blob_directory='blobs';blob_count=$blobManifest.Count;blob_bytes=[long]$blobBytes;blobs=$blobManifest;includes=@('canonical notes and revisions','immutable original blobs','sources and anchors','tasks and calendar','school and study','projects goals and memories','jobs and audit records');external_credentials_included=$false;external_writes_reenabled_on_restore=$false}
 $manifest|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $bundle 'manifest.json') -Encoding utf8
