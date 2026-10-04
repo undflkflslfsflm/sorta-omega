@@ -48,7 +48,7 @@ try {
   if (!page) throw new Error("matching_tab_not_found");
   if (args.get("inschool-section") && provider === "inschool") {
     const section = args.get("inschool-section");
-    if (section !== "attendance" && section !== "assessment") throw new Error("inschool_section_not_registered");
+    if (!["attendance", "attendance/lessons", "attendance/future", "assessment"].includes(section)) throw new Error("inschool_section_not_registered");
     const probe = await browser.contexts()[0].newPage();
     try {
       await probe.goto(`${expectedOrigin}/#/app/${section}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
