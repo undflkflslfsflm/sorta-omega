@@ -5588,6 +5588,10 @@ if (config.NODE_ENV === "production") {
   const webDirectory = path.resolve(apiDirectory, "../../web/dist");
   if (!existsSync(path.join(webDirectory, "index.html"))) throw new Error(`Web build not found at ${webDirectory}`);
   await app.register(staticFiles, { root: webDirectory, wildcard: false });
+  app.get("/setup/ios-dns.mobileconfig", (_request, reply) => reply
+    .header("Content-Disposition", 'attachment; filename="sorta-mullvad-base-tailscale.mobileconfig"')
+    .type("application/x-apple-aspen-config")
+    .sendFile("downloads/sorta-mullvad-base-tailscale.mobileconfig"));
   app.setNotFoundHandler((request, reply) => {
     if (request.url.startsWith("/api/") || request.url.startsWith("/health/")) return reply.code(404).send({ error: "not_found" });
     return reply.type("text/html").sendFile("index.html");
