@@ -13,6 +13,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { ZodError } from "zod";
 import { safeFetchText } from "./safe-fetch.js";
+import { focusGroundedEvidence } from "./grounded-evidence.js";
 import {
   activityEventSchema,
   preferencesSchema,
@@ -4891,12 +4892,13 @@ app.post("/api/v1/worker/jobs/:jobId/evidence", async (request, reply) => {
        FROM chunk_embeddings e JOIN semantic_chunks c ON c.id = e.chunk_id AND c.generation_id = e.generation_id
        JOIN notes n ON n.id = c.note_id AND n.revision = c.note_revision
        WHERE e.generation_id = $1 AND n.vault_id = $3 AND n.trashed_at IS NULL
-       ORDER BY e.embedding <=> $2::vector, c.id LIMIT 8`,
+       ORDER BY e.embedding <=> $2::vector, c.id LIMIT 32`,
       [generation.rows[0].id, `[${input.embedding.join(",")}]`, job.vault_id]
     );
     await client.query("DELETE FROM job_evidence WHERE job_id = $1", [jobId]);
     const items: Array<{ citationId: string; title: string; text: string }> = [];
-    for (const [index, row] of ranked.rows.entries()) {
+    const focused = focusGroundedEvidence(job.input.question, ranked.rows, 8);
+    for (const [index, row] of focused.entries()) {
       const citationId = `c${String(index + 1).padStart(3, "0")}`;
       await client.query(
         `INSERT INTO job_evidence(job_id, citation_id, chunk_id, note_id, source_id, note_revision, title, text, start_offset, end_offset)

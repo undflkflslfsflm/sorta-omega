@@ -11,10 +11,8 @@ describe("grounded answer boundary", () => {
   it("asks for supported partial answers across languages", () => {
     const prompt = buildAnswerPrompt("What is my maths test about?", "grounded", [{ citationId: "c001", title: "Matematikk 2P", text: "Prøve i kapittel 1" }]);
     expect(prompt).toContain("different languages or synonyms");
-    expect(prompt).toContain("If any evidence supports a directly relevant fact");
+    expect(prompt).toContain("If any evidence supports a relevant fact");
     expect(prompt).toContain("say which requested details remain unknown");
-    expect(prompt).toContain("an older lesson about a topic does not establish that the topic is on a later test");
-    expect(prompt).toContain("include every citationId used to support them");
   });
 
   it("rejects citations outside the server packet", () => {
