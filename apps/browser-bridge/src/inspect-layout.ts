@@ -94,9 +94,10 @@ try {
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
       if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
-      const appNavigation = probe.locator('button[aria-label="Assignments (Ctrl+Shift+4)"], button[title="Assignments (Ctrl+Shift+4)"]');
+      const appNavigation = probe.getByRole("button", { name: /^Assignments \(Ctrl\+Shift\+4\)$/ });
+      const appTextNavigation = probe.locator("button").filter({ hasText: /^Assignments\s*\(Ctrl\+Shift\+4\)$/ });
       const legacyNavigation = probe.getByRole("treeitem", { name: "Assignments", exact: true });
-      const assignments = await appNavigation.count() === 1 ? appNavigation : legacyNavigation;
+      const assignments = await appNavigation.count() === 1 ? appNavigation : await appTextNavigation.count() === 1 ? appTextNavigation : legacyNavigation;
       if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
       await assignments.click();
       await probe.waitForTimeout(8_000);
