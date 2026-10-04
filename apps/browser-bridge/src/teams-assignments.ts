@@ -68,7 +68,8 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
     if (parsedList.origin !== assignmentOrigin || parsedList.pathname !== "/classes/all/list" || parsedList.search || parsedList.hash) throw new Error("teams_assignment_list_route_changed");
     stage = "list_read";
     const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(String.raw`elements => elements.map(element => {
-      const rows = [...element.querySelector('[class*="CardHeader__description"]')?.children ?? []];
+      const description = element.querySelector('[class*="CardHeader__description"]');
+      const rows = description ? Array.from(description.children) : [];
       const clean = value => (value ?? "").replace(/\s+/g, " ").trim();
       return { id: element.id, text: clean(element.textContent), dueSummary: clean(rows[0]?.textContent), courseTitle: clean(rows[1]?.textContent) };
     })`) as Array<{ id: string; text: string; dueSummary: string; courseTitle: string }>;
