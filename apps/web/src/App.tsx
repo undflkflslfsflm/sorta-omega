@@ -10,7 +10,7 @@ import { allowEditorNavigation } from "./editor-navigation";
 import { editorDocumentSchema, syncSocketServerFrameSchema, type EditorDocument } from "@sorta/contracts";
 import type { ActivityEvent, AiOperation, AiStatus, AttendanceRecord, AttendanceSummary, AutomationDecision, BlobSummary, Calendar as CalendarRecord, CalendarBrief, CalendarEntity, CalendarEvent, CalendarPolicySet, CalendarView as CalendarViewData, Chat, ChatMessage, Collection, Commitment, EventReminderPlan, Flashcard, FlashcardDeck, FlashcardReviewItem, Goal, Idea, Job, JobHandle, KnowledgeGap, Label, Memory, ModelProfile, MomentumPreferences, MomentumSummary, NextActionSet, Note, NoteRevision, Notification, PerformanceGrade, PerformanceSummary, PerformanceTarget, PersonalProfile, Preferences, PrepItem, Project, Proposal, ProviderCalendarAction, Relationship, Reminder, RoutingRule, RulePreviewResult, ScheduleExplanation, SchedulerPreferences, SchoolAssessment, SchoolAssignment, SchoolCourse, SchoolLesson, SchoolSubject, SearchItem, SearchResult, SourceObjectDetail, StudyAttempt, StudyExercise, StudyPlan, StudySession, SystemStatus, Task, TaskExecutionHistory, Today } from "@sorta/contracts";
 import type { ApiTokenSummary, DeviceScope, DeviceSummary, Insight, IntegrationConnection, Interest, NativeAuthStatus, NativePairingChallenge, PersonalDataImportPreview, PersonalDataItem } from "@sorta/contracts";
-import { startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
+import { browserSupportsWebAuthn, startAuthentication, startRegistration, type PublicKeyCredentialCreationOptionsJSON, type PublicKeyCredentialRequestOptionsJSON } from "@simplewebauthn/browser";
 import { Archive, BookOpen, Brain, CalendarDays, CheckCircle2, ChevronDown, Circle, ClipboardPaste, Clock3, Command, Inbox, KeyRound, Lightbulb, ListTodo, LockKeyhole, MessageSquare, Paperclip, Plus, Search, Settings, Sparkles, Users, X, Zap } from "lucide-react";
 import { api, ApiError, VAULT_ID } from "./api";
 import { cacheCoreRecords, cachedCoreRecords, clearOfflinePrivateDataForLogout, clearOfflineReplica, clearPendingCaptures, flushPendingCaptures, flushSyncOperations, offlineCaptureEnabled, offlineClearOnLogout, offlinePolicyExpiry, OfflineCacheLimitError, pendingCaptures, pendingSyncOperations, queueCapture, queueSyncOperation, replicaDeviceId, setCachedCoreAccessBlocked, setOfflineCaptureEnabled, setReplicaDeviceId, setSyncCursor, syncConflicts, syncCursor } from "./offline-queue";
@@ -24,6 +24,7 @@ import { captureBatchTitle, captureFileSelection, MAX_CAPTURE_FILES, uploadCaptu
 import { assessmentScopeParts } from "./assessment-scope";
 import { parseNorwegianDate, parseNorwegianDateTime } from "./norwegian-date-time";
 import { emptyNoteMessage, type AttachmentLoadState } from "./note-empty-state";
+import { passkeySignInMessage, type PasskeySignInStage } from "./passkey-signin";
 import type { NoteCommitmentCandidate } from "@sorta/contracts";
 
 const RichDocumentEditor=lazy(()=>import("./ManagedNoteEditor"));
@@ -105,6 +106,7 @@ function AuthScreen({ state, onAuthenticated, onRecovery, onRetry }: { state: Au
   const [showRecovery, setShowRecovery] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState("");
   const [newPasskeyLabel, setNewPasskeyLabel] = useState("Recovered device");
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   async function setup(event: FormEvent) {
     event.preventDefault(); setBusy(true); setError(null);
@@ -120,14 +122,30 @@ function AuthScreen({ state, onAuthenticated, onRecovery, onRetry }: { state: Au
 
   async function signIn() {
     setBusy(true); setError(null);
+    let stage: PasskeySignInStage = "options";
     try {
+      if (!browserSupportsWebAuthn()) {
+        stage = "browser";
+        throw new Error("webauthn_unavailable");
+      }
       const options = await api.loginOptions<PublicKeyCredentialRequestOptionsJSON>();
+      stage = "browser";
       const credential = await startAuthentication({ optionsJSON: options.public_key_options });
+      stage = "verify";
       await api.loginVerify(options.challenge_id, credential);
       onAuthenticated();
-    } catch {
-      setError("Sign-in did not finish. Try your passkey again.");
+    } catch (caught) {
+      setError(passkeySignInMessage(stage, caught));
     } finally { setBusy(false); }
+  }
+
+  async function copyAddress() {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      setCopiedAddress(true);
+    } catch {
+      setError("Copy was blocked. Copy the address from your browser and paste it into Safari.");
+    }
   }
 
   async function recover(event: FormEvent) {
@@ -150,10 +168,10 @@ function AuthScreen({ state, onAuthenticated, onRecovery, onRetry }: { state: Au
 
   if (state === "checking") return <div className="auth-page"><div className="auth-card"><span className="auth-mark">S</span><h1>Opening Sorta</h1><p>Checking this device’s secure session…</p><div className="loading-bar"/></div></div>;
   if (state === "unavailable") return <div className="auth-page"><div className="auth-card"><span className="auth-mark"><LockKeyhole/></span><h1>Home host unavailable</h1><p>Sorta cannot open uncached private data while the host or database is offline.</p><button className="primary wide" onClick={onRetry}>Try again</button></div></div>;
-  if (state === "recovery") return <div className="auth-page"><form className="auth-card" onSubmit={replacePasskey}><span className="auth-mark"><KeyRound/></span><p className="eyebrow">Restricted recovery session</p><h1>Replace your passkey</h1><p>Your vault remains locked until a new passkey is registered with user verification.</p><label>Passkey label<input value={newPasskeyLabel} onChange={event => setNewPasskeyLabel(event.target.value)} required/></label>{error && <p className="form-error">{error}</p>}<button className="primary wide" disabled={busy || !newPasskeyLabel.trim()}>{busy ? "Registering…" : "Register replacement passkey"}</button></form></div>;
+  if (state === "recovery") return <div className="auth-page"><form className="auth-card" onSubmit={replacePasskey}><span className="auth-mark"><KeyRound/></span><p className="eyebrow">Restricted recovery session</p><h1>Add a passkey to this device</h1><p>Your vault remains locked until a new passkey is registered with user verification. Existing passkeys remain valid.</p><label>Passkey label<input value={newPasskeyLabel} onChange={event => setNewPasskeyLabel(event.target.value)} required/></label>{error && <p className="form-error">{error}</p>}<button className="primary wide" disabled={busy || !newPasskeyLabel.trim()}>{busy ? "Registering…" : "Add this passkey"}</button></form></div>;
   if (recoveryCodes) return <div className="auth-page"><div className="auth-card wide-card"><span className="auth-mark"><KeyRound/></span><p className="eyebrow">One-time recovery codes</p><h1>Save these somewhere safe</h1><p>These codes will not be shown again. Sorta stores only their hashes.</p><div className="recovery-codes">{recoveryCodes.map(code => <code key={code}>{code}</code>)}</div><label className="confirm-row"><input type="checkbox" checked={savedCodes} onChange={event => setSavedCodes(event.target.checked)}/> I saved every recovery code</label><button className="primary wide" disabled={!savedCodes} onClick={onAuthenticated}>Continue to Sorta</button></div></div>;
   if (state === "setup") return <div className="auth-page"><form className="auth-card" onSubmit={setup}><span className="auth-mark"><KeyRound/></span><p className="eyebrow">Owner setup</p><h1>Create your passkey</h1><p>This closes one-time setup and protects every vault route.</p><label>Your name<input value={ownerLabel} onChange={event => setOwnerLabel(event.target.value)} autoComplete="name" required/></label><label>One-time setup secret<input type="password" value={bootstrapSecret} onChange={event => setBootstrapSecret(event.target.value)} autoComplete="off" required/></label>{error && <p className="form-error">{error}</p>}<button className="primary wide" disabled={busy || !ownerLabel.trim() || !bootstrapSecret}>{busy ? "Creating passkey…" : "Create passkey"}</button></form></div>;
-  return <div className="auth-page"><div className="auth-card"><span className="auth-mark"><KeyRound/></span><p className="eyebrow">Private command center</p><h1>Welcome back</h1><p>Use your passkey to open your notes, calendar, tasks, and private context.</p>{error && <p className="form-error">{error}</p>}{showRecovery ? <form className="recovery-form" onSubmit={recover}><label>One-time recovery code<input value={recoveryCode} onChange={event => setRecoveryCode(event.target.value)} autoComplete="off" placeholder="xxxxx-xxxxx" required/></label><button className="primary wide" disabled={busy || !recoveryCode.trim()}>{busy ? "Checking…" : "Start restricted recovery"}</button><button type="button" className="text-button" onClick={() => { setShowRecovery(false); setError(null); }}>Use a passkey instead</button></form> : <><button className="primary wide" disabled={busy} onClick={() => void signIn()}>{busy ? "Waiting for passkey…" : "Sign in with a passkey"}</button><button className="text-button recovery-link" onClick={() => { setShowRecovery(true); setError(null); }}>Use a recovery code</button></>}</div></div>;
+  return <div className="auth-page"><div className="auth-card"><span className="auth-mark"><KeyRound/></span><p className="eyebrow">Private command center</p><h1>Welcome back</h1><p>Use your passkey to open your notes, calendar, tasks, and private context.</p>{error && <p className="form-error" role="alert">{error}</p>}{showRecovery ? <form className="recovery-form" onSubmit={recover}><label>One-time recovery code<input value={recoveryCode} onChange={event => setRecoveryCode(event.target.value)} autoComplete="off" placeholder="xxxxx-xxxxx" required/></label><button className="primary wide" disabled={busy || !recoveryCode.trim()}>{busy ? "Checking…" : "Start restricted recovery"}</button><button type="button" className="text-button" onClick={() => { setShowRecovery(false); setError(null); }}>Use a passkey instead</button></form> : <><button className="primary wide" disabled={busy} onClick={() => void signIn()}>{busy ? "Waiting for passkey…" : "Sign in with a passkey"}</button><button className="text-button recovery-link" onClick={() => { setShowRecovery(true); setError(null); }}>Use a recovery code</button></>}<p>On iPhone, if the passkey prompt does not work here, open this address in Safari.</p><button type="button" className="text-button" onClick={() => void copyAddress()}>{copiedAddress ? "Address copied — paste it in Safari" : "Copy address for Safari"}</button></div></div>;
 }
 
 function friendlyDate(value: string) {
