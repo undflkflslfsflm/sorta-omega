@@ -1047,18 +1047,23 @@ function AskWorkspace({ onOpen }: { onOpen: (item: Pick<SearchItem, "kind" | "id
 
   useEffect(() => { void api.chats().then(async result => { const first = result.items[0] ?? null; setChat(first); if (first) setMessages((await api.chatMessages(first.id)).items); }).catch(() => setError("Chats are unavailable while the home host is offline.")); }, []);
 
-  async function submit(event: FormEvent) {
-    event.preventDefault(); if (!question.trim()) return;
+  async function askQuestion(text: string, answerMode: "grounded" | "brainstorm", clearComposer = false) {
+    if (!text.trim() || busy) return;
     setBusy(true); setError(null);
     try {
-      const activeChat = chat ?? await api.createChat(mode === "brainstorm" ? "brainstorm" : "notes");
+      const activeChat = chat ?? await api.createChat(answerMode === "brainstorm" ? "brainstorm" : "notes");
       if (!chat) setChat(activeChat);
-      const accepted = await api.ask(activeChat.id, question.trim(), mode);
+      const accepted = await api.ask(activeChat.id, text.trim(), answerMode);
       const [savedMessages,savedJob]=await Promise.all([api.chatMessages(activeChat.id),api.job(accepted.jobId)]);
       setMessages(savedMessages.items);
-      setJob(savedJob); setQuestion("");
-    } catch { setError("The question was not saved. Keep it here and try again."); }
+      setJob(savedJob); if (clearComposer) setQuestion("");
+    } catch { setError(clearComposer ? "The question was not saved. Keep it here and try again." : "Could not start a retry. Your original question is still saved."); }
     finally { setBusy(false); }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    await askQuestion(question, mode, true);
   }
 
   async function refreshAnswer() {
@@ -1073,7 +1078,7 @@ function AskWorkspace({ onOpen }: { onOpen: (item: Pick<SearchItem, "kind" | "id
   useEffect(() => { if (!job || ["succeeded", "failed", "cancelled", "superseded"].includes(job.status)) return; const timer = window.setInterval(() => void refreshAnswer(), 2_000); return () => window.clearInterval(timer); }, [job?.id, job?.status, chat?.id]);
 
   return <><PageTitle eyebrow="Source-grounded workspace" title="Ask" copy="Grounded answers can cite only authorized passages selected by your home host. Brainstorming is clearly marked and never pretends to use sources."/>
-    <div className="ask-thread">{messages.length === 0 && <div className="ask-empty"><MessageSquare/><h2>Ask your saved knowledge</h2><p>Grounded mode waits for the local worker and preserves exact note citations.</p></div>}{messages.map(message => <article key={message.id} className={`chat-message ${message.role}`}><div className="message-label"><span>{message.role === "user" ? "You" : message.mode === "brainstorm" ? "Sorta · brainstorm" : "Sorta · grounded"}</span><small>{message.status.replaceAll("_", " ")}</small></div>{message.text ? <p>{message.text}</p> : <p className="waiting-copy">{message.status === "failed" ? "Could not generate an answer. Your question is still saved." : message.status === "cancelled" ? "Answer cancelled. Your question is still saved." : message.status === "running" ? "Generating an answer on your home host…" : "Saved. Waiting for the approved local worker…"}</p>}{message.citations.length > 0 && <div className="citations">{message.citations.map(citation => <button key={citation.citationId} onClick={() => onOpen({ kind: "note", id: citation.noteId })}><strong>[{citation.citationId}] {citation.title}</strong><span>“{citation.quote}”</span><small>Revision {citation.revision} · characters {citation.startOffset}–{citation.endOffset}</small></button>)}</div>}</article>)}</div>
+    <div className="ask-thread">{messages.length === 0 && <div className="ask-empty"><MessageSquare/><h2>Ask your saved knowledge</h2><p>Grounded mode waits for the local worker and preserves exact note citations.</p></div>}{messages.map((message, index) => <article key={message.id} className={`chat-message ${message.role}`}><div className="message-label"><span>{message.role === "user" ? "You" : message.mode === "brainstorm" ? "Sorta · brainstorm" : "Sorta · grounded"}</span><small>{message.status.replaceAll("_", " ")}</small></div>{message.text ? <p>{message.text}</p> : <p className="waiting-copy">{message.status === "failed" ? "Could not generate an answer. Your question is still saved." : message.status === "cancelled" ? "Answer cancelled. Your question is still saved." : message.status === "running" ? "Generating an answer on your home host…" : "Saved. Waiting for the approved local worker…"}</p>}{message.role === "assistant" && message.status === "failed" && messages[index - 1]?.role === "user" && <button className="text-button" disabled={busy} onClick={() => void askQuestion(messages[index - 1].text, message.mode)}>Try again</button>}{message.citations.length > 0 && <div className="citations">{message.citations.map(citation => <button key={citation.citationId} onClick={() => onOpen({ kind: "note", id: citation.noteId })}><strong>[{citation.citationId}] {citation.title}</strong><span>“{citation.quote}”</span><small>Revision {citation.revision} · characters {citation.startOffset}–{citation.endOffset}</small></button>)}</div>}</article>)}</div>
     <form className="ask-composer" onSubmit={submit}><textarea autoFocus value={question} onChange={event => setQuestion(event.target.value)} placeholder="Ask about your saved notes…"/><div><select value={mode} onChange={event => setMode(event.target.value as typeof mode)} aria-label="Answer mode"><option value="grounded">Grounded · citations required</option><option value="brainstorm">Brainstorm · no sources</option></select><span>{mode === "grounded" ? "Private retrieval stays on the home host." : "Ideas will be labeled as ungrounded."}</span><button className="primary" disabled={busy || !question.trim()}>{busy ? "Saving…" : "Ask"}</button></div></form>{error && <p className="form-error">{error}</p>}{job && <div className="job-card compact-job"><div className="job-icon"><Zap/></div><div><p className="eyebrow">Durable answer job</p><h2>{job.status.replaceAll("_", " ")}</h2><p>Your question is saved. No answer is invented while the local models are unavailable.</p></div><div className="job-actions"><button className="text-button" onClick={() => void refreshAnswer()}>Refresh</button><button className="text-button danger" onClick={async () => { await api.cancelJob(job.id); await refreshAnswer(); }}>Cancel</button></div></div>}</>;
 }
 
