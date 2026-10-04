@@ -8,6 +8,13 @@ describe("grounded answer boundary", () => {
     expect(prompt).toContain('"citationId":"c001"');
   });
 
+  it("asks for supported partial answers across languages", () => {
+    const prompt = buildAnswerPrompt("What is my maths test about?", "grounded", [{ citationId: "c001", title: "Matematikk 2P", text: "Prøve i kapittel 1" }]);
+    expect(prompt).toContain("different languages or synonyms");
+    expect(prompt).toContain("If any evidence supports a relevant fact");
+    expect(prompt).toContain("say which requested details remain unknown");
+  });
+
   it("rejects citations outside the server packet", () => {
     expect(() => assertCitationSelection("grounded", [{ citationId: "c001", title: "Note", text: "Fact" }], ["c999"], false)).toThrow("citation_not_in_evidence_packet");
   });
