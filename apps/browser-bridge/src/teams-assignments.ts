@@ -107,7 +107,8 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         stage = `detail_wait_${listSection}_${index}`;
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 }).catch(async () => {
           const url = new URL(frame.url());
-          console.log(JSON.stringify({ provider: "teams-assignments", stage, routeShape: url.pathname.replace(/[0-9a-f-]{36}/gi, "*"), remainingCards: await frame.locator(".aui-assignmentListCard").count() }));
+          const state = await frame.evaluate(() => ({ bodyLength: document.body?.innerText?.length ?? 0, visibleText: document.body?.innerText?.slice(0, 500) ?? "", detailClasses: [...new Set([...document.querySelectorAll<HTMLElement>('[class*="assignment" i]')].flatMap(element => (element.getAttribute("class") ?? "").split(/\s+/)).filter(token => /assignment/i.test(token)))].slice(0, 25) }));
+          console.log(JSON.stringify({ provider: "teams-assignments", stage, routeShape: url.pathname.replace(/[0-9a-f-]{36}/gi, "*"), remainingCards: await frame.locator(".aui-assignmentListCard").count(), state }));
           throw new Error("teams_assignment_detail_not_loaded");
         });
         const ids = assignmentIdentity(frame.url());

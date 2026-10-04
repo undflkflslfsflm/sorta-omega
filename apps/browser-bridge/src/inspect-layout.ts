@@ -240,7 +240,9 @@ try {
           console.log(JSON.stringify({ provider, tabCounts, filterControls, filterOptions }));
         }
         if (args.get("probe-assignment-detail") === "true") {
-          const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").first();
+          const cardIndex = Number(args.get("probe-assignment-card-index") ?? "0");
+          if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex > 20) throw new Error("teams_assignment_probe_index_invalid");
+          const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").nth(cardIndex);
           if (await firstCard.count() !== 1) throw new Error("teams_assignment_card_missing");
           await firstCard.click();
           await probe.waitForTimeout(8_000);
