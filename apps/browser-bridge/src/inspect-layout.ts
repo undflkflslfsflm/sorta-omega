@@ -149,7 +149,8 @@ try {
               metadataShape: (() => { const element = document.querySelector<HTMLElement>('[class*="assignment-metadata-container" i]'); if (!element) return null; const shape = (node: Element, depth: number): unknown => ({ tag: node.tagName.toLowerCase(), classes: (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 5), attributes: [...node.attributes].map(attribute => attribute.name).filter(name => !["style", "class"].includes(name)).slice(0, 8), textLength: (node.textContent ?? "").trim().length, children: depth < 3 ? [...node.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] }); return shape(element, 0); })(),
             };
           });
-          return { origin, ...layout };
+          const routeShape = `${new URL(frame.url()).pathname}${new URL(frame.url()).hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 35 ? "*" : segment).join("/").slice(0, 160);
+          return { origin, routeShape, ...layout };
         } catch { return { origin: "unavailable", counts: null }; }
       }));
       console.log(JSON.stringify({ provider, structure, frames }));
