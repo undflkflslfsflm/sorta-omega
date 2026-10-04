@@ -124,6 +124,18 @@ try {
             tables: [...document.querySelectorAll("main table")].map(table => ({ headers: [...table.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").trim().slice(0, 70)), rows: table.querySelectorAll("tbody tr").length, sample: [...table.querySelectorAll("tbody tr")].slice(0, 3).map(row => [...row.querySelectorAll("td")].map(cell => (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 150))) })),
             actionLabels: [...document.querySelectorAll<HTMLElement>("main button, main a")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 25),
           }));
+          if (args.get("inspect-assessment-item") === "true") {
+            const item = probe.locator("main table tbody tr").last().getByText("Se detaljer", { exact: true });
+            if (await item.count() === 1) {
+              await item.click();
+              await probe.waitForTimeout(500);
+              (detail as Record<string, unknown>).item = await probe.evaluate(() => ({
+                routeShape: `${location.pathname}${location.hash}`,
+                dialogs: [...document.querySelectorAll<HTMLElement>('[role="dialog"], .VsModal, [class*="modal" i]')].slice(0, 4).map(element => ({ classes: element.className, text: (element.innerText ?? "").trim().slice(0, 2500) })),
+                headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].map(element => (element.textContent ?? "").trim()).slice(0, 12),
+              }));
+            }
+          }
         }
       }
       console.log(JSON.stringify({ provider, section, structure, detail, allDetails }));
