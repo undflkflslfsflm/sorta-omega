@@ -31,7 +31,7 @@ function assignmentFrame(page: Page): Frame {
 
 function assignmentIdentity(urlText: string): { classExternalId: string; assignmentExternalId: string } {
   const url = new URL(urlText);
-  if (url.origin !== assignmentOrigin || url.search || url.hash || url.username || url.password || url.port) throw new Error("teams_assignment_detail_origin_invalid");
+  if (url.origin !== assignmentOrigin || url.username || url.password || url.port) throw new Error("teams_assignment_detail_origin_invalid");
   const match = /^\/classes\/([^/]+)\/assignments\/([^/]+)$/.exec(url.pathname);
   if (!match || match[1].length > 200 || match[2].length > 200) throw new Error("teams_assignment_detail_route_changed");
   return { classExternalId: decodeURIComponent(match[1]), assignmentExternalId: decodeURIComponent(match[2]) };
@@ -82,7 +82,8 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         return { title: text('[class*="assignment-title"]'), instructions: text('[class*="assignment-details-description"]'), metadataText: text('[class*="assignment-metadata-container"]'), pointsText: text('[class*="assignment-details-right-pane"]'), linkedFileNames };
       });
       if (!detail.title || detail.title.length > 500 || detail.instructions.length > 100_000 || detail.metadataText.length > 8_000 || detail.pointsText.length > 8_000) throw new Error("teams_assignment_detail_invalid_or_unbounded");
-      records.push({ ...ids, ...detail, cardText: cards[index].text, detailUrl: frame.url() });
+      const detailUrl = new URL(frame.url());
+      records.push({ ...ids, ...detail, cardText: cards[index].text, detailUrl: `${detailUrl.origin}${detailUrl.pathname}` });
     }
     if (new Set(records.map(item => `${item.classExternalId}:${item.assignmentExternalId}`)).size !== records.length) throw new Error("teams_assignment_duplicate_identity");
     return { version: "omega_teams_assignments_json_v1", source_timestamp: new Date().toISOString(), source_origin: assignmentOrigin, coverage: { listRoute: parsedList.pathname, visibleCardCount: cards.length, capturedDetailCount: records.length, complete: false, limitation: "Only cards visible in the Teams Assignments list were captured. Other filters, classes, pagination, attachments, and submission details have not been verified." }, records };
