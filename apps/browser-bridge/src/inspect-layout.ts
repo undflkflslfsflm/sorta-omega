@@ -213,6 +213,17 @@ try {
         if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
         await viewAssignments.click();
         await probe.waitForTimeout(8_000);
+        if (args.get("probe-assignment-controls") === "true") {
+          const controls = await assignmentsFrame.evaluate(() => ({
+            routeShape: location.pathname,
+            cards: document.querySelectorAll(".aui-assignmentListCard").length,
+            buttons: [...document.querySelectorAll<HTMLElement>("button, [role=button]")].slice(0, 50).map(element => ({ label: (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(token => /filter|assignment|tab|dropdown|select|course|class/i.test(token)).slice(0, 6), expanded: element.getAttribute("aria-expanded") })),
+            tabs: [...document.querySelectorAll<HTMLElement>("[role=tab]")].map(element => ({ label: (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), selected: element.getAttribute("aria-selected") })),
+            selects: [...document.querySelectorAll<HTMLSelectElement>("select")].map(element => ({ options: [...element.options].map(option => option.textContent?.trim().slice(0, 80)), valueLength: element.value.length })),
+            links: [...document.querySelectorAll<HTMLAnchorElement>("a")].slice(0, 30).map(element => ({ label: (element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80), routeShape: (() => { try { return new URL(element.href).pathname.replace(/\/[a-f0-9-]{20,}/gi, "/*"); } catch { return ""; } })() })),
+          }));
+          console.log(JSON.stringify({ provider, assignmentControls: controls }));
+        }
         if (args.get("probe-assignment-detail") === "true") {
           const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").first();
           if (await firstCard.count() !== 1) throw new Error("teams_assignment_card_missing");
