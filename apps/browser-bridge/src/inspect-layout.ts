@@ -93,10 +93,15 @@ try {
       await teamsNavigation.waitFor({ timeout: 20_000 });
       if (await teamsNavigation.count() !== 1) throw new Error("teams_navigation_ambiguous");
       await teamsNavigation.click();
-      const classes = probe.locator(".fui-AccordionItem").filter({ has: probe.getByRole("button", { name: /^Classes\s*\d+\s*teams$/i }) });
-      await classes.waitFor({ timeout: 20_000 });
+      const classes = probe.locator(".fui-AccordionItem").filter({ hasText: /Classes\s*\d+\s*teams/i });
+      await classes.waitFor({ timeout: 20_000 }).catch(async () => {
+        const state = await probe.evaluate(String.raw`(() => ({ routeShape: location.pathname + location.hash, classesHeaders: [...document.querySelectorAll('.fui-AccordionItem button')].map(node => (node.textContent ?? '').replace(/\s+/g, ' ').trim()).filter(text => /^Classes/i.test(text)).slice(0, 10), navigationLabels: [...document.querySelectorAll('button')].map(node => node.getAttribute('aria-label') ?? '').filter(text => /Teams|Classes/i.test(text)).slice(0, 10) }))()`);
+        console.log(JSON.stringify({ provider, probeState: state }));
+        throw new Error("teams_classes_accordion_not_loaded");
+      });
       if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
-      const header = classes.getByRole("button", { name: /^Classes\s*\d+\s*teams$/i });
+      const header = classes.locator(".fui-AccordionHeader__button");
+      if (await header.count() !== 1) throw new Error("teams_classes_header_ambiguous");
       if (await header.getAttribute("aria-expanded") === "false") await header.click();
       const cards = classes.locator('[role="group"]');
       await cards.first().waitFor({ timeout: 15_000 });
