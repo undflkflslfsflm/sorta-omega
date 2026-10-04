@@ -12,7 +12,7 @@ if ((args.length !== 4 && args.length !== 6) || args[0] !== "--vault-id" || !/^[
 const vaultId = args[1], root = args[3], dryRun = args.length === 6;
 const raw = await readFile(path.join(root, "manifest.json"), "utf8");
 if (Buffer.byteLength(raw) > 2_000_000) throw new Error("personal_file_manifest_too_large");
-const manifest = JSON.parse(raw) as { version?: unknown; deviceKey?: unknown; items?: unknown };
+const manifest = JSON.parse(raw.replace(/^\uFEFF/, "")) as { version?: unknown; deviceKey?: unknown; items?: unknown };
 if (manifest.version !== "omega_personal_files_v1" || typeof manifest.deviceKey !== "string" || !/^[a-z0-9-]{3,40}$/.test(manifest.deviceKey) || !Array.isArray(manifest.items) || manifest.items.length > 512) throw new Error("personal_file_manifest_invalid");
 type Item = { relativePath: string; stagedName: string; sha256: string; byteLength: number; modifiedAt: string };
 const items = manifest.items as Item[];
