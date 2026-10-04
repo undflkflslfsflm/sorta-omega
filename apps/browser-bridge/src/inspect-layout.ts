@@ -102,6 +102,16 @@ try {
       if (await assignments.count() !== 1) throw new Error("teams_assignments_navigation_ambiguous");
       await assignments.click();
       await probe.waitForTimeout(8_000);
+      if (args.get("probe-assignment-list") === "true") {
+        const assignmentsFrame = probe.frames().find(frame => {
+          try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; }
+        });
+        if (!assignmentsFrame) throw new Error("teams_assignments_frame_missing");
+        const viewAssignments = assignmentsFrame.getByRole("button", { name: /^View assignments$/i });
+        if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
+        await viewAssignments.click();
+        await probe.waitForTimeout(8_000);
+      }
       const structure = await probe.evaluate(() => {
         const known = /^(assignments|assigned|completed|upcoming|past due|returned|turned in|to do|due|all|oppgaver|tildelt|fullført|kommende|forsinket|levert|alle)$/i;
         const labels = [...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").trim()).filter(label => known.test(label));
@@ -124,6 +134,8 @@ try {
               counts: { assignmentClasses: document.querySelectorAll('[class*="assignment" i]').length, listItems: document.querySelectorAll('[role="listitem"]').length, buttons: document.querySelectorAll("button").length, bodyCharacters: document.body?.innerText?.length ?? 0 },
               knownLabels: [...new Set([...document.querySelectorAll<HTMLElement>("button, a, [role=tab]")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").trim()).filter(label => known.test(label)))],
               candidateShape: candidate ? { tag: candidate.tagName.toLowerCase(), classes: (candidate.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,60}$/.test(token)).slice(0, 8), attributes: [...candidate.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 12) } : null,
+              structuralClasses: [...new Set([...document.querySelectorAll<HTMLElement>('[class*="assignment" i], [class*="course" i], [class*="task" i]')].flatMap(element => (element.getAttribute("class") ?? "").split(/\s+/)).filter(token => /assignment|course|task|filter|list/i.test(token) && /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)))].slice(0, 60),
+              listItemShape: [...document.querySelectorAll<HTMLElement>('[role="listitem"]')].slice(0, 4).map(element => ({ tag: element.tagName.toLowerCase(), classes: (element.getAttribute("class") ?? "").split(/\s+/).filter(Boolean).slice(0, 6), attributes: [...element.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class"), childTags: [...element.children].slice(0, 8).map(child => child.tagName.toLowerCase()) })),
             };
           });
           return { origin, ...layout };
