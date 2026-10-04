@@ -46,7 +46,27 @@ try {
   }
   if (!authProbed) {
   if (!page) throw new Error("matching_tab_not_found");
-  if (args.get("teams-tree-only") === "true" && provider === "teams") {
+  if (args.get("inschool-section") && provider === "inschool") {
+    const section = args.get("inschool-section");
+    if (section !== "attendance" && section !== "assessment") throw new Error("inschool_section_not_registered");
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(`${expectedOrigin}/#/app/${section}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await probe.waitForTimeout(5_000);
+      const structure = await probe.evaluate(() => {
+        const clean = (value: string | null) => (value ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 6);
+        const candidates = [...document.querySelectorAll<HTMLElement>('main [class*="attendance" i], main [class*="assessment" i], main [class*="grade" i], main [class*="frav" i], main table, main [role="grid"], main [role="row"], main [role="tab"]')].slice(0, 100);
+        return {
+          routeShape: `${location.pathname}${location.hash}`,
+          bodyCharacters: document.body?.innerText?.length ?? 0,
+          counts: { tables: document.querySelectorAll("table").length, rows: document.querySelectorAll('tr, [role="row"]').length, tabs: document.querySelectorAll('[role="tab"]').length },
+          headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].slice(0, 15).map(item => ({ tag: item.tagName.toLowerCase(), text: (item.textContent ?? "").trim().slice(0, 60), classes: clean(item.className) })),
+          candidates: candidates.map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), classes: clean(item.getAttribute("class")), attributes: [...item.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 8), childCount: item.children.length, textLength: (item.textContent ?? "").trim().length })),
+        };
+      });
+      console.log(JSON.stringify({ provider, section, structure }));
+    } finally { await probe.close(); }
+  } else if (args.get("teams-tree-only") === "true" && provider === "teams") {
     const tree = await page.evaluate(() => {
       const items = [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')];
       const navigationLabels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => label.length < 100 && /teams|team|chat|kanal|channel|klasse|class|assignment|oppgav|posts|innlegg|files|filer|grades|karakter/i.test(label)).slice(0, 40);
