@@ -94,6 +94,7 @@ try {
     try {
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
       if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
+      await probe.locator("button").filter({ hasText: /Assignments/ }).first().waitFor({ timeout: 20_000 });
       const appNavigation = probe.getByRole("button", { name: /^Assignments \(Ctrl\+Shift\+4\)$/ });
       const appTextNavigation = probe.locator("button").filter({ hasText: /^Assignments\s*\(Ctrl\+Shift\+4\)$/ });
       const legacyNavigation = probe.getByRole("treeitem", { name: "Assignments", exact: true });
