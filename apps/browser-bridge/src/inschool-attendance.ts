@@ -15,6 +15,12 @@ export function attendanceDataRowCount(reportedTotalRows: number, headerRows: nu
   if (!Number.isInteger(reportedTotalRows) || !Number.isInteger(headerRows) || headerRows < 1 || reportedTotalRows < headerRows) return null;
   return reportedTotalRows - headerRows;
 }
+export function normalizedInSchoolAbsence(codeText: string): "absent" | "late" | "unknown" {
+  const code = codeText.split(" - ")[0].trim().toUpperCase();
+  if (/forsink|sen ankomst/i.test(codeText)) return "late";
+  if (["X", "D", "M", "R"].includes(code)) return "absent";
+  return "unknown";
+}
 
 export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapshot, sourceOrigin: string) {
   if (new URL(page.url()).origin !== sourceOrigin || !page.url().includes("#/app/attendance/lessons")) throw new Error("inschool_attendance_page_required");
@@ -80,11 +86,9 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
     if (lesson) matchedLessonIds.add(lesson.externalId);
     else limitations.push(`An absence lesson had no matching captured timetable item on ${isoDate}.`);
     const code = item.code.split(" - ")[0].trim().toUpperCase();
-    const absent = ["X", "D", "M"].includes(code);
-    const late = code === "R" || /forsink|sen ankomst/i.test(item.code);
     const excusalStatus = code === "D" ? "excused" : code === "X" ? "unexcused" : "unknown";
     const duration = Number(item.hours);
-    attendance.push({ kind: "attendance", externalId: `attendance:${digest(`${item.date}|${item.time}|${item.group}|${item.code}`)}`, courseExternalId: course.externalId, lessonExternalId: lesson?.externalId ?? null, date: isoDate, rawStatus: `${item.code}; På fagfravær: ${item.countsTowardSubject}; På vitnemål: ${item.onCertificate}; Halvår: ${item.term}`.slice(0, 240), normalizedStatus: late ? "late" : absent ? "absent" : "unknown", excusalStatus, duration: Number.isFinite(duration) && duration >= 0 ? duration * 60 : null, units: Number.isFinite(duration) && duration >= 0 ? "minutes" : null });
+    attendance.push({ kind: "attendance", externalId: `attendance:${digest(`${item.date}|${item.time}|${item.group}|${item.code}`)}`, courseExternalId: course.externalId, lessonExternalId: lesson?.externalId ?? null, date: isoDate, rawStatus: `${item.code}; På fagfravær: ${item.countsTowardSubject}; På vitnemål: ${item.onCertificate}; Halvår: ${item.term}`.slice(0, 240), normalizedStatus: normalizedInSchoolAbsence(item.code), excusalStatus, duration: Number.isFinite(duration) && duration >= 0 ? duration * 60 : null, units: Number.isFinite(duration) && duration >= 0 ? "minutes" : null });
   }
   const includedCourses = courses.filter(record => matchedCourseIds.has(record.externalId));
   const subjectIds = new Set(includedCourses.map(record => record.subjectExternalId));
