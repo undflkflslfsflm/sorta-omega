@@ -213,7 +213,7 @@ async function collectPostFiles(probe: Page, className: string, channelName: str
 }
 
 export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; postDocuments: number; presentations: number; documents: number; bytes: number; skippedFiles: Array<{ sourcePosition: string; reason: string }>; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[]; coverageComplete: false; coverageLimitation: string } }> {
-  const probe = await source.context().newPage();
+  let probe = await source.context().newPage();
   const items: ManifestItem[] = [];
   const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[] = [];
   const skippedFiles: Array<{ sourcePosition: string; reason: string }> = [];
@@ -222,15 +222,15 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
-    const teamsNav = probe.getByRole("button", { name: /^Teams \(Ctrl\+Shift\+5\)$/ });
+    let teamsNav = probe.getByRole("button", { name: /^Teams \(Ctrl\+Shift\+5\)$/ });
     await teamsNav.waitFor({ timeout: 20_000 });
     await teamsNav.click();
-    const classes = probe.locator(".fui-AccordionItem").filter({ hasText: /Classes\s*\d+\s*teams/i });
+    let classes = probe.locator(".fui-AccordionItem").filter({ hasText: /Classes\s*\d+\s*teams/i });
     await classes.waitFor({ timeout: 20_000 });
     if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
-    const header = classes.locator(".fui-AccordionHeader__button");
+    let header = classes.locator(".fui-AccordionHeader__button");
     if (await header.getAttribute("aria-expanded") === "false") await header.click();
-    const cards = classes.locator('[role="group"]');
+    let cards = classes.locator('[role="group"]');
     await cards.first().waitFor({ timeout: 15_000 });
     classCount = await cards.count();
     if (classCount < 1 || classCount > maxClasses) throw new Error("teams_class_count_unbounded");
@@ -349,17 +349,23 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         }
       }
       classSummaries.push({ index: classIndex, channels: channelCount - before.channels, folders: folderCount - before.folders, entries: entriesObserved - before.entries, postPresentations: postPresentations - before.postPresentations, postDocuments: postDocuments - before.postDocuments, presentations: presentations - before.presentations, documents: documents - before.documents });
-      // A SharePoint file-browser frame can retain selection/download state
-      // after Teams switches classes. Rebuild the probe page before the next
-      // class, rather than carrying that state into another class's files.
+      // SharePoint can retain selection/download state in the page even after
+      // a top-level navigation. Close that probe and use a genuinely new page
+      // for the next class; the signed-in source tab remains untouched.
       if (classIndex < classCount - 1 && classIndexOnly === undefined) {
         phase = "class_reset";
+        await probe.close();
+        probe = await source.context().newPage();
         await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+        teamsNav = probe.getByRole("button", { name: /^Teams \(Ctrl\+Shift\+5\)$/ });
         await teamsNav.waitFor({ timeout: 20_000 });
         await teamsNav.click();
+        classes = probe.locator(".fui-AccordionItem").filter({ hasText: /Classes\s*\d+\s*teams/i });
         await classes.waitFor({ timeout: 20_000 });
         if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
+        header = classes.locator(".fui-AccordionHeader__button");
         if (await header.getAttribute("aria-expanded") === "false") await header.click();
+        cards = classes.locator('[role="group"]');
         await cards.first().waitFor({ timeout: 15_000 });
         if (await cards.count() !== classCount) throw new Error("teams_class_count_changed_during_capture");
       }
