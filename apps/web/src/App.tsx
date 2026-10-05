@@ -1124,6 +1124,26 @@ function AskWorkspace({ onOpen, onOpenAssessment }: { onOpen: (item: Pick<Search
 
   useEffect(() => { if (!job || ["succeeded", "failed", "cancelled", "superseded"].includes(job.status)) return; const timer = window.setInterval(() => void refreshAnswer(), 2_000); return () => window.clearInterval(timer); }, [job?.id, job?.status, chat?.id]);
 
+  const hasPendingAnswer = messages.some(message => message.role === "assistant" && ["waiting_for_worker", "running"].includes(message.status));
+  useEffect(() => {
+    if (!chat || job || !hasPendingAnswer) return;
+    let cancelled = false;
+    let refreshing = false;
+    const timer = window.setInterval(() => {
+      if (refreshing) return;
+      refreshing = true;
+      void api.chatMessages(chat.id).then(result => {
+        if (!cancelled) {
+          setMessages(result.items);
+          setError(current => current === "Could not refresh the saved answer. It remains available on your home host." ? null : current);
+        }
+      }).catch(() => {
+        if (!cancelled) setError("Could not refresh the saved answer. It remains available on your home host.");
+      }).finally(() => { refreshing = false; });
+    }, 2_000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [chat?.id, job?.id, hasPendingAnswer]);
+
   function renderCitation(citation: ChatMessage["citations"][number]) {
     const assessment = citation.kind === "school_assessment";
     return <button key={citation.citationId} onClick={() => assessment ? onOpenAssessment(citation.assessmentId) : onOpen({ kind: "note", id: citation.noteId })}>
