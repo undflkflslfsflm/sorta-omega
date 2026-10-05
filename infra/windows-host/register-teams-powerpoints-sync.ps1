@@ -35,5 +35,5 @@ if ($next -le (Get-Date)) { $next = $next.AddHours(1) }
 $trigger = New-ScheduledTaskTrigger -Once -At $next -RepetitionInterval (New-TimeSpan -Hours 6) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -WakeToRun -ExecutionTimeLimit (New-TimeSpan -Minutes 20) -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Capture PowerPoint originals from Teams class-channel Shared folders and rendered General-channel post attachments every six hours. Other channel attachments and Classwork remain uncovered.' | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Capture PowerPoint originals from Teams class-channel Shared folders and rendered post attachments every six hours. Older posts and Classwork remain uncovered.' | Out-Null
 Get-ScheduledTask -TaskName $taskName | Select-Object TaskName,State

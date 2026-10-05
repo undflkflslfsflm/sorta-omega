@@ -49,6 +49,7 @@ describe("Teams post PowerPoint identity", () => {
     expect(first).toMatch(/^Teams\/Økonomistyring\/General\/Posts\/[0-9a-f]{24}\/Prøve\.pptx$/);
     expect(postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx")).toBe(first);
     expect(postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx", 1)).toMatch(/\/2-Prøve\.pptx$/);
+    expect(postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx", 0, "Kapittel 3")).toMatch(/^Teams\/Økonomistyring\/Kapittel 3\/Posts\/[0-9a-f]{24}\/Prøve\.pptx$/);
   });
 
   it("rejects missing identities and other file types", () => {

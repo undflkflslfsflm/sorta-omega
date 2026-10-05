@@ -19,12 +19,12 @@ export function safeSegment(value: string): string {
   return cleaned.slice(0, 180);
 }
 
-export function postPresentationRelativePath(className: string, chainId: string, messageId: string, fileName: string, ordinal = 0): string {
+export function postPresentationRelativePath(className: string, chainId: string, messageId: string, fileName: string, ordinal = 0, channelName = "General"): string {
   if (!chainId || !messageId || !Number.isInteger(ordinal) || ordinal < 0) throw new Error("teams_post_powerpoint_identity_invalid");
   const postId = createHash("sha256").update(`${className}:${chainId}:${messageId}`).digest("hex").slice(0, 24);
   const name = safeSegment(fileName);
   if (!/\.pptx$/i.test(name)) throw new Error("teams_post_powerpoint_name_invalid");
-  return ["Teams", safeSegment(className), "General", "Posts", postId, ordinal ? `${ordinal + 1}-${name}` : name].join("/");
+  return ["Teams", safeSegment(className), safeSegment(channelName), "Posts", postId, ordinal ? `${ordinal + 1}-${name}` : name].join("/");
 }
 
 const retryableDownloadErrors = new Set([
@@ -104,9 +104,9 @@ function sharePointFrame(page: Page): Frame {
   return frames[0];
 }
 
-async function collectPostPresentations(probe: Page, className: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ captured: number; bytes: number }> {
+async function collectPostPresentations(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ captured: number; bytes: number }> {
   const posts = probe.locator('[data-reply-chain-id][data-mid]');
-  await posts.first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+  await posts.first().waitFor({ timeout: 5_000 }).catch(() => undefined);
   let previous = -1, stable = 0;
   for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
     await probe.waitForTimeout(500);
@@ -135,7 +135,7 @@ async function collectPostPresentations(probe: Page, className: string, stagingR
     const key = `${candidate.chainId}:${candidate.messageId}/${fileName}`;
     const ordinal = duplicates.get(key) ?? 0;
     duplicates.set(key, ordinal + 1);
-    const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal);
+    const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal, channelName);
     const downloaded = await retryInvalidDownload(async () => {
       const currentIndex = await probe.locator(cardSelector).evaluateAll((elements, identity) => elements.flatMap((element, index) => {
         if (element.getAttribute("aria-label") !== identity.name) return [];
@@ -207,10 +207,6 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       const general = probe.getByRole("treeitem", { name: /^(General|Generelt)$/ });
       await general.waitFor({ timeout: 15_000 });
       if (await general.count() !== 1) throw new Error("teams_general_channel_ambiguous");
-      phase = "posts";
-      const postFiles = await collectPostPresentations(probe, className, stagingRoot, items, totalBytes);
-      postPresentations += postFiles.captured;
-      totalBytes += postFiles.bytes;
       const hidden = probe.locator("#single-team-hidden-channels");
       if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
       const channelNames = await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents();
@@ -222,9 +218,16 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
         if (await channel.count() !== 1) throw new Error("teams_channel_changed");
         await channel.click();
+        await probe.waitForTimeout(1_500);
         const shared = probe.getByRole("tab", { name: /^(Shared|Files|Filer)$/ });
         await shared.waitFor({ timeout: 15_000 });
         if (await shared.count() !== 1) throw new Error("teams_shared_tab_ambiguous");
+        phase = "posts";
+        const postChannelName = /^(General|Generelt)$/.test(channelName) ? "General" : channelName;
+        const postFiles = await collectPostPresentations(probe, className, postChannelName, stagingRoot, items, totalBytes);
+        postPresentations += postFiles.captured;
+        totalBytes += postFiles.bytes;
+        phase = "channel";
         await shared.click();
         await probe.waitForTimeout(3_000);
         const frame = sharePointFrame(probe);
@@ -298,5 +301,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered General-channel PowerPoint attachments only. Older or virtualized posts, other channel attachments, Classwork, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PowerPoint post attachments in those channels only. Older or virtualized posts, Classwork, and image-only slides are not yet covered." } };
 }
