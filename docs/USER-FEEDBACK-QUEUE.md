@@ -2,6 +2,8 @@
 
 This is a working queue, not a claim that a feature is live. Finish and verify one item before advancing. “In GitHub” means the code is pushed but the 4090 deployment has not been verified.
 
+The owner's wearable/audio memory idea is deliberately deferred until the existing app is complete and live-verified; see `docs/DEFERRED-IDEAS.md`. Ask before starting that separate phase.
+
 | Owner request | Current state | Evidence still needed |
 | --- | --- | --- |
 | Passkey sign-in on iPhone | On 04.10.2026 the owner's iPhone joined the correct tailnet and pinged the 4090, but Safari still had a DNS error while Mullvad's encrypted-DNS base profile was selected. Switching iOS DNS to Automatic without removing that profile let Safari load Sorta, and the owner reported successful passkey sign-in. A one-payload Mullvad Base DoH profile with an Apple per-domain Tailscale exception is served by the 4090 at `/setup/ios-dns.mobileconfig`; its live HTTPS response had the iOS profile MIME type and the app remained ready after deployment `992d1be`. The owner then installed the profile, reported that the installation showed only a DNS setting, and confirmed Sorta loaded in Safari without a certificate warning while the new profile and Tailscale were active. The owner also confirmed Sorta and an ordinary public site load on both Wi-Fi and cellular. | Phone success is owner-reported, not agent-observed. A DNS-provider/leak check remains; Codex's iPhone in-app browser passkey path remains unverified. Mullvad's public DNS service has a 02.11.2026 shutdown deadline, so a durable replacement is also needed. |
