@@ -60,10 +60,16 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
     }
     if (!frame) throw new Error("teams_assignments_frame_not_loaded");
     stage = "list_open";
-    const viewAssignments = frame.getByRole("link", { name: /^View assignments$/i });
-    await viewAssignments.waitFor({ timeout: 25_000 });
-    if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
-    await viewAssignments.click();
+    // Teams sometimes restores the embedded assignments app directly to its
+    // all-classes list. In that state the landing-page link does not exist.
+    // Treat the route as authoritative, then wait for real cards below so a
+    // loading/empty shell cannot be mistaken for a successful import.
+    if (new URL(frame.url()).pathname !== "/classes/all/list") {
+      const viewAssignments = frame.getByRole("link", { name: /^View assignments$/i });
+      await viewAssignments.waitFor({ timeout: 25_000 });
+      if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
+      await viewAssignments.click();
+    }
     await frame.locator(".aui-assignmentListCard").first().waitFor({ timeout: 25_000 });
     const listUrl = frame.url();
     const parsedList = new URL(listUrl);
