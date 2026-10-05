@@ -187,7 +187,10 @@ try {
             const style = getComputedStyle(item);
             ancestors.push({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), scrollHeight: item.scrollHeight, clientHeight: item.clientHeight, scrollTop: item.scrollTop, overflowY: style.overflowY, classes: [...item.classList].slice(0, 4) });
           }
-          return { postCount: document.querySelectorAll('[data-reply-chain-id][data-mid]').length, ancestors };
+          const historyControls = [...document.querySelectorAll<HTMLElement>('[data-tid="message-pane-body"] button, [data-tid="channel-pane-viewport"] button, [data-tid="message-pane-body"] a')]
+            .map(item => (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").replace(/\s+/g, " ").trim())
+            .filter(label => /load|older|more|previous|earlier|tidligere|eldre|vis flere|last inn/i.test(label)).slice(0, 25);
+          return { postCount: document.querySelectorAll('[data-reply-chain-id][data-mid]').length, ancestors, historyControls };
         });
         if (args.get("teams-post-history-scroll") === "true") {
           const seen = new Set<string>();
