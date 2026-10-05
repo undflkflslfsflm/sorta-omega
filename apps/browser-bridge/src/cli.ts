@@ -164,4 +164,4 @@ try{
     }
     }finally{if(cdp)await timetablePage.close();}
   }
-}catch(caught){const message=caught instanceof Error?caught.message:"";console.log(JSON.stringify({provider,errorCode:/^[a-z0-9_]{1,100}$/.test(message)?message:"browser_bridge_failed"}));process.exitCode=1;}finally{terminal.close();if(browser)await browser.close();else await context.close();}
+}catch(caught){const message=caught instanceof Error?caught.message:"";const sized=/^(teams_powerpoint_(?:file|batch)_limit_exceeded):(\d+)$/.exec(message);console.log(JSON.stringify({provider,errorCode:sized?.[1]??(/^[a-z0-9_]{1,100}$/.test(message)?message:"browser_bridge_failed"),...(sized?{byteLength:Number(sized[2])}:{})}));process.exitCode=1;}finally{terminal.close();if(browser)await browser.close();else await context.close();}
