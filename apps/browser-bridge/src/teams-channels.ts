@@ -90,7 +90,7 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
       if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
       const channels = (await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents()).map(value => value.trim());
       if (!channels.some(value => /^(General|Generelt)$/.test(value)) || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error(`teams_channel_list_ambiguous_class_${index}`);
-      for (const channelName of channels) {
+      for (const [channelIndex, channelName] of channels.entries()) {
         channelCount++;
         const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
         if (await channel.count() !== 1) throw new Error("teams_channel_changed");
@@ -98,7 +98,10 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
         await probe.waitForFunction(name => [...document.querySelectorAll<HTMLElement>('[role="treeitem"][aria-level="2"]')]
           .some(item => (item.textContent ?? "").trim() === name && item.getAttribute("aria-selected") === "true"), channelName, { timeout: 10_000 });
         await probe.waitForTimeout(1_500);
-        const posts = await collectRenderedChannelHistory(probe);
+        const posts = await collectRenderedChannelHistory(probe).catch(error => {
+          const code = error instanceof Error && /^teams_[a-z0-9_]{1,80}$/.test(error.message) ? error.message : "teams_channel_history_failed";
+          throw new Error(`${code}_class_${index}_channel_${channelIndex}`);
+        });
         for (const post of posts) {
           if (!post.text) { emptyPosts++; continue; }
           notes.push(teamsChannelPostNote(className, channelName, post));
