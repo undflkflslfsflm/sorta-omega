@@ -1,6 +1,7 @@
 import type { SchoolAssessment } from "@sorta/contracts";
 
 type OrderedAssessment = Pick<SchoolAssessment, "id" | "timeSpec" | "updatedAt">;
+type CategorizedAssessment = OrderedAssessment & Pick<SchoolAssessment, "title">;
 
 function localDate(assessment: OrderedAssessment): string | null {
   if (assessment.timeSpec.kind === "unknown") return null;
@@ -22,4 +23,15 @@ export function orderSchoolAssessments<T extends OrderedAssessment>(items: T[], 
     }
     return right.updatedAt.localeCompare(left.updatedAt) || left.id.localeCompare(right.id);
   });
+}
+
+export function partitionSchoolAssessments<T extends CategorizedAssessment>(items: T[], today: string, gradedAssessmentIds: ReadonlySet<string>): { attention: T[]; history: T[] } {
+  const attention: T[] = [], history: T[] = [];
+  for (const item of items) {
+    const date = localDate(item);
+    const routineEvaluation = /^(halvårsvurdering|standpunkt)\b/i.test(item.title.trim());
+    if (routineEvaluation || gradedAssessmentIds.has(item.id) || date !== null && date < today) history.push(item);
+    else attention.push(item);
+  }
+  return { attention, history };
 }
