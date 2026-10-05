@@ -179,7 +179,21 @@ try {
       }
       await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
-      if (args.get("teams-class-files-probe") === "true") {
+      if (args.get("teams-classwork-probe") === "true") {
+        const classwork = probe.getByText("Classwork", { exact: true });
+        const matches = await classwork.count();
+        if (matches !== 1) throw new Error("teams_classwork_entry_ambiguous");
+        await classwork.click();
+        await probe.waitForTimeout(5_000);
+        const shape = await probe.evaluate(() => ({
+          tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.getAttribute("aria-label") ?? item.textContent ?? "").trim().slice(0, 40), selected: item.getAttribute("aria-selected") })),
+          headings: [...document.querySelectorAll<HTMLElement>("h1, h2, h3")].map(item => ({ tag: item.tagName.toLowerCase(), length: (item.textContent ?? "").trim().length })).slice(0, 20),
+          counts: { pptxMentions: (document.body?.innerText?.match(/\.pptx\b/gi) ?? []).length, links: document.querySelectorAll("a[href]").length, iframes: document.querySelectorAll("iframe").length, dialogs: document.querySelectorAll('[role="dialog"]').length },
+          controls: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')].slice(0, 80).map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), label: (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").trim().slice(0, 80) })).filter(item => /classwork|material|assignment|module|resource|file|folder|show|open|view|oppgave|materiell/i.test(item.label)).slice(0, 30),
+          frames: [...document.querySelectorAll<HTMLIFrameElement>("iframe")].map(item => { try { return new URL(item.src).origin; } catch { return "unknown"; } }).slice(0, 10),
+        }));
+        console.log(JSON.stringify({ provider, classIndex, classwork: shape }));
+      } else if (args.get("teams-class-files-probe") === "true") {
         const first = await probe.evaluate(() => {
           const matches = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')]
             .filter(element => /^(general|generelt|files|filer)$/i.test((element.getAttribute("aria-label") ?? element.textContent ?? "").trim()));
