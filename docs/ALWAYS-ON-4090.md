@@ -1,6 +1,6 @@
 # Keeping SILENT-4090 available
 
-The 4090 being offline in Tailscale does not by itself prove Windows slept. Diagnose the next outage before changing unrelated network or service settings: inspect uptime, the System event log for sleep/boot/power-loss events, Tailscale service state, and the app readiness endpoint.
+The 4090 being offline in Tailscale does not by itself prove Windows slept. Diagnose the next outage before changing unrelated network or service settings. `infra/windows-host/get-host-uptime-diagnostics.ps1` reads uptime, recent System sleep/boot/power events (without event messages), relevant service/task state, the active AC power settings, and loopback app readiness. It changes nothing and does not print credentials.
 
 ## Host power
 
