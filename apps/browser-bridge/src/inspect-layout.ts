@@ -197,6 +197,23 @@ try {
           await shared.click();
           await probe.waitForTimeout(5_000);
         }
+        if (args.get("teams-shared-folder-probe") === "true") {
+          const sharepoint = probe.frames().find(frame => { try { return new URL(frame.url()).hostname.endsWith(".sharepoint.com"); } catch { return false; } });
+          if (!sharepoint) throw new Error("teams_sharepoint_frame_missing");
+          const folders = sharepoint.locator('[role="row"]').filter({ has: sharepoint.locator('[title="Yellow folder"]') });
+          const folderCount = await folders.count();
+          if (folderCount > 0 && folderCount <= 20) {
+            await folders.first().locator('[data-automationid="field-LinkFilename"] button').first().click();
+            await probe.waitForTimeout(5_000);
+          }
+          const folderShape = await sharepoint.evaluate(() => ({
+            rows: document.querySelectorAll('[role="row"]').length,
+            pptxRows: [...document.querySelectorAll<HTMLElement>('[role="row"]')].filter(row => /\.pptx\b/i.test(row.textContent ?? "")).length,
+            folderRows: document.querySelectorAll('[role="row"] [title="Yellow folder"]').length,
+            extensions: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (/\.([a-z0-9]{2,5})\b/i.exec(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "")?.[1] ?? "none").toLowerCase()).reduce<Record<string, number>>((all, extension) => { all[extension] = (all[extension] ?? 0) + 1; return all; }, {}),
+          }));
+          console.log(JSON.stringify({ provider, classIndex, folderCount, folderShape }));
+        } else {
         const after = await probe.evaluate(() => ({
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(element => ({ label: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 60), selected: element.getAttribute("aria-selected") })),
           fileControls: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /^(files|filer|open in sharepoint|åpne i sharepoint)$/i.test(label)).slice(0, 20),
@@ -221,6 +238,7 @@ try {
           } catch { return { origin: "unavailable" }; }
         }));
         console.log(JSON.stringify({ provider, classIndex, first, generalCount, sharedCount, after, frames }));
+        }
       } else {
       const screenshotPath = args.get("screenshot-path");
       if (screenshotPath) await probe.screenshot({ path: screenshotPath, fullPage: false });
