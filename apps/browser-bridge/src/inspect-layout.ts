@@ -1,5 +1,5 @@
 import { chromium } from "playwright-core";
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 // Development-only structural probe. Section table previews can include private
@@ -197,7 +197,19 @@ try {
           await shared.click();
           await probe.waitForTimeout(5_000);
         }
-        if (args.get("teams-shared-folder-probe") === "true") {
+        if (args.get("teams-shared-download-probe") === "true") {
+          const sharepoint = probe.frames().find(frame => { try { return new URL(frame.url()).hostname.endsWith(".sharepoint.com"); } catch { return false; } });
+          if (!sharepoint) throw new Error("teams_sharepoint_frame_missing");
+          const file = sharepoint.locator('[role="row"]').filter({ hasText: /\.jpg\b/i });
+          if (await file.count() !== 1) throw new Error("teams_download_probe_sample_ambiguous");
+          await file.click();
+          const downloadButton = sharepoint.getByRole("menuitem", { name: /^Download$/ });
+          await downloadButton.waitFor({ timeout: 10_000 });
+          const download = await Promise.all([probe.waitForEvent("download", { timeout: 20_000 }), downloadButton.click()]).then(([item]) => item);
+          const filepath = await download.path();
+          const bytes = (await stat(filepath)).size;
+          console.log(JSON.stringify({ provider, classIndex, downloadProbe: { extension: path.extname(download.suggestedFilename()).toLowerCase(), bytes } }));
+        } else if (args.get("teams-shared-folder-probe") === "true") {
           const sharepoint = probe.frames().find(frame => { try { return new URL(frame.url()).hostname.endsWith(".sharepoint.com"); } catch { return false; } });
           if (!sharepoint) throw new Error("teams_sharepoint_frame_missing");
           const folderPath = (args.get("folder-path") ?? "0").split(",").map(part => Number(part));
