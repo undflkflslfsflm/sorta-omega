@@ -59,17 +59,26 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       try { frame = assignmentFrame(probe); } catch { await probe.waitForTimeout(250); }
     }
     if (!frame) throw new Error("teams_assignments_frame_not_loaded");
-    stage = "list_open";
-    // Teams sometimes restores the embedded assignments app directly to its
-    // all-classes list. In that state the landing-page link does not exist.
-    // Treat the route as authoritative, then wait for real cards below so a
-    // loading/empty shell cannot be mistaken for a successful import.
-    if (new URL(frame.url()).pathname !== "/classes/all/list") {
-      const viewAssignments = frame.getByRole("link", { name: /^View assignments$/i });
-      await viewAssignments.waitFor({ timeout: 25_000 });
-      if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
-      await viewAssignments.click();
+    // The embedded app may restore directly to the list or pass through its
+    // landing page while loading. Wait for either state; never infer an empty
+    // list from the loading shell.
+    stage = "list_navigation_wait";
+    const viewAssignments = frame.getByRole("link", { name: /^View assignments$/i });
+    let listReady = false;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      if (new URL(frame.url()).pathname === "/classes/all/list") { listReady = true; break; }
+      const linkCount = await viewAssignments.count();
+      if (linkCount > 1) throw new Error("teams_view_assignments_navigation_ambiguous");
+      if (linkCount === 1 && await viewAssignments.isVisible()) {
+        stage = "list_navigation_click";
+        await viewAssignments.click();
+        listReady = true;
+        break;
+      }
+      await probe.waitForTimeout(250);
     }
+    if (!listReady) throw new Error("teams_assignment_list_navigation_unavailable");
+    stage = "list_cards_wait";
     await frame.locator(".aui-assignmentListCard").first().waitFor({ timeout: 25_000 });
     const listUrl = frame.url();
     const parsedList = new URL(listUrl);
