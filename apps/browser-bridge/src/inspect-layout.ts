@@ -179,7 +179,17 @@ try {
       }
       await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
-      if (args.get("teams-classwork-probe") === "true") {
+      if (args.get("teams-post-attachment-probe") === "true") {
+        const posts = await probe.evaluate(() => {
+          const extension = (value: string) => /\.(pptx|ppt|pdf|docx|xlsx|jpg|png)\b/i.exec(value)?.[1]?.toLowerCase() ?? null;
+          return [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].slice(0, 200).map(post => {
+            const group = post.closest<HTMLElement>('[role="group"]') ?? post;
+            const candidates = [...group.querySelectorAll<HTMLElement>('a[href], [role="link"], [data-tid*="file" i], [data-tid*="attach" i]')];
+            return { elements: candidates.length, extensions: candidates.map(item => extension(`${item.getAttribute("aria-label") ?? ""} ${item.getAttribute("title") ?? ""} ${item.textContent ?? ""}`)).filter(Boolean), shapes: candidates.slice(0, 8).map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), hasHref: Boolean(item.getAttribute("href")), hrefOrigin: (() => { try { return new URL(item.getAttribute("href") ?? "", location.href).origin; } catch { return null; } })(), textLength: (item.textContent ?? "").trim().length })) };
+          });
+        });
+        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes) } }));
+      } else if (args.get("teams-classwork-probe") === "true") {
         const classwork = probe.getByText("Classwork", { exact: true });
         const matches = await classwork.count();
         if (matches !== 1) throw new Error("teams_classwork_entry_ambiguous");
