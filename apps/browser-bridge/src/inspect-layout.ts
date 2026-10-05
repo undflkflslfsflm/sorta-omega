@@ -189,7 +189,26 @@ try {
           }
           return { postCount: document.querySelectorAll('[data-reply-chain-id][data-mid]').length, ancestors };
         });
-        console.log(JSON.stringify({ provider, classIndex, postHistoryShape: shape }));
+        if (args.get("teams-post-history-scroll") === "true") {
+          const seen = new Set<string>();
+          const steps = [];
+          const viewport = probe.locator('[data-tid="channel-pane-viewport"]');
+          if (await viewport.count() !== 1) throw new Error("teams_post_viewport_ambiguous");
+          for (let step = 0; step < 15; step++) {
+            const snapshot = await viewport.evaluate(element => ({
+              top: element.scrollTop,
+              height: element.scrollHeight,
+              client: element.clientHeight,
+              ids: [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(item => `${item.getAttribute("data-reply-chain-id")}:${item.getAttribute("data-mid")}`),
+            }));
+            snapshot.ids.forEach(id => seen.add(id));
+            steps.push({ top: snapshot.top, height: snapshot.height, client: snapshot.client, rendered: snapshot.ids.length, distinctSeen: seen.size });
+            if (step > 2 && snapshot.top === 0 && steps[step - 1].top === 0 && steps[step - 1].height === snapshot.height) break;
+            await viewport.evaluate(element => { element.scrollTop = Math.max(0, element.scrollTop - Math.floor(element.clientHeight * 0.8)); });
+            await probe.waitForTimeout(1_000);
+          }
+          console.log(JSON.stringify({ provider, classIndex, postHistoryScroll: steps }));
+        } else console.log(JSON.stringify({ provider, classIndex, postHistoryShape: shape }));
       } else if (args.get("teams-channel-counts-probe") === "true") {
         const hidden = probe.locator("#single-team-hidden-channels");
         if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
