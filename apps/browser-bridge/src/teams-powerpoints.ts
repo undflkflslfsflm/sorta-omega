@@ -26,9 +26,9 @@ async function visibleEntries(frame: Frame): Promise<{ entries: Entry[]; totalRo
     const entries = [...document.querySelectorAll<HTMLElement>('[role="row"]')].flatMap((row, rowIndex) => {
       if (row.getAttribute("data-automationid") === "row-header") return [];
       const name = (row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "").trim();
-      const icon = row.querySelector<HTMLElement>('[data-automationid="field-DocIcon"] [title], [data-automationid="field-DocIcon"] [aria-label]');
-      const iconLabel = icon?.getAttribute("title") ?? icon?.getAttribute("aria-label") ?? "";
-      return name ? [{ name, rowIndex, folder: /folder/i.test(iconLabel) }] : [];
+      const iconCell = row.querySelector<HTMLElement>('[data-automationid="field-DocIcon"]');
+      const iconLabels = [...(iconCell?.querySelectorAll<HTMLElement>('[title], [aria-label]') ?? [])].map(icon => icon.getAttribute("title") ?? icon.getAttribute("aria-label") ?? "");
+      return name ? [{ name, rowIndex, folder: iconLabels.some(label => /folder/i.test(label)) }] : [];
     });
     return { entries, totalRows: /^\d+$/.test(totalText) ? Number(totalText) : null };
   });
