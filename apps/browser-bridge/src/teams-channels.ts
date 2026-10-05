@@ -15,7 +15,7 @@ export function mergeRenderedPosts(existing: Map<string, RenderedPost>, posts: R
 
 async function collectRenderedChannelHistory(probe: Page): Promise<RenderedPost[]> {
   const viewport = probe.locator('[data-tid="channel-pane-viewport"]');
-  await viewport.waitFor({ timeout: 10_000 });
+  await viewport.waitFor({ state: "attached", timeout: 10_000 });
   if (await viewport.count() !== 1) throw new Error("teams_channel_post_viewport_ambiguous");
   const posts = new Map<string, RenderedPost>();
   let stableTop = 0, lastHeight = -1, lastCount = -1;
