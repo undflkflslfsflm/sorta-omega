@@ -261,6 +261,9 @@ try {
             channelIndex: counts.length,
             ...selection,
             postCount: await probe.locator('[data-reply-chain-id][data-mid]').count(),
+            viewportCount: await probe.locator('[data-tid="channel-pane-viewport"]').count(),
+            emptyIndicator: await probe.evaluate(() => /no posts|no conversations|start a post|ingen innlegg|ingen samtaler/i.test(document.body?.innerText ?? "")),
+            errorIndicator: await probe.evaluate(() => /something went wrong|\boops\b/i.test(document.body?.innerText ?? "")),
             routeShape: new URL(probe.url()).pathname.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 100),
           });
           console.log(JSON.stringify({ provider, classIndex, channelStep: counts[counts.length - 1] }));
