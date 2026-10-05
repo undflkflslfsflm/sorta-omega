@@ -44,10 +44,13 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
       const className = (await cards.nth(index).textContent() ?? "").replace(/\s+/g, " ").trim();
       if (!className) throw new Error("teams_class_name_missing");
       await cards.nth(index).click();
+      const general = probe.getByRole("treeitem", { name: /^(General|Generelt)$/ });
+      await general.waitFor({ timeout: 15_000 });
+      if (await general.count() !== 1) throw new Error(`teams_general_channel_ambiguous_class_${index}`);
       const hidden = probe.locator("#single-team-hidden-channels");
       if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
       const channels = (await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents()).map(value => value.trim());
-      if (!channels.some(value => /^(General|Generelt)$/.test(value)) || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error("teams_channel_list_ambiguous");
+      if (!channels.some(value => /^(General|Generelt)$/.test(value)) || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error(`teams_channel_list_ambiguous_class_${index}`);
       for (const channelName of channels) {
         channelCount++;
         const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
