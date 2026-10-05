@@ -204,7 +204,20 @@ try {
           tableRows: document.querySelectorAll('[role="row"], tr').length,
           pptxLabels: [...document.querySelectorAll<HTMLElement>('a, [role="link"], [role="row"], [role="button"]')].filter(element => /\.pptx\b/i.test(element.getAttribute("aria-label") ?? element.textContent ?? "")).slice(0, 10).map(element => ({ tag: element.tagName.toLowerCase(), role: element.getAttribute("role"), classes: (element.getAttribute("class") ?? "").split(/\s+/).slice(0, 6), childCount: element.children.length })),
         }));
-        console.log(JSON.stringify({ provider, classIndex, first, generalCount, sharedCount, after }));
+        const frames = await Promise.all(probe.frames().map(async frame => {
+          try {
+            const url = new URL(frame.url());
+            const structure = await frame.evaluate(() => ({
+              bodyLength: document.body?.innerText?.length ?? 0,
+              tables: document.querySelectorAll('table, [role="grid"]').length,
+              rows: document.querySelectorAll('tr, [role="row"]').length,
+              pptxCount: [...document.querySelectorAll<HTMLElement>('a, [role="link"], [role="row"], [role="button"]')].filter(element => /\.pptx\b/i.test(element.getAttribute("aria-label") ?? element.textContent ?? "")).length,
+              navigationLabels: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /^(files|filer|shared|delt|open in sharepoint|åpne i sharepoint)$/i.test(label)).slice(0, 20),
+            }));
+            return { origin: url.origin, pathShape: url.pathname.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 120), structure };
+          } catch { return { origin: "unavailable" }; }
+        }));
+        console.log(JSON.stringify({ provider, classIndex, first, generalCount, sharedCount, after, frames }));
       } else {
       const screenshotPath = args.get("screenshot-path");
       if (screenshotPath) await probe.screenshot({ path: screenshotPath, fullPage: false });
