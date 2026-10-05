@@ -188,7 +188,12 @@ try {
             return { elements: candidates.length, extensions: candidates.map(item => extension(`${item.getAttribute("aria-label") ?? ""} ${item.getAttribute("title") ?? ""} ${item.textContent ?? ""}`)).filter(Boolean), shapes: candidates.slice(0, 8).map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), hasHref: Boolean(item.getAttribute("href")), hrefOrigin: (() => { try { return new URL(item.getAttribute("href") ?? "", location.href).origin; } catch { return null; } })(), textLength: (item.textContent ?? "").trim().length })) };
           });
         });
-        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes) } }));
+        const pptxGrid = await probe.evaluate(() => {
+          const grid = [...document.querySelectorAll<HTMLElement>('[data-tid="file-attachment-grid"]')].find(item => /\.pptx\b/i.test(item.textContent ?? ""));
+          const shape = (item: Element, depth: number): unknown => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), aria: item.getAttribute("aria-label"), title: item.getAttribute("title"), extension: /\.(pptx|ppt|pdf|docx|xlsx)\b/i.exec(item.textContent ?? "")?.[1]?.toLowerCase() ?? null, children: depth < 3 ? [...item.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
+          return grid ? shape(grid, 0) : null;
+        });
+        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid } }));
       } else if (args.get("teams-classwork-probe") === "true") {
         const classwork = probe.getByText("Classwork", { exact: true });
         const matches = await classwork.count();
