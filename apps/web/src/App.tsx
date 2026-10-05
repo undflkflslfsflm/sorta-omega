@@ -360,7 +360,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const todayMarkers=todayCalendar?.unknownTimeMarkers.filter(item=>item.date===todayDate)??[];
   const todayAssessmentTitle=todayMarkers.find(item=>item.kind==="assessment")?.title??todaySchedule.find(item=>item.kind==="assessment")?.title;
   const openTasks=tasks.filter(task=>!task.completed);
-  const openSchoolAssignments=todayAssignments===null?null:openSchoolAssignmentsForToday(todayAssignments);
+  const openSchoolAssignments=todayAssignments===null?null:openSchoolAssignmentsForToday(todayAssignments,todayDate);
   const firstSchoolAssignment=openSchoolAssignments?.[0];
   const visibleSchoolAssignments=openSchoolAssignments?.slice(0,4)??[];
   const visibleTasks=openTasks.slice(0,Math.max(0,5-visibleSchoolAssignments.length));

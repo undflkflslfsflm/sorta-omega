@@ -1,17 +1,32 @@
 import type { SchoolAssignment } from "@sorta/contracts";
 
-function dueKey(assignment: SchoolAssignment): string {
-  if (assignment.due.kind === "exact") return assignment.due.dueAt;
-  if (assignment.due.kind === "date_only") return `${assignment.due.date}T23:59:59`;
-  return "9999-12-31T23:59:59";
+function dueDate(assignment: SchoolAssignment): string | null {
+  if (assignment.due.kind === "date_only") return assignment.due.date;
+  if (assignment.due.kind === "unknown") return null;
+  try {
+    return new Intl.DateTimeFormat("sv-SE", {
+      timeZone: assignment.due.timezone, year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date(assignment.due.dueAt));
+  } catch {
+    return assignment.due.dueAt.slice(0, 10);
+  }
 }
 
-export function openSchoolAssignmentsForToday(assignments: SchoolAssignment[]): SchoolAssignment[] {
+export function openSchoolAssignmentsForToday(assignments: SchoolAssignment[], today: string): SchoolAssignment[] {
   return assignments
     .filter(assignment => !assignment.archivedAt && assignment.providerListSection !== "completed")
     .sort((left, right) => {
+      const leftDate = dueDate(left);
+      const rightDate = dueDate(right);
+      const rank = (date: string | null) => date === today ? 0 : date && date < today ? 1 : date ? 2 : 3;
+      const rankDifference = rank(leftDate) - rank(rightDate);
+      if (rankDifference) return rankDifference;
+      if (leftDate && rightDate) {
+        const dateDifference = rank(leftDate) === 1 ? rightDate.localeCompare(leftDate) : leftDate.localeCompare(rightDate);
+        if (dateDifference) return dateDifference;
+      }
       const leftPastDue = left.providerListSection === "past_due" ? 0 : 1;
       const rightPastDue = right.providerListSection === "past_due" ? 0 : 1;
-      return leftPastDue - rightPastDue || dueKey(left).localeCompare(dueKey(right)) || left.title.localeCompare(right.title);
+      return leftPastDue - rightPastDue || left.title.localeCompare(right.title);
     });
 }
