@@ -44,7 +44,7 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
         if (!post.messageId || !post.chainId || !post.text) continue;
         const id = createHash("sha256").update(`teams-channel:${className}:${post.chainId}:${post.messageId}`).digest("hex");
         const title = `Teams · ${className.slice(0, 150)} · ${id.slice(0, 12)}`;
-        const body = `Source: Teams class channel post\nClass: ${className}\nChannel: General\nCaptured: ${new Date().toISOString()}\nThis is a browser snapshot, not live synchronization.\n\n${post.text}`;
+        const body = `Source: Teams class channel post\nClass: ${className}\nChannel: General\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
         if (Buffer.byteLength(body) > 1_000_000) continue;
         notes.push({ id, title, body, path: `teams/channels/${id}.json` });
       }
