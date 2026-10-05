@@ -529,7 +529,9 @@ function SchoolAssessmentsWorkspace({ focusId }: { focusId: string | null }) {
   useEffect(() => {
     const index = items.findIndex(item => item.id === focusId);
     if (index < 0) return;
-    document.querySelectorAll("section.settings-panel.school-assignments > div.settings-list > article.assessment-item")[index]?.scrollIntoView({ block: "center" });
+    const article = document.querySelectorAll<HTMLElement>("section.settings-panel.school-assignments > div.settings-list > article.assessment-item")[index];
+    article?.querySelector("details.assessment-source-detail")?.setAttribute("open", "");
+    article?.scrollIntoView({ block: "center" });
   }, [focusId, items]);
   async function create(event: FormEvent) { event.preventDefault(); if (!courseId || !title.trim()) return; const parsedDate=date.trim()?parseNorwegianDate(date):null; if(date.trim()&&!parsedDate){setError("Use dd.mm.yyyy, for example 24.09.2026.");return;} setError(null); try { await api.createSchoolAssessment({ courseId, title: title.trim(), kind, date:parsedDate??"", scope, weight }); setTitle(""); setDate(""); setScope(""); setWeight(""); await refresh(); } catch { setError("The assessment was not saved. Unknown fields can be left blank."); } }
   async function archive(item: SchoolAssessment) { try { await api.archiveSchoolAssessment(item); await refresh(); } catch { setError("The assessment changed elsewhere or could not be archived."); } }
