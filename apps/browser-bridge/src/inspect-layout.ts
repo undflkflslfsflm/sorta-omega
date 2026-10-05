@@ -182,18 +182,23 @@ try {
       if (args.get("teams-post-expand-probe") === "true") {
         const matches = probe.getByText("see more", { exact: true });
         const count = await matches.count();
-        if (count < 1 || count > 100) throw new Error("teams_post_expand_count_unexpected");
-        const before = await matches.first().evaluate(item => {
+        const visible = probe.locator("button:visible").filter({ hasText: /^see more$/i });
+        const visibleCount = await visible.count();
+        if (count < 1 || count > 100 || visibleCount > 100) throw new Error("teams_post_expand_count_unexpected");
+        if (visibleCount === 0) console.log(JSON.stringify({ provider, classIndex, postExpand: { count, visibleCount } }));
+        else {
+        const before = await visible.first().evaluate(item => {
           const post = item.closest<HTMLElement>('[data-reply-chain-id][data-mid]');
           return { tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), withinPost: Boolean(post), textLength: (post?.innerText ?? "").length, messageId: post?.getAttribute("data-mid") ?? null };
         });
-        await matches.first().click();
+        await visible.first().click();
         await probe.waitForTimeout(500);
         const after = await probe.evaluate(identity => {
           const post = [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].find(item => item.getAttribute("data-mid") === identity.messageId);
           return { postCount: document.querySelectorAll('[data-reply-chain-id][data-mid]').length, textLength: (post?.innerText ?? "").length };
         }, before);
-        console.log(JSON.stringify({ provider, classIndex, postExpand: { count, before: { tag: before.tag, role: before.role, tid: before.tid, withinPost: before.withinPost, textLength: before.textLength }, after } }));
+        console.log(JSON.stringify({ provider, classIndex, postExpand: { count, visibleCount, before: { tag: before.tag, role: before.role, tid: before.tid, withinPost: before.withinPost, textLength: before.textLength }, after } }));
+        }
       } else if (args.get("teams-post-history-probe") === "true") {
         const shape = await probe.evaluate(() => {
           const post = document.querySelector<HTMLElement>('[data-reply-chain-id][data-mid]');
