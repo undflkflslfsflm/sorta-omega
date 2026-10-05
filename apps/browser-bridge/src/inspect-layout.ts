@@ -211,8 +211,9 @@ try {
           if (args.get("teams-post-download-probe") === "true") {
             const action = probe.getByRole("menuitem", { name: "Download", exact: true });
             if (await action.count() !== 1) throw new Error("teams_post_download_action_ambiguous");
-            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click()]).then(([item]) => item);
-            const filePath = await download.path();
+            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item);
+            let timeout: ReturnType<typeof setTimeout> | undefined;
+            const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("teams_post_download_timeout")), 60_000); })]).finally(() => { if (timeout) clearTimeout(timeout); });
             const bytes = await readFile(filePath);
             downloadProbe = { extension: path.extname(download.suggestedFilename()).toLowerCase(), bytes: bytes.length, magicZip: bytes[0] === 0x50 && bytes[1] === 0x4b, hasPresentation: bytes.includes("ppt/presentation.xml") };
           }
