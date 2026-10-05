@@ -45,7 +45,7 @@ export const inSchoolSnapshotSchema = z.object({
   source_timestamp: z.string().datetime(),
   source_origin: z.string().url(),
   timezone: z.literal("Europe/Oslo"),
-  records: z.array(z.discriminatedUnion("kind", [subject, course, lesson, attendance, grade, assessment])).min(1).max(1000)
+  records: z.array(z.discriminatedUnion("kind", [subject, course, lesson, attendance, grade, assessment])).min(1).max(2500)
 }).strict().superRefine((snapshot, context) => {
   let origin: URL;
   try { origin = new URL(snapshot.source_origin); }

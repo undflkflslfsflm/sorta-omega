@@ -21,6 +21,6 @@ it("derives stable subjects, courses, and timed lessons from InSchool timetable 
   const overlappingLessons=overlappingSubjects.records.filter(record=>record.kind==="lesson");
   expect(overlappingLessons).toHaveLength(2);
   expect(overlappingLessons[0].externalId).not.toBe(overlappingLessons[1].externalId);
-  const tooMany=Array.from({length:1000},(_,index)=>({...item,entityId:`lesson-${index}`,startUnix:String(Number(item.startUnix)+index*3600)}));
+  const tooMany=Array.from({length:2500},(_,index)=>({...item,entityId:`lesson-${index}`,startUnix:String(Number(item.startUnix)+index*3600)}));
   expect(()=>inSchoolTimetableSnapshot(tooMany,"2026-09-24T12:00:00.000Z")).toThrow("inschool_timetable_snapshot_record_limit_exceeded");
 });

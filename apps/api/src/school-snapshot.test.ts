@@ -13,6 +13,11 @@ describe("InSchool snapshot gate", () => {
   it("accepts a referenced, bounded timetable snapshot", () => {
     expect(inSchoolSnapshotSchema.safeParse(snapshot).success).toBe(true);
   });
+  it("accepts a school-year-sized timetable but keeps a finite record ceiling", () => {
+    const lessons = Array.from({ length: 2500 }, (_, index) => ({ ...lesson, externalId: `lesson:${index}` }));
+    expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, ...lessons.slice(0, 1200)] }).success).toBe(true);
+    expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, records: [subject, course, ...lessons] }).success).toBe(false);
+  });
   it("rejects foreign origins and embedded credentials", () => {
     expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, source_origin: "https://example.org" }).success).toBe(false);
     expect(inSchoolSnapshotSchema.safeParse({ ...snapshot, source_origin: "https://user:pass@mailand.inschool.visma.no" }).success).toBe(false);

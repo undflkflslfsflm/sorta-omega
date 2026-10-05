@@ -54,8 +54,12 @@ $attendanceName = 'inschool-' + [Guid]::NewGuid().ToString('N') + '.json'
 $attendanceArtifact = Join-Path $spool $attendanceName
 $containerAttendanceArtifact = '/tmp/' + $attendanceName
 $attendanceCopied = $false
+$today = (Get-Date).Date
+$academicYear = if ($today.Month -ge 8) { $today.Year } else { $today.Year - 1 }
+$academicYearStart = [datetime]::new($academicYear, 8, 1)
+$weeksPast = [int][Math]::Min(52, [Math]::Max(0, [Math]::Ceiling(($today - $academicYearStart).TotalDays / 7)))
 try {
-  $bridgeOutput = @(& node $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact)
+  $bridgeOutput = @(& node $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --weeks-past $weeksPast --output $artifact)
   $bridgeExitCode = $LASTEXITCODE
   if ($bridgeExitCode -ne 0) {
     $bridgeErrorCode = 'browser_bridge_failed'
@@ -108,7 +112,7 @@ try {
   if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
   if (Test-Path -LiteralPath $attendanceArtifact) { Remove-Item -LiteralPath $attendanceArtifact -Force }
 }
-[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale;capturedAttendance=$attendanceReport.coverage.importedRows;attendanceLinkedLessons=$attendanceReport.coverage.linkedLessonRows;attendanceUnlinkedLessons=$attendanceReport.coverage.unlinkedLessonRows;attendanceCreated=$attendanceActions.created;attendanceUpdated=$attendanceActions.updated;attendanceLinked=$attendanceActions.linked;attendanceUnchanged=$attendanceActions.unchanged;attendanceStale=$attendanceActions.stale} | ConvertTo-Json -Compress) + "`n"))
+[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';weeksPast=$weeksPast;visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale;capturedAttendance=$attendanceReport.coverage.importedRows;attendanceLinkedLessons=$attendanceReport.coverage.linkedLessonRows;attendanceUnlinkedLessons=$attendanceReport.coverage.unlinkedLessonRows;attendanceCreated=$attendanceActions.created;attendanceUpdated=$attendanceActions.updated;attendanceLinked=$attendanceActions.linked;attendanceUnchanged=$attendanceActions.unchanged;attendanceStale=$attendanceActions.stale} | ConvertTo-Json -Compress) + "`n"))
 } catch {
   $message = $_.Exception.Message
   if ($message.Length -gt 240) { $message = $message.Substring(0,240) }

@@ -39,7 +39,7 @@ export function inSchoolTimetableSnapshot(items:InSchoolVisibleLesson[],captured
     if(seenLessons.has(lessonExternalId))continue;
     seenLessons.add(lessonExternalId);
     records.push({kind:"lesson",externalId:lessonExternalId,title:subjectName,courseExternalId,subjectExternalId,startsAt,endsAt,timezone:"Europe/Oslo",room:item.room.trim().slice(0,240)||null,teachers:item.teachers.trim().slice(0,240)||null,lessonType:item.lessonType.trim().slice(0,240)||null,sourceEntityId:item.entityId.trim().slice(0,240)||null});
-    if(records.length>1_000)throw new Error("inschool_timetable_snapshot_record_limit_exceeded");
+    if(records.length>2_500)throw new Error("inschool_timetable_snapshot_record_limit_exceeded");
   }
   return {version:"omega_school_json_v1",source_timestamp:capturedAt,timezone:"Europe/Oslo",records};
 }
