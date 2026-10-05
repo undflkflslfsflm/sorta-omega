@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { pool, transaction } from "./db.js";
+import { teamsChannelRevision } from "./teams-channel-revision.js";
 
 const args = process.argv.slice(2);
 if ((args.length !== 4 && args.length !== 6) || args[0] !== "--vault-id" || !/^[0-9a-f-]{36}$/i.test(args[1] ?? "") || args[2] !== "--file" || !/^\/tmp\/teams-channels-[0-9a-f]{32}\.json$/.test(args[3] ?? "") || args.length === 6 && (args[4] !== "--dry-run" || args[5] !== "true")) throw new Error("usage: import-teams-channels --vault-id <uuid> --file /tmp/teams-channels-<32hex>.json [--dry-run true]");
@@ -24,11 +25,12 @@ try {
     for (const item of items) {
       const originalText = item.body.split("\n\n").slice(1).join("\n\n");
       const hash = createHash("sha256").update(originalText).digest("hex");
-      const existing = (await client.query<{ id: string; source_id: string; original_text: string }>("SELECT n.id,n.source_id,s.original_text FROM notes n JOIN sources s ON s.id=n.source_id WHERE n.vault_id=$1 AND n.title=$2 AND s.kind='provider' AND n.trashed_at IS NULL FOR UPDATE", [vaultId, item.title])).rows;
+      const existing = (await client.query<{ id: string; source_id: string; original_text: string; body: string }>("SELECT n.id,n.source_id,s.original_text,n.body FROM notes n JOIN sources s ON s.id=n.source_id WHERE n.vault_id=$1 AND n.title=$2 AND s.kind='provider' AND n.trashed_at IS NULL FOR UPDATE", [vaultId, item.title])).rows;
       if (existing.length > 1) throw new Error("teams_channels_duplicate_source_identity");
       if (existing[0]) {
-        if (existing[0].original_text === originalText) { counts.unchanged++; continue; }
-        await client.query("UPDATE sources SET original_text=$2,content_hash=$3 WHERE id=$1", [existing[0].source_id, originalText, hash]);
+        const revision = teamsChannelRevision(existing[0], { originalText, body: item.body });
+        if (!revision.noteChanged) { counts.unchanged++; continue; }
+        if (revision.sourceChanged) await client.query("UPDATE sources SET original_text=$2,content_hash=$3 WHERE id=$1", [existing[0].source_id, originalText, hash]);
         const updated = await client.query<{ revision: number }>("UPDATE notes SET body=$2,revision=revision+1,updated_at=now() WHERE id=$1 RETURNING revision", [existing[0].id, item.body]);
         await client.query("INSERT INTO note_revisions(note_id,revision,title,body) VALUES ($1,$2,$3,$4)", [existing[0].id, updated.rows[0].revision, item.title, item.body]);
         counts.updated++;
