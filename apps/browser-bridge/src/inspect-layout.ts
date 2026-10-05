@@ -179,7 +179,27 @@ try {
       }
       await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
-      if (args.get("teams-post-attachment-probe") === "true") {
+      if (args.get("teams-channel-counts-probe") === "true") {
+        const hidden = probe.locator("#single-team-hidden-channels");
+        if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
+        const channels = (await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents()).map(value => value.trim());
+        if (channels.length < 1 || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error("teams_channel_list_ambiguous");
+        const counts = [];
+        for (const name of channels) {
+          const channel = probe.getByRole("treeitem", { name, exact: true });
+          if (await channel.count() !== 1) throw new Error("teams_channel_changed");
+          await channel.click();
+          await probe.waitForTimeout(1_500);
+          counts.push({
+            channelIndex: counts.length,
+            selected: await channel.getAttribute("aria-selected"),
+            current: await channel.getAttribute("aria-current"),
+            postCount: await probe.locator('[data-reply-chain-id][data-mid]').count(),
+            routeShape: new URL(probe.url()).pathname.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 100),
+          });
+        }
+        console.log(JSON.stringify({ provider, classIndex, channelCounts: counts }));
+      } else if (args.get("teams-post-attachment-probe") === "true") {
         const posts = await probe.evaluate(() => {
           const extension = (value: string) => /\.(pptx|ppt|pdf|docx|xlsx|jpg|png)\b/i.exec(value)?.[1]?.toLowerCase() ?? null;
           return [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].slice(0, 200).map(post => {
