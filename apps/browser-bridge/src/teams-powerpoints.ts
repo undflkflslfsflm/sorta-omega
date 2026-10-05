@@ -114,18 +114,22 @@ async function collectPostPresentations(probe: Page, className: string, stagingR
     stable = count === previous ? stable + 1 : 0;
     previous = count;
   }
-  const candidates = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].flatMap((post, postIndex) => {
-    const messageId = post.getAttribute("data-mid") ?? "";
-    const chainId = post.getAttribute("data-reply-chain-id") ?? "";
-    const group = post.closest<HTMLElement>('[role="group"]') ?? post;
-    const cards = [...group.querySelectorAll<HTMLElement>('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]')];
-    return messageId && chainId ? cards.map((card, cardIndex) => ({ postIndex, cardIndex, messageId, chainId, name: card.getAttribute("aria-label") ?? "" })) : [];
-  }));
+  const cardSelector = '[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]';
+  const candidates = await probe.evaluate(selector => [...document.querySelectorAll<HTMLElement>(selector)].map((card, cardIndex) => {
+    let ancestor = card.parentElement;
+    let owners: HTMLElement[] = [];
+    while (ancestor && owners.length === 0) {
+      owners = [...ancestor.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')];
+      ancestor = ancestor.parentElement;
+    }
+    if (owners.length !== 1) throw new Error(`teams_post_powerpoint_owner_ambiguous_${cardIndex}_${owners.length}`);
+    return { cardIndex, messageId: owners[0].getAttribute("data-mid") ?? "", chainId: owners[0].getAttribute("data-reply-chain-id") ?? "", name: card.getAttribute("aria-label") ?? "" };
+  }), cardSelector);
   if (candidates.length > 200) throw new Error("teams_post_powerpoint_count_unbounded");
   let bytes = 0, captured = 0;
   const duplicates = new Map<string, number>();
   for (const candidate of candidates) {
-    if (!/\.pptx$/i.test(candidate.name)) throw new Error("teams_post_powerpoint_name_invalid");
+    if (!candidate.messageId || !candidate.chainId || !/\.pptx$/i.test(candidate.name)) throw new Error("teams_post_powerpoint_identity_invalid");
     if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
     const fileName = safeSegment(candidate.name);
     const key = `${candidate.chainId}:${candidate.messageId}/${fileName}`;
@@ -133,16 +137,18 @@ async function collectPostPresentations(probe: Page, className: string, stagingR
     duplicates.set(key, ordinal + 1);
     const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal);
     const downloaded = await retryInvalidDownload(async () => {
-      const currentIndex = await posts.evaluateAll((elements, identity) => elements.findIndex(element => element.getAttribute("data-mid") === identity.messageId && element.getAttribute("data-reply-chain-id") === identity.chainId), { messageId: candidate.messageId, chainId: candidate.chainId });
-      if (currentIndex < 0) throw new Error(`teams_post_identity_missing_${candidate.postIndex}`);
-      const post = posts.nth(currentIndex);
-      if (await post.getAttribute("data-mid") !== candidate.messageId || await post.getAttribute("data-reply-chain-id") !== candidate.chainId) throw new Error(`teams_post_identity_changed_${candidate.postIndex}`);
-      const group = post.locator('xpath=ancestor-or-self::*[@role="group"][1]');
-      if (await group.count() !== 1) throw new Error("teams_post_group_changed");
-      const card = group.locator('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]').nth(candidate.cardIndex);
-      const cardCount = await card.count();
-      const sameName = cardCount === 1 && await card.getAttribute("aria-label") === candidate.name;
-      if (!sameName) throw new Error(`teams_post_powerpoint_card_changed_${candidate.postIndex}_${candidate.cardIndex}_${cardCount}`);
+      const currentIndex = await probe.locator(cardSelector).evaluateAll((elements, identity) => elements.flatMap((element, index) => {
+        if (element.getAttribute("aria-label") !== identity.name) return [];
+        let ancestor = element.parentElement;
+        let owners: Element[] = [];
+        while (ancestor && owners.length === 0) {
+          owners = [...ancestor.querySelectorAll('[data-reply-chain-id][data-mid]')];
+          ancestor = ancestor.parentElement;
+        }
+        return owners.length === 1 && owners[0].getAttribute("data-mid") === identity.messageId && owners[0].getAttribute("data-reply-chain-id") === identity.chainId ? [index] : [];
+      })[identity.ordinal] ?? -1, { name: candidate.name, messageId: candidate.messageId, chainId: candidate.chainId, ordinal });
+      if (currentIndex < 0) throw new Error(`teams_post_powerpoint_card_changed_${candidate.cardIndex}`);
+      const card = probe.locator(cardSelector).nth(currentIndex);
       await card.press("Shift+F10");
       const action = probe.getByRole("menuitem", { name: "Download", exact: true });
       if (await action.count() !== 1) throw new Error("teams_post_download_action_missing");
