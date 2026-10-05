@@ -203,7 +203,7 @@ try {
           const folders = sharepoint.locator('[role="row"]').filter({ has: sharepoint.locator('[title="Yellow folder"], [aria-label="Yellow folder"]') });
           const folderCount = await folders.count();
           if (folderCount > 0 && folderCount <= 20) {
-            await folders.first().locator('[data-automationid="field-LinkFilename"] button').first().click();
+            await folders.first().locator('[data-automationid="field-LinkFilename"]').dblclick();
             await probe.waitForTimeout(5_000);
           }
           const folderShape = await sharepoint.evaluate(() => ({
