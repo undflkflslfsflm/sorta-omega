@@ -577,6 +577,27 @@ try {
           loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
         }));
         console.log(JSON.stringify({ provider, assignmentListShape: listShape }));
+        if (args.get("probe-assignment-paging") === "true") {
+          const sections = [];
+          for (const label of ["Upcoming", "Past due", "Completed"]) {
+            const tab = assignmentsFrame.getByRole("tab", { name: new RegExp(label, "i") });
+            if (await tab.count() !== 1) throw new Error("teams_assignment_tab_ambiguous");
+            await tab.click();
+            await probe.waitForTimeout(2_500);
+            const shape = await assignmentsFrame.evaluate(() => {
+              const first = document.querySelector<HTMLElement>(".aui-assignmentListCard");
+              const scrollAncestors = [];
+              for (let item = first?.parentElement; item && scrollAncestors.length < 8; item = item.parentElement) {
+                const style = getComputedStyle(item);
+                scrollAncestors.push({ tag: item.tagName.toLowerCase(), scrollHeight: item.scrollHeight, clientHeight: item.clientHeight, overflowY: style.overflowY });
+              }
+              const pagingLabels = [...document.querySelectorAll<HTMLElement>("button, a, [role=button]")].map(item => (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").replace(/\s+/g, " ").trim()).filter(item => /^(next|previous|more|load more|show more|older|newer|\d+|neste|forrige|vis flere)$/i.test(item)).slice(0, 20);
+              return { cards: document.querySelectorAll(".aui-assignmentListCard").length, scrollAncestors, pagingLabels, progressIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"]').length };
+            });
+            sections.push({ label, ...shape });
+          }
+          console.log(JSON.stringify({ provider, assignmentPaging: sections }));
+        }
         if (args.get("probe-assignment-controls") === "true") {
           const controls = await assignmentsFrame.evaluate(() => ({
             routeShape: location.pathname,
