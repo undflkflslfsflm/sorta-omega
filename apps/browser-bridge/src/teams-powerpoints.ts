@@ -39,7 +39,18 @@ async function visibleEntries(frame: Frame): Promise<{ entries: Entry[]; totalRo
 
 async function waitForGrid(frame: Frame): Promise<void> {
   await frame.locator('[role="row"]').first().waitFor({ timeout: 20_000 });
-  await frame.waitForTimeout(800);
+  let previous = -1, stable = 0;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const state = await frame.evaluate(() => ({
+      rows: document.querySelectorAll('[role="row"]').length,
+      empty: /this folder is empty|no files|ingen filer|mappen er tom/i.test(document.body?.innerText ?? ""),
+    }));
+    stable = state.rows === previous ? stable + 1 : 0;
+    previous = state.rows;
+    if (stable >= 3 && (state.rows > 1 || state.empty)) return;
+    await frame.waitForTimeout(500);
+  }
+  throw new Error("teams_sharepoint_grid_not_loaded");
 }
 
 async function enterFolder(frame: Frame, name: string): Promise<void> {
