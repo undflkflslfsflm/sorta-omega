@@ -4575,7 +4575,10 @@ app.get("/api/v1/vaults/:vaultId/ai/status", async (request) => {
   idSchema.parse(vaultId);
   const [workers, queued, tests] = await Promise.all([
     query(
-      `SELECT w.id, w.runtime_status, w.installed_profiles, w.last_seen_at
+      `SELECT w.id, w.runtime_status, w.installed_profiles, w.last_seen_at,
+              (SELECT max(j.last_heartbeat_at) FROM jobs j
+               WHERE j.assigned_worker_id = w.id AND j.status = 'running'
+                 AND j.lease_expires_at > now()) AS active_job_heartbeat_at
        FROM workers w JOIN worker_vault_access a ON a.worker_id = w.id
        WHERE a.vault_id = $1 AND w.revoked_at IS NULL AND w.paused = false`,
       [vaultId]
@@ -4590,7 +4593,9 @@ app.get("/api/v1/vaults/:vaultId/ai/status", async (request) => {
        ORDER BY input->>'modelProfileId', finished_at DESC`, [vaultId]
     )
   ]);
-  const freshWorkers = workers.rows.filter((worker) => worker.last_seen_at && Date.now() - new Date(worker.last_seen_at).getTime() < 45_000);
+  const recent = (value: Date | string | null | undefined) => !!value && Date.now() - new Date(value).getTime() < 45_000;
+  const freshWorkers = workers.rows.filter((worker) => recent(worker.last_seen_at) || recent(worker.active_job_heartbeat_at));
+  const stateFor = (worker: typeof workers.rows[number]) => recent(worker.active_job_heartbeat_at) ? "busy" : worker.runtime_status === "available" ? "available" : worker.runtime_status === "busy" ? "busy" : "error";
   const installed = new Map<string, string | null>();
   for (const worker of freshWorkers) for (const profile of worker.installed_profiles as Array<{ model: string; digest: string }>) installed.set(profile.model, profile.digest);
   const profiles = localModelProfiles(installed);
@@ -4603,14 +4608,14 @@ app.get("/api/v1/vaults/:vaultId/ai/status", async (request) => {
     classify: testResults.some((result) => result.structuredOutput === true)
   };
   let state: "worker_offline" | "model_missing" | "busy" | "available" | "error" = "worker_offline";
-  if (freshWorkers.length) state = freshWorkers.some((worker) => worker.runtime_status === "available") ? "available" : freshWorkers.some((worker) => worker.runtime_status === "busy") ? "busy" : "error";
+  if (freshWorkers.length) state = freshWorkers.some((worker) => stateFor(worker) === "available") ? "available" : freshWorkers.some((worker) => stateFor(worker) === "busy") ? "busy" : "error";
   if ((state === "available" || state === "busy") && profiles.some((profile) => !profile.installed)) state = "model_missing";
   return aiStatusSchema.parse({
     state,
     workers: workers.rows.map((worker) => ({
       id: worker.id,
       backend: config.LOCAL_CHAT_BACKEND === "openai_compatible" ? "mixed" : "ollama",
-      state: freshWorkers.includes(worker) ? (worker.runtime_status === "available" ? "available" : worker.runtime_status === "busy" ? "busy" : "error") : "worker_offline",
+      state: freshWorkers.includes(worker) ? stateFor(worker) : "worker_offline",
       detail: freshWorkers.includes(worker) ? null : "heartbeat_stale"
     })),
     capabilities,
@@ -4624,7 +4629,12 @@ app.get("/api/v1/ai/models", async (request, reply) => {
   const session = await getOwnerSession(request);
   if (!session || session.auth_level !== "passkey") return reply.code(401).send({ error: "authentication_required" });
   const [workers, tests] = await Promise.all([
-    query("SELECT installed_profiles FROM workers WHERE owner_id = $1 AND revoked_at IS NULL AND last_seen_at > now() - interval '45 seconds'", [session.owner_id]),
+    query(`SELECT w.installed_profiles FROM workers w
+           WHERE w.owner_id = $1 AND w.revoked_at IS NULL AND w.paused = false
+             AND (w.last_seen_at > now() - interval '45 seconds' OR EXISTS (
+               SELECT 1 FROM jobs j WHERE j.assigned_worker_id = w.id AND j.status = 'running'
+                 AND j.lease_expires_at > now()
+                 AND j.last_heartbeat_at > now() - interval '45 seconds'))`, [session.owner_id]),
     query(
       `SELECT DISTINCT ON (j.input->>'modelProfileId') j.input->>'modelProfileId' AS profile_id
        FROM jobs j JOIN vaults v ON v.id = j.vault_id
