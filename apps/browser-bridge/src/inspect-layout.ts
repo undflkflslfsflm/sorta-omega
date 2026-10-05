@@ -187,16 +187,23 @@ try {
         const counts = [];
         for (const name of channels) {
           const channel = probe.getByRole("treeitem", { name, exact: true });
-          if (await channel.count() !== 1) throw new Error("teams_channel_changed");
+          if (await channel.count() !== 1) {
+            console.log(JSON.stringify({ provider, classIndex, channelCountsPartial: counts }));
+            throw new Error("teams_channel_changed");
+          }
           await channel.click();
           await probe.waitForTimeout(1_500);
+          const selection = await probe.evaluate(name => {
+            const item = [...document.querySelectorAll<HTMLElement>('[role="treeitem"]')].find(element => (element.textContent ?? "").trim() === name);
+            return { selected: item?.getAttribute("aria-selected") ?? null, current: item?.getAttribute("aria-current") ?? null };
+          }, name);
           counts.push({
             channelIndex: counts.length,
-            selected: await channel.getAttribute("aria-selected"),
-            current: await channel.getAttribute("aria-current"),
+            ...selection,
             postCount: await probe.locator('[data-reply-chain-id][data-mid]').count(),
             routeShape: new URL(probe.url()).pathname.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 100),
           });
+          console.log(JSON.stringify({ provider, classIndex, channelStep: counts[counts.length - 1] }));
         }
         console.log(JSON.stringify({ provider, classIndex, channelCounts: counts }));
       } else if (args.get("teams-post-attachment-probe") === "true") {
