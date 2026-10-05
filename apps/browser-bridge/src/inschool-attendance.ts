@@ -11,6 +11,10 @@ type InSchoolSnapshot = { version: "omega_school_json_v1"; source_timestamp: str
 type Detail = { date: string; code: string; time: string; hours: string; group: string; recordedBy: string; countsTowardSubject: string; onCertificate: string; term: string };
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const localDateTime = (iso: string) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Oslo", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+export function attendanceDataRowCount(reportedTotalRows: number, headerRows: number): number | null {
+  if (!Number.isInteger(reportedTotalRows) || !Number.isInteger(headerRows) || headerRows < 1 || reportedTotalRows < headerRows) return null;
+  return reportedTotalRows - headerRows;
+}
 
 export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapshot, sourceOrigin: string) {
   if (new URL(page.url()).origin !== sourceOrigin || !page.url().includes("#/app/attendance/lessons")) throw new Error("inschool_attendance_page_required");
@@ -18,7 +22,7 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
   await table.locator("tbody tr").first().waitFor({ timeout: 20_000 });
   const headers = await table.locator("thead th").allTextContents();
   if (!headers.some(value => value.trim() === "Dato") || !headers.some(value => value.trim() === "Type")) throw new Error("inschool_attendance_layout_changed");
-  const reportedRows = Number(await table.getAttribute("aria-rowcount"));
+  const reportedRows = attendanceDataRowCount(Number(await table.getAttribute("aria-rowcount")), await table.locator("thead tr").count());
   const details: Detail[] = [];
   let overviewRows = 0;
   for (let pageIndex = 0; pageIndex < 20; pageIndex++) {
@@ -90,5 +94,6 @@ export async function collectInSchoolAttendance(page: Page, base: InSchoolSnapsh
     ...lessons.filter(record => matchedLessonIds.has(record.externalId)),
     ...attendance,
   ];
-  return { snapshot: { version: "omega_school_json_v1" as const, source_timestamp: new Date().toISOString(), source_origin: sourceOrigin, timezone: "Europe/Oslo" as const, records }, coverage: { overviewRows, reportedRows: Number.isFinite(reportedRows) ? reportedRows : null, detailRows: unique.length, importedRows: attendance.length, complete: reportedRows === overviewRows && attendance.length === unique.length, limitations: [...new Set(limitations)] } };
+  const linkedLessonRows = attendance.filter(record => record.kind === "attendance" && record.lessonExternalId !== null).length;
+  return { snapshot: { version: "omega_school_json_v1" as const, source_timestamp: new Date().toISOString(), source_origin: sourceOrigin, timezone: "Europe/Oslo" as const, records }, coverage: { overviewRows, reportedRows, detailRows: unique.length, importedRows: attendance.length, linkedLessonRows, unlinkedLessonRows: attendance.length - linkedLessonRows, complete: reportedRows === overviewRows && attendance.length === unique.length, limitations: [...new Set(limitations)] } };
 }
