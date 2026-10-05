@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractDocumentText } from "./document-text.js";
+import JSZip from "jszip";
 
 function samplePdf(text: string): Uint8Array {
   const stream = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
@@ -53,6 +54,22 @@ function sampleDocx(text: string): Uint8Array {
 }
 
 describe("document text extraction", () => {
+  it("extracts slide text and speaker notes from a PowerPoint", async () => {
+    const zip = new JSZip();
+    zip.file("ppt/slides/slide2.xml", '<p:sld xmlns:p="x" xmlns:a="y"><a:p><a:r><a:t>Second slide</a:t></a:r></a:p></p:sld>');
+    zip.file("ppt/slides/slide1.xml", '<p:sld xmlns:p="x" xmlns:a="y"><a:p><a:r><a:t>Percent &amp; statistics</a:t></a:r></a:p><a:p><a:r><a:t>Practice 4.1</a:t></a:r></a:p></p:sld>');
+    zip.file("ppt/notesSlides/notesSlide1.xml", '<p:notes xmlns:p="x" xmlns:a="y"><a:p><a:r><a:t>Remember the growth factor</a:t></a:r></a:p></p:notes>');
+    const result = await extractDocumentText(await zip.generateAsync({ type: "uint8array" }), "maths.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation");
+    expect(result).toEqual({ text: "Slide 1\nPercent & statistics\nPractice 4.1\n\nSlide 2\nSecond slide\n\nSpeaker notes 1\nRemember the growth factor", complete: true, reason: null });
+  }, 20_000);
+
+  it("keeps a picture-only PowerPoint explicitly incomplete", async () => {
+    const zip = new JSZip();
+    zip.file("ppt/slides/slide1.xml", '<p:sld xmlns:p="x" xmlns:a="y"><p:pic/></p:sld>');
+    expect(await extractDocumentText(await zip.generateAsync({ type: "uint8array" }), "images.pptx", "application/octet-stream"))
+      .toEqual({ text: null, complete: false, reason: "no_embedded_text" });
+  }, 20_000);
+
   it("extracts embedded PDF text in a bounded worker", async () => {
     const result = await extractDocumentText(samplePdf("Algebra revision"), "lesson.pdf", "application/pdf");
     expect(result).toEqual({ text: "Algebra revision", complete: true, reason: null });

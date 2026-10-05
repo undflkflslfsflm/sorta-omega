@@ -18,10 +18,11 @@ function plainText(bytes: Uint8Array, mediaType: string): DocumentText {
   } catch { return unavailable("invalid_text"); }
 }
 
-function richKind(filename: string, mediaType: string): "pdf" | "docx" | null {
+function richKind(filename: string, mediaType: string): "pdf" | "docx" | "pptx" | null {
   const lowerName = filename.toLowerCase();
   if (mediaType === "application/pdf" || lowerName.endsWith(".pdf")) return "pdf";
   if (mediaType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || lowerName.endsWith(".docx")) return "docx";
+  if (mediaType === "application/vnd.openxmlformats-officedocument.presentationml.presentation" || lowerName.endsWith(".pptx")) return "pptx";
   return null;
 }
 
@@ -32,7 +33,7 @@ export async function extractDocumentText(bytes: Uint8Array, filename: string, r
   if (!kind) return unavailable("unsupported_format");
   if (bytes.byteLength > maxRichDocumentBytes) return unavailable("document_limit");
   if (kind === "pdf" && !(bytes[0] === 37 && bytes[1] === 80 && bytes[2] === 68 && bytes[3] === 70)) return unavailable("invalid_document");
-  if (kind === "docx" && !(bytes[0] === 80 && bytes[1] === 75)) return unavailable("invalid_document");
+  if ((kind === "docx" || kind === "pptx") && !(bytes[0] === 80 && bytes[1] === 75)) return unavailable("invalid_document");
 
   const extension = import.meta.url.endsWith(".ts") ? ".ts" : ".js";
   const worker = new Worker(new URL(`./document-text-worker${extension}`, import.meta.url), {
