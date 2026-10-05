@@ -54,6 +54,10 @@ $attendanceName = 'inschool-' + [Guid]::NewGuid().ToString('N') + '.json'
 $attendanceArtifact = Join-Path $spool $attendanceName
 $containerAttendanceArtifact = '/tmp/' + $attendanceName
 $attendanceCopied = $false
+$assessmentName = 'inschool-' + [Guid]::NewGuid().ToString('N') + '.json'
+$assessmentArtifact = Join-Path $spool $assessmentName
+$containerAssessmentArtifact = '/tmp/' + $assessmentName
+$assessmentCopied = $false
 $today = (Get-Date).Date
 $academicYear = if ($today.Month -ge 8) { $today.Year } else { $today.Year - 1 }
 $academicYearStart = [datetime]::new($academicYear, 8, 1)
@@ -106,13 +110,44 @@ try {
   if ($null -eq $attendanceActions) { throw 'The InSchool import returned no attendance counts.' }
   $attendanceAccounted = [int]$attendanceActions.created + [int]$attendanceActions.updated + [int]$attendanceActions.linked + [int]$attendanceActions.unchanged + [int]$attendanceActions.stale
   if ($attendanceAccounted -ne [int]$attendanceReport.coverage.importedRows) { throw 'The InSchool import did not account for every captured attendance record.' }
+
+  $assessmentOutput = @(& node $bridge --provider inschool-assessments --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --base-snapshot $artifact --output $assessmentArtifact)
+  if ($LASTEXITCODE -ne 0) {
+    $assessmentErrorCode = 'browser_bridge_failed'
+    if ($assessmentOutput.Count -gt 0) {
+      try { $assessmentErrorCode = ($assessmentOutput[-1] | ConvertFrom-Json).errorCode } catch { }
+    }
+    if ($assessmentErrorCode -notmatch '^[a-z0-9_]{1,100}$') { $assessmentErrorCode = 'browser_bridge_failed' }
+    throw "The InSchool assessment capture failed: $assessmentErrorCode"
+  }
+  $assessmentReport = $assessmentOutput[-1] | ConvertFrom-Json
+  $assessmentGroups = @($assessmentReport.coverage.groups)
+  $assessmentRowSum = ($assessmentGroups | Measure-Object -Property rowCount -Sum).Sum
+  $publishedGradeSum = ($assessmentGroups | Measure-Object -Property publishedGrades -Sum).Sum
+  if ($assessmentReport.provider -ne 'inschool-assessments' -or $assessmentReport.coverage.groupCount -lt 1 -or $assessmentGroups.Count -ne $assessmentReport.coverage.groupCount -or $assessmentReport.coverage.assessmentCount -ne $assessmentRowSum -or $assessmentReport.coverage.gradeCount -ne $publishedGradeSum -or $assessmentReport.itemCount -lt ($assessmentReport.coverage.assessmentCount + $assessmentReport.coverage.gradeCount + 2)) {
+    throw 'The InSchool assessment capture did not account for its rendered group rows; no assessment records were imported.'
+  }
+  & docker cp $assessmentArtifact "${AppContainer}:$containerAssessmentArtifact"
+  if ($LASTEXITCODE -ne 0) { throw 'The assessment snapshot could not be transferred to the app container.' }
+  $assessmentCopied = $true
+  $assessmentImportOutput = @(& docker exec $AppContainer node /app/apps/api/dist/import-school-snapshot.js --vault-id $VaultId --file $containerAssessmentArtifact)
+  if ($LASTEXITCODE -ne 0) { throw 'The InSchool assessment snapshot was not applied.' }
+  $assessmentImportReport = $assessmentImportOutput[-1] | ConvertFrom-Json
+  $assessmentActions = $assessmentImportReport.counts.assessment
+  $gradeActions = $assessmentImportReport.counts.grade
+  if ($null -eq $assessmentActions -or $null -eq $gradeActions) { throw 'The InSchool import returned no assessment or grade counts.' }
+  $assessmentsAccounted = [int]$assessmentActions.created + [int]$assessmentActions.updated + [int]$assessmentActions.linked + [int]$assessmentActions.unchanged + [int]$assessmentActions.stale
+  $gradesAccounted = [int]$gradeActions.created + [int]$gradeActions.updated + [int]$gradeActions.linked + [int]$gradeActions.unchanged + [int]$gradeActions.stale
+  if ($assessmentsAccounted -ne [int]$assessmentReport.coverage.assessmentCount -or $gradesAccounted -ne [int]$assessmentReport.coverage.gradeCount) { throw 'The InSchool import did not account for every captured assessment and grade.' }
 } finally {
   if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
   if ($attendanceCopied) { & docker exec -u 0 $AppContainer rm $containerAttendanceArtifact | Out-Null }
+  if ($assessmentCopied) { & docker exec -u 0 $AppContainer rm $containerAssessmentArtifact | Out-Null }
   if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
   if (Test-Path -LiteralPath $attendanceArtifact) { Remove-Item -LiteralPath $attendanceArtifact -Force }
+  if (Test-Path -LiteralPath $assessmentArtifact) { Remove-Item -LiteralPath $assessmentArtifact -Force }
 }
-[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';weeksPast=$weeksPast;visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale;capturedAttendance=$attendanceReport.coverage.importedRows;attendanceLinkedLessons=$attendanceReport.coverage.linkedLessonRows;attendanceUnlinkedLessons=$attendanceReport.coverage.unlinkedLessonRows;attendanceCreated=$attendanceActions.created;attendanceUpdated=$attendanceActions.updated;attendanceLinked=$attendanceActions.linked;attendanceUnchanged=$attendanceActions.unchanged;attendanceStale=$attendanceActions.stale} | ConvertTo-Json -Compress) + "`n"))
+[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';weeksPast=$weeksPast;visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale;capturedAttendance=$attendanceReport.coverage.importedRows;attendanceLinkedLessons=$attendanceReport.coverage.linkedLessonRows;attendanceUnlinkedLessons=$attendanceReport.coverage.unlinkedLessonRows;attendanceCreated=$attendanceActions.created;attendanceUpdated=$attendanceActions.updated;attendanceLinked=$attendanceActions.linked;attendanceUnchanged=$attendanceActions.unchanged;attendanceStale=$attendanceActions.stale;assessmentGroups=$assessmentReport.coverage.groupCount;capturedAssessments=$assessmentReport.coverage.assessmentCount;capturedGrades=$assessmentReport.coverage.gradeCount;assessmentsCreated=$assessmentActions.created;assessmentsUpdated=$assessmentActions.updated;assessmentsLinked=$assessmentActions.linked;assessmentsUnchanged=$assessmentActions.unchanged;assessmentsStale=$assessmentActions.stale;gradesCreated=$gradeActions.created;gradesUpdated=$gradeActions.updated;gradesLinked=$gradeActions.linked;gradesUnchanged=$gradeActions.unchanged;gradesStale=$gradeActions.stale;assessmentCoverageComplete=$assessmentReport.coverage.complete;assessmentCoverageLimitation=$assessmentReport.coverage.limitation} | ConvertTo-Json -Compress) + "`n"))
 } catch {
   $message = $_.Exception.Message
   if ($message.Length -gt 240) { $message = $message.Substring(0,240) }

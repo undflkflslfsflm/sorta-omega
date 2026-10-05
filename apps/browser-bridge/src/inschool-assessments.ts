@@ -102,6 +102,5 @@ export async function collectInSchoolAssessments(source: Page, base: BaseSnapsho
     throw new Error(`inschool_assessment_capture_failed_at_${phase}`);
   } finally { await page.close(); }
   const unique = [...new Map(records.map(item => [`${item.kind}:${item.externalId}`, item])).values()];
-  if (!unique.some(item => item.kind === "assessment")) throw new Error("inschool_assessment_records_not_found");
   return { snapshot: { version: "omega_school_json_v1" as const, source_timestamp: new Date().toISOString(), source_origin: origin, timezone: "Europe/Oslo" as const, records: unique }, coverage: { groupCount: coveredGroups.length, assessmentCount: unique.filter(item => item.kind === "assessment").length, gradeCount: unique.filter(item => item.kind === "grade").length, groups: coveredGroups, complete: false, limitation: "Only the rendered current-year subject assessment tables were captured. Other school periods, exam tabs, unrendered groups, and linked OneNote feedback remain unverified." } };
 }
