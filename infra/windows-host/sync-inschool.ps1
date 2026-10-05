@@ -15,9 +15,12 @@ if ($VaultId -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') {
 if ($AppContainer -notmatch '^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$') { throw 'A literal Docker app container name is required.' }
 $origin = [Uri]$InSchoolOrigin
 if ($origin.Scheme -ne 'https' -or -not $origin.Host.EndsWith('.inschool.visma.no') -or $origin.AbsolutePath -ne '/' -or $origin.Query -or $origin.Fragment) { throw 'A registered InSchool HTTPS origin is required.' }
-$bridge = Join-Path $RepositoryRoot 'apps\browser-bridge\src\cli.ts'
-$tsx = Join-Path $RepositoryRoot 'apps\browser-bridge\node_modules\.bin\tsx.cmd'
-if (-not (Test-Path -LiteralPath $bridge) -or -not (Test-Path -LiteralPath $tsx)) { throw 'Install the bridge dependencies before syncing.' }
+$bridge = Join-Path $RepositoryRoot 'apps\browser-bridge\dist\cli.js'
+$compiler = Join-Path $RepositoryRoot 'apps\browser-bridge\node_modules\.bin\tsc.cmd'
+$bridgeProject = Join-Path $RepositoryRoot 'apps\browser-bridge\tsconfig.json'
+if (-not (Test-Path -LiteralPath $compiler) -or -not (Test-Path -LiteralPath $bridgeProject)) { throw 'Install the bridge dependencies before syncing.' }
+& $compiler -p $bridgeProject | Out-Null
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $bridge)) { throw 'The school browser bridge could not be built.' }
 $portFile = Join-Path $ProfilePath 'DevToolsActivePort'
 function Test-SchoolEdgeReady {
   if (-not (Test-Path -LiteralPath $portFile)) { return $false }
@@ -47,8 +50,12 @@ $name = 'inschool-' + [Guid]::NewGuid().ToString('N') + '.json'
 $artifact = Join-Path $spool $name
 $containerArtifact = '/tmp/' + $name
 $copied = $false
+$attendanceName = 'inschool-attendance-' + [Guid]::NewGuid().ToString('N') + '.json'
+$attendanceArtifact = Join-Path $spool $attendanceName
+$containerAttendanceArtifact = '/tmp/' + $attendanceName
+$attendanceCopied = $false
 try {
-  $bridgeOutput = @(& $tsx $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact)
+  $bridgeOutput = @(& node $bridge --provider inschool --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --output $artifact)
   $bridgeExitCode = $LASTEXITCODE
   if ($bridgeExitCode -ne 0) {
     $bridgeErrorCode = 'browser_bridge_failed'
@@ -70,11 +77,37 @@ try {
   $lessonActions = $importReport.counts.lesson
   $accounted = [int]$lessonActions.created + [int]$lessonActions.updated + [int]$lessonActions.linked + [int]$lessonActions.unchanged + [int]$lessonActions.stale
   if ($accounted -ne [int]$bridgeReport.uniqueLessonCount) { throw 'The InSchool import did not account for every captured lesson.' }
+
+  $attendanceOutput = @(& node $bridge --provider inschool-attendance --origin $origin.GetLeftPart([UriPartial]::Authority) --cdp-profile $ProfilePath --noninteractive true --base-snapshot $artifact --output $attendanceArtifact)
+  if ($LASTEXITCODE -ne 0) {
+    $attendanceErrorCode = 'browser_bridge_failed'
+    if ($attendanceOutput.Count -gt 0) {
+      try { $attendanceErrorCode = ($attendanceOutput[-1] | ConvertFrom-Json).errorCode } catch { }
+    }
+    if ($attendanceErrorCode -notmatch '^[a-z0-9_]{1,100}$') { $attendanceErrorCode = 'browser_bridge_failed' }
+    throw "The InSchool attendance capture failed: $attendanceErrorCode"
+  }
+  $attendanceReport = $attendanceOutput[-1] | ConvertFrom-Json
+  if ($attendanceReport.provider -ne 'inschool-attendance' -or -not $attendanceReport.coverage.complete -or $attendanceReport.coverage.importedRows -lt 1 -or $attendanceReport.coverage.importedRows -ne $attendanceReport.coverage.detailRows -or $attendanceReport.coverage.reportedRows -ne $attendanceReport.coverage.overviewRows) {
+    throw 'The InSchool attendance capture was incomplete; no attendance records were imported.'
+  }
+  & docker cp $attendanceArtifact "${AppContainer}:$containerAttendanceArtifact"
+  if ($LASTEXITCODE -ne 0) { throw 'The attendance snapshot could not be transferred to the app container.' }
+  $attendanceCopied = $true
+  $attendanceImportOutput = @(& docker exec $AppContainer node /app/apps/api/dist/import-school-snapshot.js --vault-id $VaultId --file $containerAttendanceArtifact)
+  if ($LASTEXITCODE -ne 0) { throw 'The InSchool attendance snapshot was not applied.' }
+  $attendanceImportReport = $attendanceImportOutput[-1] | ConvertFrom-Json
+  $attendanceActions = $attendanceImportReport.counts.attendance
+  if ($null -eq $attendanceActions) { throw 'The InSchool import returned no attendance counts.' }
+  $attendanceAccounted = [int]$attendanceActions.created + [int]$attendanceActions.updated + [int]$attendanceActions.linked + [int]$attendanceActions.unchanged + [int]$attendanceActions.stale
+  if ($attendanceAccounted -ne [int]$attendanceReport.coverage.importedRows) { throw 'The InSchool import did not account for every captured attendance record.' }
 } finally {
   if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
+  if ($attendanceCopied) { & docker exec -u 0 $AppContainer rm $containerAttendanceArtifact | Out-Null }
   if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
+  if (Test-Path -LiteralPath $attendanceArtifact) { Remove-Item -LiteralPath $attendanceArtifact -Force }
 }
-[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale} | ConvertTo-Json -Compress) + "`n"))
+[IO.File]::AppendAllText($statusLog, (([ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';visitedWeeks=$bridgeReport.visitedWeekCount;capturedLessons=$bridgeReport.uniqueLessonCount;created=$lessonActions.created;updated=$lessonActions.updated;linked=$lessonActions.linked;unchanged=$lessonActions.unchanged;stale=$lessonActions.stale;capturedAttendance=$attendanceReport.coverage.importedRows;attendanceCreated=$attendanceActions.created;attendanceUpdated=$attendanceActions.updated;attendanceLinked=$attendanceActions.linked;attendanceUnchanged=$attendanceActions.unchanged;attendanceStale=$attendanceActions.stale} | ConvertTo-Json -Compress) + "`n"))
 } catch {
   $message = $_.Exception.Message
   if ($message.Length -gt 240) { $message = $message.Substring(0,240) }
