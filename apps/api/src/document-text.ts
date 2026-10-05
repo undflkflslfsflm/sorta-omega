@@ -31,7 +31,7 @@ export async function extractDocumentText(bytes: Uint8Array, filename: string, r
   if (mediaType.startsWith("text/") || ["application/json", "application/xml", "application/javascript"].includes(mediaType)) return plainText(bytes, mediaType);
   const kind = richKind(filename, mediaType);
   if (!kind) return unavailable("unsupported_format");
-  if (bytes.byteLength > maxRichDocumentBytes) return unavailable("document_limit");
+  if (bytes.byteLength > (kind === "pptx" ? 100 * 1024 * 1024 : maxRichDocumentBytes)) return unavailable("document_limit");
   if (kind === "pdf" && !(bytes[0] === 37 && bytes[1] === 80 && bytes[2] === 68 && bytes[3] === 70)) return unavailable("invalid_document");
   if ((kind === "docx" || kind === "pptx") && !(bytes[0] === 80 && bytes[1] === 75)) return unavailable("invalid_document");
 
@@ -50,7 +50,7 @@ export async function extractDocumentText(bytes: Uint8Array, filename: string, r
       void worker.terminate();
       resolve(result);
     };
-    const timer = setTimeout(() => finish(unavailable("extraction_timeout")), 15_000);
+    const timer = setTimeout(() => finish(unavailable("extraction_timeout")), kind === "pptx" ? 45_000 : 15_000);
     worker.once("message", (result: DocumentText) => finish(result));
     worker.once("error", () => finish(unavailable("extraction_failed")));
     worker.once("exit", () => finish(unavailable("extraction_failed")));

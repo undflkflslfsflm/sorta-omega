@@ -10,7 +10,7 @@ const maxClasses = 30;
 const maxFolders = 200;
 const maxDepth = 6;
 const maxFiles = 512;
-const maxFileBytes = 25 * 1024 * 1024;
+const maxFileBytes = 100 * 1024 * 1024;
 const maxBatchBytes = 300 * 1024 * 1024;
 
 export function safeSegment(value: string): string {

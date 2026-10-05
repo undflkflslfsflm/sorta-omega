@@ -19,7 +19,7 @@ const items = manifest.items as Item[];
 const seen = new Set<string>();
 let totalBytes = 0;
 for (const item of items) {
-  if (!item || typeof item.relativePath !== "string" || item.relativePath.length > 1000 || !/^[^:\\]+(?:\/[^:\\]+)+$/.test(item.relativePath) || item.relativePath.split("/").some(segment => segment === "." || segment === ".." || !segment) || typeof item.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(item.sha256) || item.stagedName !== item.sha256 || !Number.isSafeInteger(item.byteLength) || item.byteLength < 0 || item.byteLength > 25 * 1024 * 1024 || !Number.isFinite(Date.parse(item.modifiedAt)) || seen.has(item.relativePath)) throw new Error("personal_file_manifest_item_invalid");
+  if (!item || typeof item.relativePath !== "string" || item.relativePath.length > 1000 || !/^[^:\\]+(?:\/[^:\\]+)+$/.test(item.relativePath) || item.relativePath.split("/").some(segment => segment === "." || segment === ".." || !segment) || typeof item.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(item.sha256) || item.stagedName !== item.sha256 || !Number.isSafeInteger(item.byteLength) || item.byteLength < 0 || item.byteLength > (item.relativePath.toLowerCase().endsWith(".pptx") ? 100 : 25) * 1024 * 1024 || !Number.isFinite(Date.parse(item.modifiedAt)) || seen.has(item.relativePath)) throw new Error("personal_file_manifest_item_invalid");
   seen.add(item.relativePath);
   totalBytes += item.byteLength;
 }

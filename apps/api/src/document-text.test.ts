@@ -70,6 +70,16 @@ describe("document text extraction", () => {
       .toEqual({ text: null, complete: false, reason: "no_embedded_text" });
   }, 20_000);
 
+  it("extracts slide text from a presentation larger than the old rich-document limit", async () => {
+    const zip = new JSZip();
+    zip.file("ppt/slides/slide1.xml", '<p:sld xmlns:p="x" xmlns:a="y"><a:p><a:r><a:t>Large lesson deck</a:t></a:r></a:p></p:sld>');
+    zip.file("ppt/media/image1.bin", new Uint8Array(11_000_000), { compression: "STORE" });
+    const bytes = await zip.generateAsync({ type: "uint8array", compression: "STORE" });
+    expect(bytes.byteLength).toBeGreaterThan(10_000_000);
+    expect(await extractDocumentText(bytes, "large.pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"))
+      .toEqual({ text: "Slide 1\nLarge lesson deck", complete: true, reason: null });
+  }, 60_000);
+
   it("extracts embedded PDF text in a bounded worker", async () => {
     const result = await extractDocumentText(samplePdf("Algebra revision"), "lesson.pdf", "application/pdf");
     expect(result).toEqual({ text: "Algebra revision", complete: true, reason: null });
