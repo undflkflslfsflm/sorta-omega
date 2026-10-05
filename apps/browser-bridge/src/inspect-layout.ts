@@ -179,6 +179,25 @@ try {
       }
       await cards.nth(classIndex).click();
       await probe.waitForTimeout(5_000);
+      if (args.get("teams-class-files-probe") === "true") {
+        const first = await probe.evaluate(() => {
+          const matches = [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')]
+            .filter(element => /^(general|generelt|files|filer)$/i.test((element.getAttribute("aria-label") ?? element.textContent ?? "").trim()));
+          return matches.slice(0, 12).map(element => ({ tag: element.tagName.toLowerCase(), role: element.getAttribute("role"), label: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim(), classes: (element.getAttribute("class") ?? "").split(/\s+/).slice(0, 5), parentRole: element.parentElement?.getAttribute("role") ?? null, parentClasses: (element.parentElement?.getAttribute("class") ?? "").split(/\s+/).slice(0, 5) }));
+        });
+        const general = probe.getByText(/^(General|Generelt)$/, { exact: true });
+        const generalCount = await general.count();
+        if (generalCount === 1) {
+          await general.click();
+          await probe.waitForTimeout(5_000);
+        }
+        const after = await probe.evaluate(() => ({
+          tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(element => ({ label: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 60), selected: element.getAttribute("aria-selected") })),
+          fileControls: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"]')].map(element => (element.getAttribute("aria-label") ?? element.getAttribute("title") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /^(files|filer|open in sharepoint|åpne i sharepoint)$/i.test(label)).slice(0, 20),
+          frames: document.querySelectorAll("iframe").length,
+        }));
+        console.log(JSON.stringify({ provider, classIndex, first, generalCount, after }));
+      } else {
       const screenshotPath = args.get("screenshot-path");
       if (screenshotPath) await probe.screenshot({ path: screenshotPath, fullPage: false });
       const structure = await probe.evaluate(String.raw`(() => {
@@ -198,6 +217,7 @@ try {
         } catch { return { origin: "unavailable", counts: null }; }
       }));
       console.log(JSON.stringify({ provider, classCardCount: count, classIndex, classCategories, structure, frames }));
+      }
     } finally { await probe.close(); }
   } else if (args.get("teams-sidebar-shape") === "true" && provider === "teams") {
     const sidebar = await page.evaluate(String.raw`(() => {
