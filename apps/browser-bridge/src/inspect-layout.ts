@@ -185,7 +185,14 @@ try {
         const visible = probe.locator("button:visible").filter({ hasText: /^see more$/i });
         const visibleCount = await visible.count();
         if (count < 1 || count > 100 || visibleCount > 100) throw new Error("teams_post_expand_count_unexpected");
-        if (visibleCount === 0) console.log(JSON.stringify({ provider, classIndex, postExpand: { count, visibleCount } }));
+        if (visibleCount === 0) {
+          const hiddenShape = await matches.first().evaluate(item => {
+            const post = item.closest<HTMLElement>('[data-reply-chain-id][data-mid]');
+            const style = getComputedStyle(item);
+            return { withinPost: Boolean(post), postTextLength: (post?.innerText ?? "").length, display: style.display, visibility: style.visibility, rectangleCount: item.getClientRects().length, parentDisplay: item.parentElement ? getComputedStyle(item.parentElement).display : null };
+          });
+          console.log(JSON.stringify({ provider, classIndex, postExpand: { count, visibleCount, hiddenShape } }));
+        }
         else {
         const before = await visible.first().evaluate(item => {
           const post = item.closest<HTMLElement>('[data-reply-chain-id][data-mid]');
