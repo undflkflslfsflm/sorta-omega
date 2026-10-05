@@ -2,11 +2,28 @@ import { createHash } from "node:crypto";
 import type { Page } from "playwright-core";
 
 type Note = { id: string; title: string; body: string; path: string };
+type RenderedPost = { messageId: string; chainId: string; text: string };
 
-export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Note[]; coverage: { classes: number; posts: number; complete: false; limitation: string } }> {
+export function teamsChannelPostNote(className: string, channelName: string, post: RenderedPost): Note {
+  if (!className.trim() || !channelName.trim() || !post.messageId || !post.chainId || !post.text.trim()) throw new Error("teams_channel_post_identity_invalid");
+  const general = /^(General|Generelt)$/.test(channelName);
+  // Keep existing General identities and titles so broadening the scan updates,
+  // rather than duplicates, records that were already imported.
+  const id = createHash("sha256").update(general
+    ? `teams-channel:${className}:${post.chainId}:${post.messageId}`
+    : `teams-channel:${className}:${channelName}:${post.chainId}:${post.messageId}`).digest("hex");
+  const title = general
+    ? `Teams · ${className.slice(0, 150)} · ${id.slice(0, 12)}`
+    : `Teams · ${className.slice(0, 100)} · ${channelName.slice(0, 80)} · ${id.slice(0, 12)}`;
+  const body = `Source: Teams class channel post\nClass: ${className}\nChannel: ${general ? "General" : channelName}\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
+  if (Buffer.byteLength(body) > 1_000_000) throw new Error("teams_channel_post_too_large");
+  return { id, title, body, path: `teams/channels/${id}.json` };
+}
+
+export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Note[]; coverage: { classes: number; channels: number; posts: number; emptyPosts: number; complete: false; limitation: string } }> {
   const context = source.context();
   const notes: Note[] = [];
-  let classCount = 0;
+  let classCount = 0, channelCount = 0, emptyPosts = 0;
   const probe = await context.newPage();
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -27,26 +44,36 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
       const className = (await cards.nth(index).textContent() ?? "").replace(/\s+/g, " ").trim();
       if (!className) throw new Error("teams_class_name_missing");
       await cards.nth(index).click();
-      await probe.locator('[data-reply-chain-id][data-mid]').first().waitFor({ timeout: 20_000 }).catch(() => undefined);
-      let previousCount = -1, stable = 0;
-      for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
-        await probe.waitForTimeout(500);
-        const count = await probe.locator('[data-reply-chain-id][data-mid]').count();
-        stable = count === previousCount ? stable + 1 : 0;
-        previousCount = count;
-      }
-      const posts = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(element => ({
-        messageId: element.getAttribute("data-mid") ?? "",
-        chainId: element.getAttribute("data-reply-chain-id") ?? "",
-        text: (element.closest<HTMLElement>('[role="group"]')?.innerText ?? element.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
-      })));
-      for (const post of posts) {
-        if (!post.messageId || !post.chainId || !post.text) continue;
-        const id = createHash("sha256").update(`teams-channel:${className}:${post.chainId}:${post.messageId}`).digest("hex");
-        const title = `Teams · ${className.slice(0, 150)} · ${id.slice(0, 12)}`;
-        const body = `Source: Teams class channel post\nClass: ${className}\nChannel: General\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
-        if (Buffer.byteLength(body) > 1_000_000) continue;
-        notes.push({ id, title, body, path: `teams/channels/${id}.json` });
+      const hidden = probe.locator("#single-team-hidden-channels");
+      if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
+      const channels = (await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents()).map(value => value.trim());
+      if (!channels.some(value => /^(General|Generelt)$/.test(value)) || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error("teams_channel_list_ambiguous");
+      for (const channelName of channels) {
+        channelCount++;
+        const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
+        if (await channel.count() !== 1) throw new Error("teams_channel_changed");
+        await channel.click();
+        await probe.waitForFunction(name => [...document.querySelectorAll<HTMLElement>('[role="treeitem"][aria-level="2"]')]
+          .some(item => (item.textContent ?? "").trim() === name && item.getAttribute("aria-selected") === "true"), channelName, { timeout: 10_000 });
+        await probe.waitForTimeout(1_500);
+        let previousCount = -1, stable = 0;
+        for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
+          await probe.waitForTimeout(500);
+          const count = await probe.locator('[data-reply-chain-id][data-mid]').count();
+          stable = count === previousCount ? stable + 1 : 0;
+          previousCount = count;
+        }
+        const posts = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(element => ({
+          messageId: element.getAttribute("data-mid") ?? "",
+          chainId: element.getAttribute("data-reply-chain-id") ?? "",
+          text: (element.closest<HTMLElement>('[role="group"]')?.innerText ?? element.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
+        })));
+        for (const post of posts) {
+          if (!post.messageId || !post.chainId) throw new Error("teams_channel_post_identity_missing");
+          if (!post.text) { emptyPosts++; continue; }
+          notes.push(teamsChannelPostNote(className, channelName, post));
+          if (notes.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
+        }
       }
       await probe.getByText("All teams", { exact: true }).click();
       await cards.first().waitFor({ timeout: 15_000 });
@@ -55,5 +82,5 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
   const unique = [...new Map(notes.map(note => [note.id, note])).values()];
   if (!unique.length) throw new Error("teams_channel_posts_not_found_layout_review_required");
   if (unique.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
-  return { notes: unique, coverage: { classes: classCount, posts: unique.length, complete: false, limitation: "Only rendered General-channel posts were captured. Older posts, other channels, attachments, classwork, and private chats require separate coverage." } };
+  return { notes: unique, coverage: { classes: classCount, channels: channelCount, posts: unique.length, emptyPosts, complete: false, limitation: "Rendered posts from every enumerated class channel were captured. Older or virtualized posts, empty-text attachments, replies, classwork, and private chats require separate coverage." } };
 }
