@@ -4,6 +4,45 @@ import type { Page } from "playwright-core";
 type Note = { id: string; title: string; body: string; path: string };
 type RenderedPost = { messageId: string; chainId: string; text: string };
 
+export function mergeRenderedPosts(existing: Map<string, RenderedPost>, posts: RenderedPost[]): void {
+  for (const post of posts) {
+    if (!post.messageId || !post.chainId) throw new Error("teams_channel_post_identity_missing");
+    const key = `${post.chainId}:${post.messageId}`;
+    const previous = existing.get(key);
+    if (!previous || post.text.length > previous.text.length) existing.set(key, post);
+  }
+}
+
+async function collectRenderedChannelHistory(probe: Page): Promise<RenderedPost[]> {
+  const viewport = probe.locator('[data-tid="channel-pane-viewport"]');
+  await viewport.waitFor({ timeout: 10_000 });
+  if (await viewport.count() !== 1) throw new Error("teams_channel_post_viewport_ambiguous");
+  const posts = new Map<string, RenderedPost>();
+  let stableTop = 0, lastHeight = -1, lastCount = -1;
+  for (let step = 0; step < 30; step++) {
+    const snapshot = await viewport.evaluate(element => ({
+      top: element.scrollTop,
+      height: element.scrollHeight,
+      client: element.clientHeight,
+      posts: [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(post => ({
+        messageId: post.getAttribute("data-mid") ?? "",
+        chainId: post.getAttribute("data-reply-chain-id") ?? "",
+        text: (post.closest<HTMLElement>('[role="group"]')?.innerText ?? post.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
+      })),
+    }));
+    mergeRenderedPosts(posts, snapshot.posts);
+    if (posts.size > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
+    if (snapshot.top === 0 && snapshot.height === lastHeight && posts.size === lastCount) stableTop++;
+    else stableTop = 0;
+    if (stableTop >= 3) return [...posts.values()];
+    lastHeight = snapshot.height;
+    lastCount = posts.size;
+    await viewport.evaluate(element => { element.scrollTop = Math.max(0, element.scrollTop - Math.floor(element.clientHeight * 0.8)); });
+    await probe.waitForTimeout(snapshot.top === 0 ? 1_500 : 500);
+  }
+  throw new Error("teams_channel_history_scroll_limit");
+}
+
 export function teamsChannelPostNote(className: string, channelName: string, post: RenderedPost): Note {
   if (!className.trim() || !channelName.trim() || !post.messageId || !post.chainId || !post.text.trim()) throw new Error("teams_channel_post_identity_invalid");
   const general = /^(General|Generelt)$/.test(channelName);
@@ -59,20 +98,8 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
         await probe.waitForFunction(name => [...document.querySelectorAll<HTMLElement>('[role="treeitem"][aria-level="2"]')]
           .some(item => (item.textContent ?? "").trim() === name && item.getAttribute("aria-selected") === "true"), channelName, { timeout: 10_000 });
         await probe.waitForTimeout(1_500);
-        let previousCount = -1, stable = 0;
-        for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
-          await probe.waitForTimeout(500);
-          const count = await probe.locator('[data-reply-chain-id][data-mid]').count();
-          stable = count === previousCount ? stable + 1 : 0;
-          previousCount = count;
-        }
-        const posts = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')].map(element => ({
-          messageId: element.getAttribute("data-mid") ?? "",
-          chainId: element.getAttribute("data-reply-chain-id") ?? "",
-          text: (element.closest<HTMLElement>('[role="group"]')?.innerText ?? element.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
-        })));
+        const posts = await collectRenderedChannelHistory(probe);
         for (const post of posts) {
-          if (!post.messageId || !post.chainId) throw new Error("teams_channel_post_identity_missing");
           if (!post.text) { emptyPosts++; continue; }
           notes.push(teamsChannelPostNote(className, channelName, post));
           if (notes.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
@@ -85,5 +112,5 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
   const unique = [...new Map(notes.map(note => [note.id, note])).values()];
   if (!unique.length) throw new Error("teams_channel_posts_not_found_layout_review_required");
   if (unique.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
-  return { notes: unique, coverage: { classes: classCount, channels: channelCount, posts: unique.length, emptyPosts, complete: false, limitation: "Rendered posts from every enumerated class channel were captured. Older or virtualized posts, empty-text attachments, replies, classwork, and private chats require separate coverage." } };
+  return { notes: unique, coverage: { classes: classCount, channels: channelCount, posts: unique.length, emptyPosts, complete: false, limitation: "Posts rendered while scrolling each class channel to the top were captured. Server-side history beyond the loaded feed, empty-text attachments, replies, classwork, and private chats require separate coverage." } };
 }

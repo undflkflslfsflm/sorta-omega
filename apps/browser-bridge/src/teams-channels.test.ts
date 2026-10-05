@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { teamsChannelPostNote } from "./teams-channels.js";
+import { mergeRenderedPosts, teamsChannelPostNote } from "./teams-channels.js";
 
 describe("Teams class-channel post identity", () => {
   const post = { chainId: "chain", messageId: "message", text: "Lesson details" };
@@ -26,5 +26,13 @@ describe("Teams class-channel post identity", () => {
   it("rejects missing identities and oversized content", () => {
     expect(() => teamsChannelPostNote("Maths", "General", { ...post, messageId: "" })).toThrow("teams_channel_post_identity_invalid");
     expect(() => teamsChannelPostNote("Maths", "General", { ...post, text: "x".repeat(1_000_000) })).toThrow("teams_channel_post_too_large");
+  });
+
+  it("retains identities found at different scroll positions and the fuller text", () => {
+    const seen = new Map();
+    mergeRenderedPosts(seen, [post, { chainId: "older", messageId: "older", text: "Old post" }]);
+    mergeRenderedPosts(seen, [{ ...post, text: "Lesson details and more" }]);
+    expect(seen.size).toBe(2);
+    expect(seen.get("chain:message")?.text).toBe("Lesson details and more");
   });
 });
