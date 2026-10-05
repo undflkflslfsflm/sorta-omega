@@ -134,10 +134,13 @@ async function collectPostPresentations(probe: Page, className: string, stagingR
     const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal);
     const downloaded = await retryInvalidDownload(async () => {
       const post = posts.nth(candidate.postIndex);
+      if (await post.count() !== 1 || await post.getAttribute("data-mid") !== candidate.messageId || await post.getAttribute("data-reply-chain-id") !== candidate.chainId) throw new Error(`teams_post_identity_changed_${candidate.postIndex}`);
       const group = post.locator('xpath=ancestor-or-self::*[@role="group"][1]');
       if (await group.count() !== 1) throw new Error("teams_post_group_changed");
       const card = group.locator('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]').nth(candidate.cardIndex);
-      if (await card.count() !== 1 || await card.getAttribute("aria-label") !== candidate.name) throw new Error("teams_post_powerpoint_card_changed");
+      const cardCount = await card.count();
+      const sameName = cardCount === 1 && await card.getAttribute("aria-label") === candidate.name;
+      if (!sameName) throw new Error(`teams_post_powerpoint_card_changed_${candidate.postIndex}_${candidate.cardIndex}_${cardCount}`);
       await card.press("Shift+F10");
       const action = probe.getByRole("menuitem", { name: "Download", exact: true });
       if (await action.count() !== 1) throw new Error("teams_post_download_action_missing");
