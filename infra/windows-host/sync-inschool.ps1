@@ -89,7 +89,8 @@ try {
   }
   $attendanceReport = $attendanceOutput[-1] | ConvertFrom-Json
   if ($attendanceReport.provider -ne 'inschool-attendance' -or -not $attendanceReport.coverage.complete -or $attendanceReport.coverage.importedRows -lt 1 -or $attendanceReport.coverage.importedRows -ne $attendanceReport.coverage.detailRows -or $attendanceReport.coverage.reportedRows -ne $attendanceReport.coverage.overviewRows) {
-    throw 'The InSchool attendance capture was incomplete; no attendance records were imported.'
+    $coverage = $attendanceReport.coverage
+    throw "The InSchool attendance capture was incomplete (reported=$($coverage.reportedRows), overview=$($coverage.overviewRows), details=$($coverage.detailRows), mapped=$($coverage.importedRows), limitations=$(@($coverage.limitations).Count)); no attendance records were imported."
   }
   & docker cp $attendanceArtifact "${AppContainer}:$containerAttendanceArtifact"
   if ($LASTEXITCODE -ne 0) { throw 'The attendance snapshot could not be transferred to the app container.' }
