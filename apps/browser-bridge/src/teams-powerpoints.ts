@@ -73,10 +73,10 @@ function sharePointFrame(page: Page): Frame {
   return frames[0];
 }
 
-export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; folders: number; entries: number; folderCandidates: number; presentations: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; presentations: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
-  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0;
+  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0;
   let phase = "open";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
@@ -103,21 +103,30 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       const general = probe.getByRole("treeitem", { name: /^(General|Generelt)$/ });
       await general.waitFor({ timeout: 15_000 });
       if (await general.count() !== 1) throw new Error("teams_general_channel_ambiguous");
-      const rootLabel = (await general.textContent() ?? "").trim();
-      await general.click();
-      const shared = probe.getByRole("tab", { name: /^(Shared|Files|Filer)$/ });
-      await shared.waitFor({ timeout: 15_000 });
-      if (await shared.count() !== 1) throw new Error("teams_shared_tab_ambiguous");
-      await shared.click();
-      await probe.waitForTimeout(3_000);
-      const frame = sharePointFrame(probe);
-      const rootUrl = frame.url();
-      const rootAddress = new URL(rootUrl);
-      if (rootAddress.hostname !== "akershusfylke.sharepoint.com" || !rootAddress.pathname.endsWith("/filebrowser.aspx")) throw new Error("teams_sharepoint_root_url_invalid");
-      await waitForGrid(frame);
-      const folders: string[][] = [[]];
-      const seen = new Set<string>();
-      for (let next = 0; next < folders.length; next++) {
+      const hidden = probe.locator("#single-team-hidden-channels");
+      if (await hidden.count() === 1 && await hidden.getAttribute("aria-expanded") === "false") await hidden.click();
+      const channelNames = await probe.locator('[role="treeitem"][aria-level="2"]').allTextContents();
+      const channels = channelNames.map(value => safeSegment(value.trim()));
+      if (!channels.some(value => /^(General|Generelt)$/.test(value)) || channels.length > 100 || new Set(channels).size !== channels.length) throw new Error("teams_channel_list_ambiguous");
+      for (const channelName of channels) {
+        phase = "channel";
+        channelCount++;
+        const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
+        if (await channel.count() !== 1) throw new Error("teams_channel_changed");
+        await channel.click();
+        const shared = probe.getByRole("tab", { name: /^(Shared|Files|Filer)$/ });
+        await shared.waitFor({ timeout: 15_000 });
+        if (await shared.count() !== 1) throw new Error("teams_shared_tab_ambiguous");
+        await shared.click();
+        await probe.waitForTimeout(3_000);
+        const frame = sharePointFrame(probe);
+        const rootUrl = frame.url();
+        const rootAddress = new URL(rootUrl);
+        if (rootAddress.hostname !== "akershusfylke.sharepoint.com" || !rootAddress.pathname.endsWith("/filebrowser.aspx")) throw new Error("teams_sharepoint_root_url_invalid");
+        await waitForGrid(frame);
+        const folders: string[][] = [[]];
+        const seen = new Set<string>();
+        for (let next = 0; next < folders.length; next++) {
         phase = "folder";
         const segments = folders[next];
         const key = segments.join("\0");
@@ -136,7 +145,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           }
           if (!/\.pptx$/i.test(entry.name)) continue;
           if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
-          const relativePath = ["Teams", className, safeSegment(rootLabel), ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
+          const relativePath = ["Teams", className, channelName, ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
           // SharePoint retains prior row selections; downloading several selected files creates a ZIP bundle.
           phase = "reset";
           await goToFolder(frame, rootUrl, segments);
@@ -167,6 +176,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           items.push({ relativePath, stagedName: sha256, sha256, byteLength: bytes.length, modifiedAt: new Date().toISOString() });
           totalBytes += bytes.length;
         }
+        }
       }
       await probe.getByText("All teams", { exact: true }).click();
       await cards.first().waitFor({ timeout: 15_000 });
@@ -175,5 +185,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, folders: folderCount, entries: entriesObserved, folderCandidates, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "General-channel Shared folders only. Other channels, Classwork, post attachments, virtualized rows, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders only. Classwork, post attachments, virtualized rows, and image-only slides are not yet covered." } };
 }
