@@ -70,6 +70,7 @@ try {
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.textContent ?? "").trim().slice(0, 60), selected: item.getAttribute("aria-selected"), hrefShape: item.getAttribute("href")?.replace(/\d+/g, "*") ?? null })),
           table: [...document.querySelectorAll<HTMLTableElement>("table")].map(item => ({
             reportedRows: item.getAttribute("aria-rowcount"),
+            headerRows: item.querySelectorAll("thead tr").length,
             headers: [...item.querySelectorAll("thead th")].map(cell => (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 80)),
             rows: [...item.querySelectorAll("tbody tr")].slice(0, 3).map(row => [...row.querySelectorAll("td")].map(cell => ({ text: (cell.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 120), classes: clean(cell.className), attributes: [...cell.attributes].map(attribute => attribute.name).filter(name => name !== "style").slice(0, 8) }))),
           })),
