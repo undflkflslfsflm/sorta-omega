@@ -46,6 +46,11 @@ export function postSchoolFileRelativePath(className: string, chainId: string, m
 
 const retryableDownloadErrors = new Set([
   "teams_powerpoint_download_invalid",
+  "teams_powerpoint_download_event_timeout",
+  "teams_powerpoint_download_path_timeout",
+  "teams_powerpoint_download_path_failed",
+  "teams_powerpoint_download_missing",
+  "teams_powerpoint_download_empty",
   "teams_powerpoint_download_was_bundle",
   "teams_powerpoint_archive_invalid",
   "teams_school_file_signature_invalid",
@@ -310,12 +315,15 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
             phase = "download";
             const downloadButton = frame.getByRole("menuitem", { name: /^Download$/ });
             await downloadButton.waitFor({ timeout: 10_000 });
-            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), downloadButton.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item);
+            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), downloadButton.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item).catch(error => {
+              if (error instanceof Error && error.name === "TimeoutError") throw new Error("teams_powerpoint_download_event_timeout");
+              throw error;
+            });
             phase = "validate";
             let timer: ReturnType<typeof setTimeout> | undefined;
-            const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("download_timeout")), 60_000); })]).catch(() => { throw new Error("teams_powerpoint_download_invalid"); }).finally(() => { if (timer) clearTimeout(timer); });
-            const metadata = await stat(filePath).catch(() => { throw new Error("teams_powerpoint_download_invalid"); });
-            if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
+            const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("download_timeout")), 60_000); })]).catch(error => { throw new Error(error instanceof Error && error.message === "download_timeout" ? "teams_powerpoint_download_path_timeout" : "teams_powerpoint_download_path_failed"); }).finally(() => { if (timer) clearTimeout(timer); });
+            const metadata = await stat(filePath).catch(() => { throw new Error("teams_powerpoint_download_missing"); });
+            if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_empty");
             if (!download.suggestedFilename().toLowerCase().endsWith(entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_school_file_download_was_bundle");
             if (metadata.size > schoolFileByteLimit(entry.name)) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
             if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);

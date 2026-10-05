@@ -44,6 +44,7 @@ describe("Teams PowerPoint download retry", () => {
 
   it("isolates only exhausted invalid downloads, never limits or changed rows", () => {
     expect(skippableSchoolFileError(new Error("teams_powerpoint_download_invalid"))).toBe("teams_powerpoint_download_invalid");
+    expect(skippableSchoolFileError(new Error("teams_powerpoint_download_event_timeout"))).toBe("teams_powerpoint_download_event_timeout");
     expect(skippableSchoolFileError(new Error("teams_school_file_signature_invalid"))).toBe("teams_school_file_signature_invalid");
     expect(skippableSchoolFileError(new Error("teams_powerpoint_file_limit_exceeded:1"))).toBeNull();
     expect(skippableSchoolFileError(new Error("teams_powerpoint_row_changed"))).toBeNull();
