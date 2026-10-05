@@ -600,7 +600,7 @@ const mapAiOperation = (row: Record<string, any>) => aiOperationSchema.parse({
 });
 const mapSchoolSubject = (row: Record<string, any>) => schoolSubjectSchema.parse({ id: row.id, vaultId: row.vault_id, name: row.name, code: row.code, academicPeriod: row.academic_period, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapSchoolCourse = (row: Record<string, any>) => schoolCourseSchema.parse({ id: row.id, vaultId: row.vault_id, subjectId: row.subject_id, name: row.name, academicPeriod: row.academic_period, teacherEntityIds: row.teacher_entity_ids, classEntityIds: row.class_entity_ids, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
-const mapSchoolAssignment = (row: Record<string, any>) => schoolAssignmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, instructionsSourceIds: row.instructions_source_ids, due: row.due, materialSourceIds: row.material_source_ids, taskIds: row.task_ids, preparationStatus: row.preparation_status, origin: row.origin, providerListSection: row.provider_list_section ?? null, providerDetailState: row.provider_detail_state ?? null, sourceObjectId: row.source_object_id ?? null, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
+const mapSchoolAssignment = (row: Record<string, any>) => schoolAssignmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, instructionsSourceIds: row.instructions_source_ids, due: row.due, materialSourceIds: row.material_source_ids, taskIds: row.task_ids, preparationStatus: row.preparation_status, origin: row.origin, providerListSection: row.provider_list_section ?? null, providerDetailState: row.provider_detail_state ?? null, providerSeenInLatestSnapshot: row.provider_seen_in_latest_snapshot ?? null, sourceObjectId: row.source_object_id ?? null, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapCourseMaterialLink=(row:Record<string,any>)=>courseMaterialLinkSchema.parse({id:row.id,vaultId:row.vault_id,courseId:row.course_id,sourceId:row.source_object_id,revisionId:row.source_revision_id,chapter:row.chapter,lessonId:row.lesson_id,mappingOrigin:row.mapping_origin,evidenceAnchorIds:row.evidence_anchor_ids,revision:row.revision,createdAt:iso(row.created_at),updatedAt:iso(row.updated_at)});
 const mapSchoolLesson = (row: Record<string, any>) => schoolLessonSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, calendarEventId: row.calendar_event_id, timeSpec: row.time_spec, room: row.room, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
 const mapSchoolAssessment = (row: Record<string, any>) => schoolAssessmentSchema.parse({ id: row.id, vaultId: row.vault_id, courseId: row.course_id, title: row.title, kind: row.kind, timeSpec: row.time_spec, materialScope: row.material_scope, officialWeight: row.official_weight, sourceAnchorIds: row.source_anchor_ids, origin: row.origin, archivedAt: row.archived_at ? iso(row.archived_at) : null, revision: row.revision, createdAt: iso(row.created_at), updatedAt: iso(row.updated_at) });
@@ -2299,7 +2299,11 @@ app.get("/api/v1/vaults/:vaultId/school/assignments", async (request, reply) => 
   idSchema.parse(vaultId); if (courseId) idSchema.parse(courseId); const limit = rawLimit === undefined ? 100 : Number(rawLimit);
   if (!Number.isInteger(limit) || limit < 1 || limit > 200 || !["active", "archived", "all"].includes(status)) return reply.code(400).send({ error: "invalid_assignment_filter" });
   const result = await query(
-    `SELECT a.*,l.source_object_id FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id
+    `SELECT a.*,l.source_object_id,
+      CASE WHEN seen.source_timestamp IS NULL THEN NULL ELSE seen.source_timestamp=latest.source_timestamp END AS provider_seen_in_latest_snapshot
+     FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id
+     LEFT JOIN LATERAL (SELECT source_origin,source_timestamp FROM school_snapshot_links WHERE vault_id=a.vault_id AND assignment_id=a.id AND record_kind='assignment' ORDER BY source_timestamp DESC LIMIT 1) seen ON true
+     LEFT JOIN LATERAL (SELECT max(source_timestamp) AS source_timestamp FROM school_snapshot_links WHERE vault_id=a.vault_id AND source_origin=seen.source_origin AND record_kind='assignment') latest ON true
      WHERE a.vault_id=$1 AND ($2::uuid IS NULL OR a.course_id=$2)
      AND ($3='all' OR ($3='active' AND a.archived_at IS NULL) OR ($3='archived' AND a.archived_at IS NOT NULL))
      ORDER BY a.archived_at NULLS FIRST,
@@ -2311,7 +2315,12 @@ app.get("/api/v1/vaults/:vaultId/school/assignments", async (request, reply) => 
 
 app.get("/api/v1/vaults/:vaultId/school/assignments/:assignmentId", async (request, reply) => {
   const { vaultId, assignmentId } = request.params as { vaultId: string; assignmentId: string }; idSchema.parse(vaultId); idSchema.parse(assignmentId);
-  const result = await query("SELECT a.*,l.source_object_id FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id WHERE a.vault_id=$1 AND a.id=$2", [vaultId, assignmentId]);
+  const result = await query(`SELECT a.*,l.source_object_id,
+    CASE WHEN seen.source_timestamp IS NULL THEN NULL ELSE seen.source_timestamp=latest.source_timestamp END AS provider_seen_in_latest_snapshot
+    FROM school_assignments a LEFT JOIN school_microsoft_links l ON l.assignment_id=a.id AND l.vault_id=a.vault_id
+    LEFT JOIN LATERAL (SELECT source_origin,source_timestamp FROM school_snapshot_links WHERE vault_id=a.vault_id AND assignment_id=a.id AND record_kind='assignment' ORDER BY source_timestamp DESC LIMIT 1) seen ON true
+    LEFT JOIN LATERAL (SELECT max(source_timestamp) AS source_timestamp FROM school_snapshot_links WHERE vault_id=a.vault_id AND source_origin=seen.source_origin AND record_kind='assignment') latest ON true
+    WHERE a.vault_id=$1 AND a.id=$2`, [vaultId, assignmentId]);
   if (!result.rows[0]) return reply.code(404).send({ error: "school_assignment_not_found" }); return mapSchoolAssignment(result.rows[0]);
 });
 
