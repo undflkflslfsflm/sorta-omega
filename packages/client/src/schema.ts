@@ -3680,6 +3680,22 @@ export interface paths {
         patch: operations["updateSchoolAssignmentOverlay"];
         trace?: never;
     };
+    "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listSchoolAssignmentSources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/archive": {
         parameters: {
             query?: never;
@@ -13186,6 +13202,18 @@ export interface components {
                 updatedAt: string;
             }[];
             nextCursor: string | null;
+        };
+        SchoolAssignmentSourceList: {
+            items: {
+                /** Format: uuid */
+                sourceId: string;
+                /** @enum {string} */
+                role: "instructions" | "material";
+                kind: string;
+                text: string | null;
+                sourceUrl: string | null;
+                mimeType: string | null;
+            }[];
         };
         CreateSchoolAssignment: {
             /** Format: uuid */
@@ -26801,6 +26829,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SchoolAssignment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listSchoolAssignmentSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+                assignmentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchoolAssignmentSourceList"];
                 };
             };
             400: components["responses"]["BadRequest"];

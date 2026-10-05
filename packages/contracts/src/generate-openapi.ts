@@ -525,6 +525,7 @@ const schemaMap: Record<string, z.ZodTypeAny> = {
   ArchiveSchoolAssignmentOverlay:archiveSchoolAssignmentOverlaySchema,
   SchoolAssignment: schoolAssignmentSchema,
   SchoolAssignmentList: z.object({ items: z.array(schoolAssignmentSchema), nextCursor: z.string().nullable() }),
+  SchoolAssignmentSourceList: z.object({ items: z.array(z.object({ sourceId: z.string().uuid(), role: z.enum(["instructions", "material"]), kind: z.string(), text: z.string().nullable(), sourceUrl: z.string().nullable(), mimeType: z.string().nullable() })) }),
   CreateSchoolAssignment: createSchoolAssignmentSchema,
   UpdateSchoolAssignment: updateSchoolAssignmentSchema,
   SchoolLesson: schoolLessonSchema,

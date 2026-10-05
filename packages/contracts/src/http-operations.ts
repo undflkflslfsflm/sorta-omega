@@ -315,6 +315,7 @@ export const httpOperations: HttpOperation[] = [
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/connections/{connectionId}/readiness", operationId: "getSchoolConnectionReadiness", tag: "School", success: 200, responseSchema: "SchoolReadinessReport" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/assignments", operationId: "listSchoolAssignments", tag: "School", success: 200, responseSchema: "SchoolAssignmentList" },
   { method: "get", path: "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}", operationId: "getSchoolAssignment", tag: "School", success: 200, responseSchema: "SchoolAssignment" },
+  { method: "get", path: "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/sources", operationId: "listSchoolAssignmentSources", tag: "School", success: 200, responseSchema: "SchoolAssignmentSourceList" },
   { method: "post", path: "/api/v1/vaults/{vaultId}/school/assignments", operationId: "createManualSchoolAssignment", tag: "School", success: 201, requestSchema: "CreateSchoolAssignment", responseSchema: "SchoolAssignment" },
   { method: "patch", path: "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}", operationId: "updateSchoolAssignmentOverlay", tag: "School", success: 200, requestSchema: "UpdateSchoolAssignment", responseSchema: "SchoolAssignment" },
   { method: "delete", path: "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}", operationId: "archiveSchoolAssignment", tag: "School", success: 204 },

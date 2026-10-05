@@ -2290,6 +2290,23 @@ app.get("/api/v1/vaults/:vaultId/school/assignments/:assignmentId", async (reque
   if (!result.rows[0]) return reply.code(404).send({ error: "school_assignment_not_found" }); return mapSchoolAssignment(result.rows[0]);
 });
 
+app.get("/api/v1/vaults/:vaultId/school/assignments/:assignmentId/sources", async (request, reply) => {
+  const { vaultId, assignmentId } = request.params as { vaultId: string; assignmentId: string };
+  idSchema.parse(vaultId); idSchema.parse(assignmentId);
+  const assignment = await query("SELECT instructions_source_ids,material_source_ids FROM school_assignments WHERE vault_id=$1 AND id=$2 AND archived_at IS NULL", [vaultId, assignmentId]);
+  if (!assignment.rows[0]) return reply.code(404).send({ error: "school_assignment_not_found" });
+  const instructionIds: string[] = assignment.rows[0].instructions_source_ids ?? [];
+  const materialIds: string[] = assignment.rows[0].material_source_ids ?? [];
+  const ids = [...new Set([...instructionIds, ...materialIds])];
+  const sources = ids.length ? await query("SELECT id,kind,original_text,source_url,mime_type FROM sources WHERE vault_id=$1 AND id=ANY($2::uuid[])", [vaultId, ids]) : { rows: [] };
+  const byId = new Map(sources.rows.map(row => [row.id, row]));
+  reply.header("cache-control", "no-store");
+  return { items: ids.map(id => {
+    const source = byId.get(id);
+    return { sourceId: id, role: instructionIds.includes(id) ? "instructions" : "material", kind: source?.kind ?? "unavailable", text: source?.original_text ?? null, sourceUrl: source?.source_url ?? null, mimeType: source?.mime_type ?? null };
+  }) };
+});
+
 app.post("/api/v1/vaults/:vaultId/school/assignments", async (request, reply) => {
   const { vaultId } = request.params as { vaultId: string }; idSchema.parse(vaultId); const input = createSchoolAssignmentSchema.parse(request.body);
   if (input.due.kind !== "unknown" && !isSupportedTimezone(input.due.timezone)) return reply.code(400).send({ error: "unsupported_timezone" });

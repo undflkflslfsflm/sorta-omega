@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 426,
+  "operationCount": 427,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -3043,6 +3043,16 @@
       "success": 200,
       "requestSchema": null,
       "responseSchema": "SchoolAssignment"
+    },
+    {
+      "operationId": "listSchoolAssignmentSources",
+      "method": "GET",
+      "path": "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/sources",
+      "tag": "School",
+      "authentication": "required",
+      "success": 200,
+      "requestSchema": null,
+      "responseSchema": "SchoolAssignmentSourceList"
     },
     {
       "operationId": "createManualSchoolAssignment",

@@ -16488,6 +16488,63 @@
         }
       }
     },
+    "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/sources": {
+      "get": {
+        "operationId": "listSchoolAssignmentSources",
+        "tags": [
+          "School"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchoolAssignmentSourceList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/vaults/{vaultId}/school/assignments/{assignmentId}/archive": {
       "post": {
         "operationId": "archiveSchoolAssignmentOverlay",
@@ -58545,6 +58602,58 @@
         "required": [
           "items",
           "nextCursor"
+        ],
+        "additionalProperties": false
+      },
+      "SchoolAssignmentSourceList": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "sourceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "instructions",
+                    "material"
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "sourceUrl": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "mimeType": {
+                  "type": "string",
+                  "nullable": true
+                }
+              },
+              "required": [
+                "sourceId",
+                "role",
+                "kind",
+                "text",
+                "sourceUrl",
+                "mimeType"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "items"
         ],
         "additionalProperties": false
       },
