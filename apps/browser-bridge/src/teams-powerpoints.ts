@@ -75,10 +75,10 @@ function sharePointFrame(page: Page): Frame {
   return frames[0];
 }
 
-export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; folders: number; presentations: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; folders: number; entries: number; folderCandidates: number; presentations: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
-  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0;
+  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0;
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -122,8 +122,10 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         if (++folderCount > maxFolders) throw new Error("teams_sharepoint_folder_limit_exceeded");
         await goToFolder(frame, rootLabel, segments);
         const entries = (await visibleEntries(frame)).entries;
+        entriesObserved += entries.length;
         for (const entry of entries) {
           if (entry.folder) {
+            folderCandidates++;
             if (segments.length < maxDepth) folders.push([...segments, entry.name]);
             else throw new Error("teams_sharepoint_folder_depth_exceeded");
             continue;
@@ -155,5 +157,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       await cards.first().waitFor({ timeout: 15_000 });
     }
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, folders: folderCount, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "General-channel Shared folders only. Other channels, Classwork, post attachments, virtualized rows, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, folders: folderCount, entries: entriesObserved, folderCandidates, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "General-channel Shared folders only. Other channels, Classwork, post attachments, virtualized rows, and image-only slides are not yet covered." } };
 }
