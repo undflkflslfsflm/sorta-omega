@@ -69,6 +69,7 @@ try {
           counts: { tables: document.querySelectorAll("table").length, rows: document.querySelectorAll('tr, [role="row"]').length, tabs: document.querySelectorAll('[role="tab"]').length },
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.textContent ?? "").trim().slice(0, 60), selected: item.getAttribute("aria-selected"), hrefShape: item.getAttribute("href")?.replace(/\d+/g, "*") ?? null })),
           selectors: [...document.querySelectorAll<HTMLSelectElement>("main select")].map(item => ({ optionCount: item.options.length, selectedIndex: item.selectedIndex, options: [...item.options].slice(0, 30).map(option => ({ valueShape: option.value.replace(/\d+/g, "*"), label: (option.textContent ?? "").trim().slice(0, 40) })) })),
+          emptyIndicators: { examHeading: /\beksamen\b/i.test(document.querySelector("main")?.innerText ?? ""), noResults: /ingen|ikke.*(eksamen|resultat)|no (exams|results)/i.test(document.querySelector("main")?.innerText ?? ""), cards: document.querySelectorAll("main article, main [class*='exam' i], main [class*='empty' i]").length },
           table: [...document.querySelectorAll<HTMLTableElement>("table")].map(item => ({
             reportedRows: item.getAttribute("aria-rowcount"),
             headerRows: item.querySelectorAll("thead tr").length,
@@ -127,13 +128,17 @@ try {
             actionLabels: [...document.querySelectorAll<HTMLElement>("main button, main a")].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 25),
           }));
           if (args.get("inspect-assessment-item") === "true") {
-            const item = probe.locator("main table tbody tr").last().getByText("Se detaljer", { exact: true });
+            const candidateRows = probe.locator("main table tbody tr");
+            const gradedIndex = args.get("assessment-graded-item") === "true" ? await candidateRows.evaluateAll(rows => rows.findIndex(row => { const value = (row.querySelectorAll("td")[4]?.textContent ?? "").trim(); return Boolean(value && value !== "-"); })) : -1;
+            const item = (gradedIndex >= 0 ? candidateRows.nth(gradedIndex) : candidateRows.last()).getByText("Se detaljer", { exact: true });
             if (await item.count() === 1) {
               await item.click();
               await probe.waitForTimeout(500);
               (detail as Record<string, unknown>).item = await probe.evaluate(() => ({
                 routeShape: `${location.pathname}${location.hash}`,
                 dialogs: [...document.querySelectorAll<HTMLElement>('[role="dialog"], .VsModal, [class*="modal" i]')].slice(0, 4).map(element => ({ classes: element.className, text: (element.innerText ?? "").trim().slice(0, 2500) })),
+                linkShapes: [...document.querySelectorAll<HTMLAnchorElement>('[role="dialog"] a[href], .VsModal a[href]')].slice(0, 30).map(anchor => { const url = new URL(anchor.href, location.href); return { host: url.hostname, pathShape: url.pathname.replace(/\d+/g, "*").slice(0, 120), hashPresent: Boolean(url.hash), queryPresent: Boolean(url.search) }; }),
+                iframeCount: document.querySelectorAll('[role="dialog"] iframe, .VsModal iframe').length,
                 headings: [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].map(element => (element.textContent ?? "").trim()).slice(0, 12),
               }));
             }
