@@ -2,13 +2,14 @@ import { createHash } from "node:crypto";
 import type { Page } from "playwright-core";
 
 type Note = { id: string; title: string; body: string; path: string };
-type RenderedPost = { messageId: string; chainId: string; text: string };
+type RenderedPost = { messageId: string; chainId: string; text: string; isReply: boolean };
 
 export function mergeRenderedPosts(existing: Map<string, RenderedPost>, posts: RenderedPost[]): void {
   for (const post of posts) {
     if (!post.messageId || !post.chainId) throw new Error("teams_channel_post_identity_missing");
     const key = `${post.chainId}:${post.messageId}`;
     const previous = existing.get(key);
+    if (previous && previous.isReply !== post.isReply) throw new Error("teams_channel_reply_identity_changed");
     if (!previous || post.text.length > previous.text.length) existing.set(key, post);
   }
 }
@@ -28,6 +29,7 @@ async function collectRenderedChannelHistory(probe: Page): Promise<RenderedPost[
         messageId: post.getAttribute("data-mid") ?? "",
         chainId: post.getAttribute("data-reply-chain-id") ?? "",
         text: (post.closest<HTMLElement>('[role="group"]')?.innerText ?? post.innerText).replace(/\s+\n/g, "\n").replace(/\nReply\s*$/i, "").trim(),
+        isReply: Boolean(post.closest('[data-tid="response-surface"]')),
       })),
     }));
     mergeRenderedPosts(posts, snapshot.posts);
@@ -54,15 +56,15 @@ export function teamsChannelPostNote(className: string, channelName: string, pos
   const title = general
     ? `Teams · ${className.slice(0, 150)} · ${id.slice(0, 12)}`
     : `Teams · ${className.slice(0, 100)} · ${channelName.slice(0, 80)} · ${id.slice(0, 12)}`;
-  const body = `Source: Teams class channel post\nClass: ${className}\nChannel: ${general ? "General" : channelName}\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
+  const body = `Source: Teams class channel message\nClass: ${className}\nChannel: ${general ? "General" : channelName}\nMessage kind: ${post.isReply ? "reply" : "post"}\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
   if (Buffer.byteLength(body) > 1_000_000) throw new Error("teams_channel_post_too_large");
   return { id, title, body, path: `teams/channels/${id}.json` };
 }
 
-export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Note[]; coverage: { classes: number; channels: number; posts: number; emptyPosts: number; complete: false; limitation: string } }> {
+export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Note[]; coverage: { classes: number; channels: number; posts: number; replies: number; emptyPosts: number; complete: false; limitation: string } }> {
   const context = source.context();
   const notes: Note[] = [];
-  let classCount = 0, channelCount = 0, emptyPosts = 0;
+  let classCount = 0, channelCount = 0, emptyPosts = 0, replyCount = 0;
   const probe = await context.newPage();
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -105,6 +107,7 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
         for (const post of posts) {
           if (!post.text) { emptyPosts++; continue; }
           notes.push(teamsChannelPostNote(className, channelName, post));
+          if (post.isReply) replyCount++;
           if (notes.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
         }
       }
@@ -115,5 +118,5 @@ export async function collectTeamsClassPosts(source: Page): Promise<{ notes: Not
   const unique = [...new Map(notes.map(note => [note.id, note])).values()];
   if (!unique.length) throw new Error("teams_channel_posts_not_found_layout_review_required");
   if (unique.length > 500) throw new Error("teams_channel_post_count_exceeds_import_limit");
-  return { notes: unique, coverage: { classes: classCount, channels: channelCount, posts: unique.length, emptyPosts, complete: false, limitation: "Posts rendered while scrolling each class channel to the top were captured. Server-side history beyond the loaded feed, empty-text attachments, replies, classwork, and private chats require separate coverage." } };
+  return { notes: unique, coverage: { classes: classCount, channels: channelCount, posts: unique.length, replies: replyCount, emptyPosts, complete: false, limitation: "Messages rendered while scrolling each class channel to the top were captured, including identified rendered replies. Server-side history beyond the loaded feed, collapsed or unloaded replies, empty-text attachments, classwork, and private chats require separate coverage." } };
 }

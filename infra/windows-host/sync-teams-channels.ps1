@@ -57,7 +57,7 @@ try {
       throw "The Teams class-post capture failed: $errorCode"
     }
     $bridgeReport = $bridgeOutput[-1] | ConvertFrom-Json
-    if ($bridgeReport.provider -ne 'teams-channels' -or $bridgeReport.format -ne 'omega_notes_json_v1' -or $bridgeReport.itemCount -lt 1 -or $bridgeReport.itemCount -gt 500 -or [int]$bridgeReport.coverage.posts -ne [int]$bridgeReport.itemCount -or [int]$bridgeReport.coverage.classes -lt 1 -or [int]$bridgeReport.coverage.channels -lt [int]$bridgeReport.coverage.classes -or [int]$bridgeReport.coverage.emptyPosts -lt 0) { throw 'The Teams bridge returned an invalid class-post capture report.' }
+    if ($bridgeReport.provider -ne 'teams-channels' -or $bridgeReport.format -ne 'omega_notes_json_v1' -or $bridgeReport.itemCount -lt 1 -or $bridgeReport.itemCount -gt 500 -or [int]$bridgeReport.coverage.posts -ne [int]$bridgeReport.itemCount -or $null -eq $bridgeReport.coverage.replies -or [int]$bridgeReport.coverage.replies -lt 0 -or [int]$bridgeReport.coverage.replies -gt [int]$bridgeReport.itemCount -or [int]$bridgeReport.coverage.classes -lt 1 -or [int]$bridgeReport.coverage.channels -lt [int]$bridgeReport.coverage.classes -or [int]$bridgeReport.coverage.emptyPosts -lt 0) { throw 'The Teams bridge returned an invalid class-post capture report.' }
     if (Test-Path -LiteralPath $statusLog) {
       $previousSuccess = @(Get-Content -LiteralPath $statusLog -Encoding UTF8 | ForEach-Object {
         try { $_ | ConvertFrom-Json } catch { $null }
@@ -84,7 +84,7 @@ try {
     if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
     if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
   }
-  $status = [ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';dryRun=[bool]$DryRun;classes=[int]$bridgeReport.coverage.classes;channels=[int]$bridgeReport.coverage.channels;emptyPosts=[int]$bridgeReport.coverage.emptyPosts;captured=[int]$bridgeReport.itemCount;created=[int]$actions.created;updated=[int]$actions.updated;unchanged=[int]$actions.unchanged;coverageComplete=[bool]$bridgeReport.coverage.complete;coverageLimitation=$bridgeReport.coverage.limitation}
+  $status = [ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';dryRun=[bool]$DryRun;classes=[int]$bridgeReport.coverage.classes;channels=[int]$bridgeReport.coverage.channels;replies=[int]$bridgeReport.coverage.replies;emptyPosts=[int]$bridgeReport.coverage.emptyPosts;captured=[int]$bridgeReport.itemCount;created=[int]$actions.created;updated=[int]$actions.updated;unchanged=[int]$actions.unchanged;coverageComplete=[bool]$bridgeReport.coverage.complete;coverageLimitation=$bridgeReport.coverage.limitation}
   [IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
   Write-Output ($status | ConvertTo-Json -Compress)
 } catch {

@@ -38,5 +38,5 @@ if ($next -le (Get-Date)) { $next = $next.AddHours(1) }
 $trigger = New-ScheduledTaskTrigger -Once -At $next -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 8) -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Refresh rendered General-channel posts for visible Teams classes through the separately signed-in Edge profile. Older posts, other channels and attachments remain unverified.' | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Refresh rendered class-channel messages, including visible replies, through the separately signed-in Edge profile. Older server-side history, collapsed replies, and some attachments remain unverified.' | Out-Null
 Get-ScheduledTask -TaskName $taskName | Select-Object TaskName,State
