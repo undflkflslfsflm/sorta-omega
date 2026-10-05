@@ -1,12 +1,15 @@
 param(
   [string]$VaultId,
   [string]$AppContainer,
-  [switch]$FromInSchoolTask
+  [switch]$FromInSchoolTask,
+  [switch]$RunOnce,
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 $taskName = 'Sorta Omega - Teams assignments'
-if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) { throw 'The Teams assignments sync task already exists; inspect it before changing it.' }
+if (-not $RunOnce -and (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) { throw 'The Teams assignments sync task already exists; inspect it before changing it.' }
+if ($DryRun -and -not $RunOnce) { throw 'DryRun requires RunOnce.' }
 if ($FromInSchoolTask) {
   if ($VaultId -or $AppContainer) { throw 'Specify either the existing InSchool task or explicit values, not both.' }
   $schoolTask = Get-ScheduledTask -TaskName 'Sorta Omega - InSchool timetable' -ErrorAction Stop
@@ -24,6 +27,10 @@ $script = Join-Path $PSScriptRoot 'sync-teams-assignments.ps1'
 if (-not (Test-Path -LiteralPath $script)) { throw 'The Teams sync script is missing.' }
 $repository = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $profile = Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\EdgeUserData'
+if ($RunOnce) {
+  & $script -VaultId $VaultId -AppContainer $AppContainer -RepositoryRoot $repository -ProfilePath $profile -DryRun:$DryRun
+  return
+}
 $arguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -VaultId {1} -AppContainer {2} -RepositoryRoot "{3}" -ProfilePath "{4}"' -f $script,$VaultId,$AppContainer,$repository,$profile
 $action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'powershell.exe') -Argument $arguments
 $next = (Get-Date).Date.AddHours((Get-Date).Hour).AddMinutes(20)
