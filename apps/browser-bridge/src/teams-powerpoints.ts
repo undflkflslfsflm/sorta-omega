@@ -133,8 +133,10 @@ async function collectPostPresentations(probe: Page, className: string, stagingR
     duplicates.set(key, ordinal + 1);
     const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal);
     const downloaded = await retryInvalidDownload(async () => {
-      const post = posts.nth(candidate.postIndex);
-      if (await post.count() !== 1 || await post.getAttribute("data-mid") !== candidate.messageId || await post.getAttribute("data-reply-chain-id") !== candidate.chainId) throw new Error(`teams_post_identity_changed_${candidate.postIndex}`);
+      const currentIndex = await posts.evaluateAll((elements, identity) => elements.findIndex(element => element.getAttribute("data-mid") === identity.messageId && element.getAttribute("data-reply-chain-id") === identity.chainId), { messageId: candidate.messageId, chainId: candidate.chainId });
+      if (currentIndex < 0) throw new Error(`teams_post_identity_missing_${candidate.postIndex}`);
+      const post = posts.nth(currentIndex);
+      if (await post.getAttribute("data-mid") !== candidate.messageId || await post.getAttribute("data-reply-chain-id") !== candidate.chainId) throw new Error(`teams_post_identity_changed_${candidate.postIndex}`);
       const group = post.locator('xpath=ancestor-or-self::*[@role="group"][1]');
       if (await group.count() !== 1) throw new Error("teams_post_group_changed");
       const card = group.locator('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]').nth(candidate.cardIndex);
