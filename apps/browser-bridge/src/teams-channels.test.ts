@@ -10,6 +10,7 @@ describe("Teams class-channel post identity", () => {
     const note = teamsChannelPostNote("Maths", "General", post);
     expect(note.id).toBe(id);
     expect(note.title).toBe(`Teams · Maths · ${id.slice(0, 12)}`);
+    expect(note.body.startsWith("Source: Teams class channel post\n")).toBe(true);
     expect(note.body).toContain("Channel: General\n");
     expect(note.body).toContain("Message kind: post\n");
     expect(teamsChannelPostNote("Maths", "Generelt", post)).toEqual(note);

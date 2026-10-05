@@ -56,7 +56,7 @@ export function teamsChannelPostNote(className: string, channelName: string, pos
   const title = general
     ? `Teams · ${className.slice(0, 150)} · ${id.slice(0, 12)}`
     : `Teams · ${className.slice(0, 100)} · ${channelName.slice(0, 80)} · ${id.slice(0, 12)}`;
-  const body = `Source: Teams class channel message\nClass: ${className}\nChannel: ${general ? "General" : channelName}\nMessage kind: ${post.isReply ? "reply" : "post"}\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
+  const body = `Source: Teams class channel post\nClass: ${className}\nChannel: ${general ? "General" : channelName}\nMessage kind: ${post.isReply ? "reply" : "post"}\nRead-only browser capture; check Teams for later changes.\n\n${post.text}`;
   if (Buffer.byteLength(body) > 1_000_000) throw new Error("teams_channel_post_too_large");
   return { id, title, body, path: `teams/channels/${id}.json` };
 }
