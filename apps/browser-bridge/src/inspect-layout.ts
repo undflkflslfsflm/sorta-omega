@@ -190,7 +190,7 @@ try {
         });
         const pptxGrid = await probe.evaluate(() => {
           const grid = [...document.querySelectorAll<HTMLElement>('[data-tid="file-attachment-grid"]')].find(item => /\.pptx\b/i.test(item.textContent ?? ""));
-          const shape = (item: Element, depth: number): unknown => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), aria: item.getAttribute("aria-label"), title: item.getAttribute("title"), extension: /\.(pptx|ppt|pdf|docx|xlsx)\b/i.exec(item.textContent ?? "")?.[1]?.toLowerCase() ?? null, children: depth < 3 ? [...item.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
+          const shape = (item: Element, depth: number): unknown => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), aria: item.getAttribute("aria-label"), title: item.getAttribute("title"), attributes: [...item.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 12), extension: /\.(pptx|ppt|pdf|docx|xlsx)\b/i.exec(item.textContent ?? "")?.[1]?.toLowerCase() ?? null, children: depth < 7 ? [...item.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
           return grid ? shape(grid, 0) : null;
         });
         let opened: unknown = null;
