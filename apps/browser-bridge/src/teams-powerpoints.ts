@@ -134,7 +134,11 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           if (!/\.pptx$/i.test(entry.name)) continue;
           if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
           const relativePath = ["Teams", className, safeSegment(rootLabel), ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
-          const row = frame.locator('[role="row"]').nth(entry.rowIndex);
+          // SharePoint retains prior row selections; downloading several selected files creates a ZIP bundle.
+          await goToFolder(frame, rootUrl, segments);
+          const currentEntries = (await visibleEntries(frame)).entries.filter(candidate => !candidate.folder && candidate.name === entry.name);
+          if (currentEntries.length !== 1) throw new Error("teams_powerpoint_row_changed");
+          const row = frame.locator('[role="row"]').nth(currentEntries[0].rowIndex);
           await row.click();
           const downloadButton = frame.getByRole("menuitem", { name: /^Download$/ });
           await downloadButton.waitFor({ timeout: 10_000 });
@@ -142,10 +146,11 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           const filePath = await download.path();
           const metadata = await stat(filePath);
           if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
+          if (!/\.pptx$/i.test(download.suggestedFilename())) throw new Error("teams_powerpoint_download_was_bundle");
           if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
           if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);
           const bytes = await readFile(filePath);
-          if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error("teams_powerpoint_archive_invalid");
+          if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || !Buffer.from(bytes).includes("ppt/presentation.xml")) throw new Error("teams_powerpoint_archive_invalid");
           const sha256 = createHash("sha256").update(bytes).digest("hex");
           const stagedPath = path.join(stagingRoot, "files", sha256);
           await writeFile(stagedPath, bytes, { flag: "wx" }).catch(async error => {
