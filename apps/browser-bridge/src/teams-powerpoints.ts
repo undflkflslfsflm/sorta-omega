@@ -59,17 +59,19 @@ async function visibleEntries(frame: Frame): Promise<{ entries: Entry[]; totalRo
   return snapshot;
 }
 
-async function waitForGrid(frame: Frame): Promise<void> {
+async function waitForGrid(frame: Frame, priorSignature?: string): Promise<void> {
   await frame.locator('[role="row"]').first().waitFor({ timeout: 20_000 });
-  let previous = -1, stable = 0;
+  let previous = "", stable = 0;
   for (let attempt = 0; attempt < 40; attempt++) {
     const state = await frame.evaluate(() => ({
       rows: document.querySelectorAll('[role="row"]').length,
+      signature: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "").trim()).join("\0"),
       empty: /this folder is empty|no files|ingen filer|mappen er tom/i.test(document.body?.innerText ?? ""),
     }));
-    stable = state.rows === previous ? stable + 1 : 0;
-    previous = state.rows;
-    if (stable >= 3 && (state.rows > 1 || state.empty)) return;
+    const signature = `${state.rows}:${state.signature}`;
+    stable = signature === previous ? stable + 1 : 0;
+    previous = signature;
+    if (stable >= 3 && (state.rows > 1 || state.empty) && (priorSignature === undefined || signature !== priorSignature)) return;
     await frame.waitForTimeout(500);
   }
   throw new Error("teams_sharepoint_grid_not_loaded");
@@ -83,8 +85,9 @@ async function enterFolder(frame: Frame, name: string): Promise<void> {
     const matches = entries.filter(entry => entry.folder && entry.name === name);
     if (matches.length > 1) throw new Error("teams_sharepoint_folder_ambiguous");
     if (matches.length === 1) {
+      const priorSignature = await frame.evaluate(() => `${document.querySelectorAll('[role="row"]').length}:${[...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "").trim()).join("\0")}`);
       await frame.locator('[role="row"]').nth(matches[0].rowIndex).locator('[data-automationid="field-LinkFilename"]').dblclick();
-      await waitForGrid(frame);
+      await waitForGrid(frame, priorSignature);
       return;
     }
     await frame.waitForTimeout(500);
@@ -177,9 +180,10 @@ async function collectPostPresentations(probe: Page, className: string, channelN
   return { captured, bytes };
 }
 
-export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; presentations: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; presentations: number; bytes: number; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; presentations: number }[]; coverageComplete: false; coverageLimitation: string } }> {
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
+  const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; presentations: number }[] = [];
   let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0, postPresentations = 0;
   let phase = "open";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
@@ -202,6 +206,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       if (classIndexOnly !== undefined && classIndex !== classIndexOnly) continue;
       phase = "class";
       processedClasses++;
+      const before = { channels: channelCount, folders: folderCount, entries: entriesObserved, postPresentations, presentations: items.length };
       const className = safeSegment((await cards.nth(classIndex).textContent() ?? "").replace(/\s+/g, " ").trim());
       await cards.nth(classIndex).click();
       const general = probe.getByRole("treeitem", { name: /^(General|Generelt)$/ });
@@ -294,6 +299,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         }
         }
       }
+      classSummaries.push({ index: classIndex, channels: channelCount - before.channels, folders: folderCount - before.folders, entries: entriesObserved - before.entries, postPresentations: postPresentations - before.postPresentations, presentations: items.length - before.presentations });
       await probe.getByText("All teams", { exact: true }).click();
       await cards.first().waitFor({ timeout: 15_000 });
     }
@@ -301,5 +307,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, presentations: items.length, bytes: totalBytes, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PowerPoint post attachments in those channels only. Older or virtualized posts, Classwork, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, presentations: items.length, bytes: totalBytes, classSummaries, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PowerPoint post attachments in those channels only. Older or virtualized posts, Classwork, and image-only slides are not yet covered." } };
 }
