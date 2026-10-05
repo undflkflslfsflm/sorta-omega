@@ -521,7 +521,7 @@ const revisionFromIfMatch = (value: string | string[] | undefined) => {
 };
 const mapNote = (row: Record<string, any>) => noteSchema.parse({
   id: row.id, vaultId: row.vault_id, title: row.title, body: row.body,
-  status: row.status, sourceId: row.source_id, revision: row.revision,
+  status: row.status, sourceId: row.source_id, originalSha256: row.original_sha256 ?? null, revision: row.revision,
   classification: row.classification, classificationLocked: row.classification_locked, suggestedTitle: row.suggested_title,
   classifiedRevision: row.classified_revision, organizationRevision: row.organization_revision,
   createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
@@ -1302,10 +1302,18 @@ app.get("/api/v1/vaults/:vaultId/notes", async (request, reply) => {
     try { cursor = decodeNotesCursor(rawCursor); }
     catch { return reply.code(400).send({ error: "invalid_cursor" }); }
   }
-  const result = await query(`SELECT *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_updated_at
-    FROM notes WHERE vault_id = $1 AND trashed_at IS NULL
-    AND ($2::timestamptz IS NULL OR (updated_at,id) < ($2::timestamptz,$3::uuid))
-    ORDER BY updated_at DESC,id DESC LIMIT 101`, [vaultId, cursor?.updatedAt ?? null, cursor?.id ?? null]);
+  const result = await query(`SELECT notes.*, originals.original_sha256,
+      to_char(notes.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_updated_at
+    FROM notes
+    LEFT JOIN LATERAL (
+      SELECT CASE WHEN count(*) = 1 AND bool_and(b.media_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+        THEN min(b.sha256) ELSE NULL END AS original_sha256
+      FROM source_blobs sb JOIN blobs b ON b.id = sb.blob_id AND b.vault_id = notes.vault_id
+      WHERE sb.source_id = notes.source_id
+    ) originals ON notes.source_id IS NOT NULL
+    WHERE notes.vault_id = $1 AND notes.trashed_at IS NULL
+    AND ($2::timestamptz IS NULL OR (notes.updated_at,notes.id) < ($2::timestamptz,$3::uuid))
+    ORDER BY notes.updated_at DESC,notes.id DESC LIMIT 101`, [vaultId, cursor?.updatedAt ?? null, cursor?.id ?? null]);
   const rows = result.rows.slice(0, 100);
   const last = rows.at(-1);
   return { items: rows.map(mapNote), nextCursor: result.rows.length > 100 && last ? encodeNotesCursor({ updatedAt: last.cursor_updated_at, id: last.id }) : null };

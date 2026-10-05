@@ -26,7 +26,7 @@ import { assessmentScopeParts } from "./assessment-scope";
 import { parseNorwegianDate, parseNorwegianDateTime } from "./norwegian-date-time";
 import { emptyNoteMessage, type AttachmentLoadState } from "./note-empty-state";
 import { passkeySignInMessage, type PasskeySignInStage } from "./passkey-signin";
-import { groupBrainNotes } from "./brain-note-groups";
+import { groupBrainNotes, groupImportedOriginals, importedSourceLocation } from "./brain-note-groups";
 import type { NoteCommitmentCandidate } from "@sorta/contracts";
 
 const RichDocumentEditor=lazy(()=>import("./ManagedNoteEditor"));
@@ -862,6 +862,7 @@ function noteCardPreview(note: Note): string {
 
 function BrainNotes({ notes, loading, incomplete, onOpen, onCreate, busy }: { notes: Note[]; loading: boolean; incomplete: boolean; onOpen: (note: Note) => void; onCreate: () => void; busy: boolean }) {
   const { personal, imported } = groupBrainNotes(notes);
+  const importedGroups = groupImportedOriginals(imported);
   return <>
     <PageTitle eyebrow="Notes and sources" title="Brain" copy="Your notes first. Imported source records stay available below."/>
     <button className="primary" disabled={busy} onClick={onCreate}><Plus size={17}/> New note</button>
@@ -869,14 +870,24 @@ function BrainNotes({ notes, loading, incomplete, onOpen, onCreate, busy }: { no
     {incomplete && <p className="pending-banner" role="status">Could not load all notes. Showing only the most recent records; older notes may be missing.</p>}
     {personal.length > 0 ? <NoteList notes={personal} onOpen={onOpen}/> : !loading && !incomplete ? <p className="quiet-empty">No personal notes yet. Imported school posts and files are available below.</p> : null}
     {imported.length > 0 && <details className="brain-source-group">
-      <summary>Imported sources <span>{imported.length}</span></summary>
-      <p>Read-only school posts and file imports. Open any record to inspect its original evidence.</p>
-      <NoteList notes={imported} onOpen={onOpen}/>
+      <summary>Imported materials <span>{importedGroups.length}{importedGroups.length !== imported.length ? ` · ${imported.length} source records` : ""}</span></summary>
+      <p>Identical PowerPoint originals appear once. Every source location and original record remains available.</p>
+      <div className="notes-grid">{importedGroups.map(group => {
+        const primary = group.find(note => !importedSourceLocation(note).includes("/Posts/")) ?? group[0];
+        return <div className="brain-material" key={primary.id}>
+          <NoteCard note={primary} onOpen={onOpen}/>
+          {group.length > 1 && <details className="brain-material-sources">
+            <summary>{group.length} source locations</summary>
+            <ul>{group.map(note => <li key={note.id}><button type="button" onClick={() => onOpen(note)}>{importedSourceLocation(note)}</button></li>)}</ul>
+          </details>}
+        </div>;
+      })}</div>
     </details>}
   </>;
 }
 
-function NoteList({ notes, onOpen }: { notes: Note[]; onOpen?: (note: Note) => void }) { return <div className="notes-grid">{notes.map(note => <article className={onOpen ? "note-card interactive" : "note-card"} key={note.id} onClick={() => onOpen?.(note)} onKeyDown={event => { if (onOpen && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onOpen(note); } }} role={onOpen?"button":undefined} tabIndex={onOpen ? 0 : undefined}><div className="note-meta"><Archive size={15}/><span>{note.classification ?? "unclassified"}{note.classificationLocked ? " · locked" : ""}</span><time>{new Intl.DateTimeFormat("nb-NO", { day: "2-digit", month: "2-digit" }).format(new Date(note.updatedAt))}</time></div><h3>{note.title}</h3><p>{noteCardPreview(note)}</p><small>{note.status === "saved" ? "Saved" : note.status.replaceAll("_", " ")} · version {note.revision}</small></article>)}{notes.length === 0 && <div className="large-empty"><Brain/><h2>Your brain is ready</h2><p>Capture your first note. It will remain available even if AI is offline.</p></div>}</div>; }
+function NoteCard({ note, onOpen }: { note: Note; onOpen?: (note: Note) => void }) { return <article className={onOpen ? "note-card interactive" : "note-card"} onClick={() => onOpen?.(note)} onKeyDown={event => { if (onOpen && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onOpen(note); } }} role={onOpen?"button":undefined} tabIndex={onOpen ? 0 : undefined}><div className="note-meta"><Archive size={15}/><span>{note.classification ?? "unclassified"}{note.classificationLocked ? " · locked" : ""}</span><time>{new Intl.DateTimeFormat("nb-NO", { day: "2-digit", month: "2-digit" }).format(new Date(note.updatedAt))}</time></div><h3>{note.title}</h3><p>{noteCardPreview(note)}</p><small>{note.status === "saved" ? "Saved" : note.status.replaceAll("_", " ")} · version {note.revision}</small></article>; }
+function NoteList({ notes, onOpen }: { notes: Note[]; onOpen?: (note: Note) => void }) { return <div className="notes-grid">{notes.map(note => <NoteCard key={note.id} note={note} onOpen={onOpen}/>)}{notes.length === 0 && <div className="large-empty"><Brain/><h2>Your brain is ready</h2><p>Capture your first note. It will remain available even if AI is offline.</p></div>}</div>; }
 
 function NoteEditor({ note, onClose, onSaved,onTrashed }: { note: Note; onClose: () => void; onSaved: () => Promise<void>;onTrashed:(note:Note)=>void }) {
   useEffect(() => {

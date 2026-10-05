@@ -13,3 +13,21 @@ export function groupBrainNotes<T extends SourceNote>(notes: T[]): { personal: T
   for (const note of notes) (isAutomaticSourceNote(note) ? imported : personal).push(note);
   return { personal, imported };
 }
+
+export function groupImportedOriginals<T extends SourceNote & { originalSha256?: string | null }>(notes: T[]): T[][] {
+  const groups: T[][] = [];
+  const byHash = new Map<string, T[]>();
+  for (const note of notes) {
+    const hash = note.originalSha256;
+    if (!hash) { groups.push([note]); continue; }
+    const existing = byHash.get(hash);
+    if (existing) existing.push(note);
+    else { const group = [note]; byHash.set(hash, group); groups.push(group); }
+  }
+  return groups;
+}
+
+export function importedSourceLocation(note: SourceNote & { title: string }): string {
+  const firstLine = note.body.split("\n", 1)[0];
+  return firstLine.startsWith("Imported from ") ? firstLine.slice("Imported from ".length) : note.title;
+}

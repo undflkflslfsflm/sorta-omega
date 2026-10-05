@@ -101,6 +101,7 @@ export const noteSchema = z.object({
   classifiedRevision: z.number().int().positive().nullable(),
   organizationRevision: z.number().int().positive(),
   sourceId: idSchema.nullable(),
+  originalSha256: sha256Schema.nullable().optional(),
   revision: z.number().int().positive(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime()
