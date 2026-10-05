@@ -205,14 +205,16 @@ try {
           if (folderCount > 0 && folderCount <= 20) {
             await folders.first().locator('[data-automationid="field-LinkFilename"]').dblclick();
             await probe.waitForTimeout(5_000);
+            await sharepoint.locator('[role="row"]').first().waitFor({ timeout: 20_000 }).catch(() => undefined);
           }
           const folderShape = await sharepoint.evaluate(() => ({
+            bodyLength: document.body?.innerText?.length ?? 0,
             rows: document.querySelectorAll('[role="row"]').length,
             pptxRows: [...document.querySelectorAll<HTMLElement>('[role="row"]')].filter(row => /\.pptx\b/i.test(row.textContent ?? "")).length,
             folderRows: document.querySelectorAll('[role="row"] [title="Yellow folder"], [role="row"] [aria-label="Yellow folder"]').length,
             extensions: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (/\.([a-z0-9]{2,5})\b/i.exec(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "")?.[1] ?? "none").toLowerCase()).reduce<Record<string, number>>((all, extension) => { all[extension] = (all[extension] ?? 0) + 1; return all; }, {}),
           }));
-          console.log(JSON.stringify({ provider, classIndex, folderCount, folderShape }));
+          console.log(JSON.stringify({ provider, classIndex, folderCount, folderShape, frameOrigins: probe.frames().map(frame => { try { return new URL(frame.url()).origin; } catch { return "unavailable"; } }) }));
         } else {
         const after = await probe.evaluate(() => ({
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(element => ({ label: (element.getAttribute("aria-label") ?? element.textContent ?? "").trim().slice(0, 60), selected: element.getAttribute("aria-selected") })),
