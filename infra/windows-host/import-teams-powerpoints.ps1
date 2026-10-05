@@ -73,4 +73,4 @@ foreach ($batchItems in $batches) {
   }
 }
 if ($accounted -ne $items.Count) { throw 'The staged scan was not fully accounted for.' }
-[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'Class-channel Shared folders only; Classwork and post attachments still require capture.' } | ConvertTo-Json -Compress
+[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'Class-channel Shared folders and rendered General-channel PowerPoint attachments only; other channel attachments, older posts, and Classwork remain uncovered.' } | ConvertTo-Json -Compress

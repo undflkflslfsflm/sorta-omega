@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { retryInvalidDownload, safeSegment } from "./teams-powerpoints.js";
+import { postPresentationRelativePath, retryInvalidDownload, safeSegment } from "./teams-powerpoints.js";
 
 describe("Teams PowerPoint path segments", () => {
   it("removes path separators without losing Norwegian names", () => {
@@ -40,5 +40,19 @@ describe("Teams PowerPoint download retry", () => {
       throw new Error("teams_powerpoint_file_limit_exceeded:1");
     })).rejects.toThrow("teams_powerpoint_file_limit_exceeded:1");
     expect(attempts).toBe(1);
+  });
+});
+
+describe("Teams post PowerPoint identity", () => {
+  it("keeps Norwegian class names and stable post identity", () => {
+    const first = postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx");
+    expect(first).toMatch(/^Teams\/Økonomistyring\/General\/Posts\/[0-9a-f]{24}\/Prøve\.pptx$/);
+    expect(postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx")).toBe(first);
+    expect(postPresentationRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx", 1)).toMatch(/\/2-Prøve\.pptx$/);
+  });
+
+  it("rejects missing identities and other file types", () => {
+    expect(() => postPresentationRelativePath("Class", "", "message", "Slides.pptx")).toThrow("teams_post_powerpoint_identity_invalid");
+    expect(() => postPresentationRelativePath("Class", "chain", "message", "File.docx")).toThrow("teams_post_powerpoint_name_invalid");
   });
 });
