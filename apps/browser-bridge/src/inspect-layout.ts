@@ -540,7 +540,20 @@ try {
         });
         if (!assignmentsFrame) throw new Error("teams_assignments_frame_missing");
         const viewAssignments = assignmentsFrame.getByRole("link", { name: /^View assignments$/i });
-        if (await viewAssignments.count() !== 1) throw new Error("teams_view_assignments_navigation_ambiguous");
+        if (await viewAssignments.count() !== 1) {
+          const navigationShape = await assignmentsFrame.evaluate(() => ({
+            routeShape: location.pathname,
+            viewAssignmentsLinks: [...document.querySelectorAll<HTMLAnchorElement>("a")].filter(link => /^View assignments$/i.test((link.textContent ?? "").trim())).length,
+            assignmentListCards: document.querySelectorAll(".aui-assignmentListCard").length,
+            controls: [...document.querySelectorAll<HTMLElement>("a, button, [role=tab]")].map(item => ({
+              tag: item.tagName.toLowerCase(),
+              role: item.getAttribute("role"),
+              label: (item.getAttribute("aria-label") ?? item.textContent ?? "").replace(/\s+/g, " ").trim(),
+            })).filter(item => /^(view assignments|assignments|upcoming|past due|completed|see all|open)$/i.test(item.label)).slice(0, 20),
+          }));
+          console.log(JSON.stringify({ provider, assignmentNavigationShape: navigationShape }));
+          throw new Error("teams_view_assignments_navigation_ambiguous");
+        }
         await viewAssignments.click();
         await probe.waitForTimeout(8_000);
         if (args.get("probe-assignment-controls") === "true") {
