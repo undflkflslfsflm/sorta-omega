@@ -207,6 +207,15 @@ try {
           const before = new Set(browser.contexts()[0].pages());
           await card.first().press("Shift+F10");
           await probe.waitForTimeout(5_000);
+          let downloadProbe: unknown = null;
+          if (args.get("teams-post-download-probe") === "true") {
+            const action = probe.getByRole("menuitem", { name: "Download", exact: true });
+            if (await action.count() !== 1) throw new Error("teams_post_download_action_ambiguous");
+            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click()]).then(([item]) => item);
+            const filePath = await download.path();
+            const bytes = await readFile(filePath);
+            downloadProbe = { extension: path.extname(download.suggestedFilename()).toLowerCase(), bytes: bytes.length, magicZip: bytes[0] === 0x50 && bytes[1] === 0x4b, hasPresentation: bytes.includes("ppt/presentation.xml") };
+          }
           const openedPages = browser.contexts()[0].pages().filter(page => page === probe || !before.has(page));
           opened = await Promise.all(openedPages.map(async page => ({
             origin: (() => { try { return new URL(page.url()).origin; } catch { return "unknown"; } })(),
@@ -214,6 +223,7 @@ try {
             controls: await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="menuitem"]')].map(item => ({ role: item.getAttribute("role"), label: (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").trim().slice(0, 60) })).filter(item => item.role === "menuitem" || /download|save|open|share|last ned|åpne|lagre/i.test(item.label)).slice(0, 30)).catch(() => []),
           })));
           for (const page of openedPages) if (page !== probe) await page.close();
+          opened = { pages: opened, downloadProbe };
         }
         console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid, opened } }));
       } else if (args.get("teams-classwork-probe") === "true") {
