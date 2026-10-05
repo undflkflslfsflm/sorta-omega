@@ -61,10 +61,8 @@ async function enterFolder(frame: Frame, name: string): Promise<void> {
   await waitForGrid(frame);
 }
 
-async function goToFolder(frame: Frame, rootLabel: string, segments: string[]): Promise<void> {
-  const root = frame.getByRole("button", { name: rootLabel, exact: true });
-  if (await root.count() !== 1) throw new Error("teams_sharepoint_root_breadcrumb_missing");
-  await root.click();
+async function goToFolder(frame: Frame, rootUrl: string, segments: string[]): Promise<void> {
+  await frame.goto(rootUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await waitForGrid(frame);
   for (const segment of segments) await enterFolder(frame, segment);
 }
@@ -111,6 +109,9 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       await shared.click();
       await probe.waitForTimeout(3_000);
       const frame = sharePointFrame(probe);
+      const rootUrl = frame.url();
+      const rootAddress = new URL(rootUrl);
+      if (rootAddress.hostname !== "akershusfylke.sharepoint.com" || !rootAddress.pathname.endsWith("/filebrowser.aspx")) throw new Error("teams_sharepoint_root_url_invalid");
       await waitForGrid(frame);
       const folders: string[][] = [[]];
       const seen = new Set<string>();
@@ -120,7 +121,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         if (seen.has(key)) continue;
         seen.add(key);
         if (++folderCount > maxFolders) throw new Error("teams_sharepoint_folder_limit_exceeded");
-        await goToFolder(frame, rootLabel, segments);
+        await goToFolder(frame, rootUrl, segments);
         const entries = (await visibleEntries(frame)).entries;
         entriesObserved += entries.length;
         for (const entry of entries) {
