@@ -141,7 +141,9 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), downloadButton.click()]).then(([item]) => item);
           const filePath = await download.path();
           const metadata = await stat(filePath);
-          if (!metadata.isFile() || metadata.size < 1 || metadata.size > maxFileBytes || totalBytes + metadata.size > maxBatchBytes) throw new Error("teams_powerpoint_size_limit_exceeded");
+          if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
+          if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
+          if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);
           const bytes = await readFile(filePath);
           if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) throw new Error("teams_powerpoint_archive_invalid");
           const sha256 = createHash("sha256").update(bytes).digest("hex");
