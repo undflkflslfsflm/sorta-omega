@@ -213,6 +213,7 @@ try {
             pptxRows: [...document.querySelectorAll<HTMLElement>('[role="row"]')].filter(row => /\.pptx\b/i.test(row.textContent ?? "")).length,
             folderRows: document.querySelectorAll('[role="row"] [title="Yellow folder"], [role="row"] [aria-label="Yellow folder"]').length,
             extensions: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (/\.([a-z0-9]{2,5})\b/i.exec(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "")?.[1] ?? "none").toLowerCase()).reduce<Record<string, number>>((all, extension) => { all[extension] = (all[extension] ?? 0) + 1; return all; }, {}),
+            rowIcons: [...document.querySelectorAll<HTMLElement>('[role="row"]')].slice(0, 20).map(row => ({ icon: [...row.querySelectorAll<HTMLElement>('[data-automationid="field-DocIcon"] [title], [data-automationid="field-DocIcon"] [aria-label]')].map(icon => icon.getAttribute("title") ?? icon.getAttribute("aria-label")).filter(Boolean).slice(0, 2), nameLength: (row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "").trim().length })),
           }));
           console.log(JSON.stringify({ provider, classIndex, folderCount, folderShape, frameOrigins: probe.frames().map(frame => { try { return new URL(frame.url()).origin; } catch { return "unavailable"; } }) }));
         } else {
