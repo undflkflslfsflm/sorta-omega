@@ -63,6 +63,10 @@ export async function retryInvalidDownload<T>(download: () => Promise<T>, wait: 
   }
 }
 
+export function skippableSchoolFileError(error: unknown): string | null {
+  return error instanceof Error && retryableDownloadErrors.has(error.message) ? error.message : null;
+}
+
 async function visibleEntries(frame: Frame): Promise<{ entries: Entry[]; totalRows: number | null }> {
   const snapshot = await frame.evaluate(() => {
     const grid = document.querySelector<HTMLElement>('[role="grid"]');
@@ -203,10 +207,11 @@ async function collectPostFiles(probe: Page, className: string, channelName: str
   return { presentations, documents, bytes };
 }
 
-export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; postDocuments: number; presentations: number; documents: number; bytes: number; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[]; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; postDocuments: number; presentations: number; documents: number; bytes: number; skippedFiles: Array<{ sourcePosition: string; reason: string }>; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[]; coverageComplete: false; coverageLimitation: string } }> {
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
   const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[] = [];
+  const skippedFiles: Array<{ sourcePosition: string; reason: string }> = [];
   let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0, postPresentations = 0, postDocuments = 0, presentations = 0, documents = 0;
   let phase = "open", fileContext = "none";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
@@ -288,12 +293,13 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
             continue;
           }
           if (!supportedSchoolFile.test(entry.name)) continue;
-          if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
+          if (items.length + skippedFiles.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
           const relativePath = ["Teams", className, channelName, ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
-          fileContext = `class_${classIndex}_channel_${channelIndex}_file_${items.length}`;
+          fileContext = `class_${classIndex}_channel_${channelIndex}_file_${items.length + skippedFiles.length}`;
           // SharePoint can return a stale selection or an incomplete download once.
           // Re-entering the folder clears selection before the single bounded retry.
-          const bytes = await retryInvalidDownload(async () => {
+          let bytes: Buffer;
+          try { bytes = await retryInvalidDownload(async () => {
             phase = "reset";
             await goToFolder(frame, rootUrl, segments);
             const currentEntries = (await visibleEntries(frame)).entries.filter(candidate => !candidate.folder && candidate.name === entry.name);
@@ -316,7 +322,12 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
             const downloadedBytes = await readFile(filePath).catch(() => { throw new Error("teams_powerpoint_download_invalid"); });
             validateSchoolOriginal(entry.name, downloadedBytes);
             return downloadedBytes;
-          });
+          }); } catch (error) {
+            const reason = skippableSchoolFileError(error);
+            if (!reason || skippedFiles.length >= 5) throw error;
+            skippedFiles.push({ sourcePosition: fileContext, reason });
+            continue;
+          }
           const sha256 = createHash("sha256").update(bytes).digest("hex");
           const stagedPath = path.join(stagingRoot, "files", sha256);
           await writeFile(stagedPath, bytes, { flag: "wx" }).catch(async error => {
@@ -338,5 +349,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, classSummaries, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PPTX/PDF/DOCX post attachments only. Older or virtualized posts, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, skippedFiles, classSummaries, coverageComplete: false, coverageLimitation: `Visible and hidden class-channel Shared folders plus rendered PPTX/PDF/DOCX post attachments only. ${skippedFiles.length} file(s) could not be downloaded and must be retried. Older or virtualized posts, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered.` } };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { postSchoolFileRelativePath, retryInvalidDownload, safeSegment, schoolFileByteLimit, validateSchoolOriginal } from "./teams-powerpoints.js";
+import { postSchoolFileRelativePath, retryInvalidDownload, safeSegment, schoolFileByteLimit, skippableSchoolFileError, validateSchoolOriginal } from "./teams-powerpoints.js";
 
 describe("Teams PowerPoint path segments", () => {
   it("removes path separators without losing Norwegian names", () => {
@@ -40,6 +40,13 @@ describe("Teams PowerPoint download retry", () => {
       throw new Error("teams_powerpoint_file_limit_exceeded:1");
     })).rejects.toThrow("teams_powerpoint_file_limit_exceeded:1");
     expect(attempts).toBe(1);
+  });
+
+  it("isolates only exhausted invalid downloads, never limits or changed rows", () => {
+    expect(skippableSchoolFileError(new Error("teams_powerpoint_download_invalid"))).toBe("teams_powerpoint_download_invalid");
+    expect(skippableSchoolFileError(new Error("teams_school_file_signature_invalid"))).toBe("teams_school_file_signature_invalid");
+    expect(skippableSchoolFileError(new Error("teams_powerpoint_file_limit_exceeded:1"))).toBeNull();
+    expect(skippableSchoolFileError(new Error("teams_powerpoint_row_changed"))).toBeNull();
   });
 });
 

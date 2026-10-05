@@ -52,11 +52,13 @@ try {
   $report = $bridgeOutput[-1] | ConvertFrom-Json
   $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
   if ($report.provider -ne 'teams-powerpoints' -or $report.format -ne 'omega_personal_files_v1' -or $report.itemCount -lt 1 -or $report.itemCount -gt 2048 -or $manifest.deviceKey -ne 'teams-sharepoint' -or @($manifest.items).Count -ne [int]$report.itemCount) { throw 'The Teams PowerPoint capture report is inconsistent.' }
+  $skippedFiles = @($report.skippedFiles | Where-Object { $_ })
+  if ($skippedFiles.Count -gt 5 -or @($skippedFiles | Where-Object { $_.sourcePosition -notmatch '^class_\d+_channel_\d+_file_\d+$' -or $_.reason -notin @('teams_powerpoint_download_invalid','teams_powerpoint_download_was_bundle','teams_powerpoint_archive_invalid','teams_school_file_signature_invalid','teams_school_file_download_was_bundle') }).Count -gt 0 -or [int]$report.itemCount + $skippedFiles.Count -gt 2048) { throw 'The Teams PowerPoint skipped-file report is invalid.' }
   if (Test-Path -LiteralPath $statusLog) {
     $previousSuccess = @(Get-Content -LiteralPath $statusLog -Encoding UTF8 | ForEach-Object {
       try { $_ | ConvertFrom-Json } catch { $null }
     } | Where-Object { $_ -and $_.status -eq 'succeeded' -and -not $_.dryRun } | Select-Object -Last 1)
-    if ($previousSuccess.Count -eq 1 -and ([int]$report.classes -lt [int]$previousSuccess[0].classes -or [int]$report.channels -lt [int]$previousSuccess[0].channels -or [int]$report.itemCount -lt [int]$previousSuccess[0].captured)) {
+    if ($previousSuccess.Count -eq 1 -and ([int]$report.classes -lt [int]$previousSuccess[0].classes -or [int]$report.channels -lt [int]$previousSuccess[0].channels -or [int]$report.itemCount + $skippedFiles.Count -lt [int]$previousSuccess[0].captured)) {
       throw 'The Teams PowerPoint capture is smaller than the last complete import; no files were imported. Inspect live source coverage before accepting removals.'
     }
   }
@@ -65,7 +67,7 @@ try {
   $importOutput = @(& $importScript -StagingRoot $batchRoot -VaultId $VaultId -AppContainer $AppContainer -DryRun:$DryRun)
   $import = $importOutput[-1] | ConvertFrom-Json
   if ($import.status -ne 'succeeded' -or [int]$import.captured -ne [int]$report.itemCount -or [int]$import.counts.created + [int]$import.counts.updated + [int]$import.counts.unchanged -ne [int]$report.itemCount) { throw 'The Teams PowerPoint import was not fully accounted for.' }
-  $status = [ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o'); status = 'succeeded'; dryRun = [bool]$DryRun; classes = [int]$report.classes; channels = [int]$report.channels; classSummaries = $report.classSummaries; postPresentations = [int]$report.postPresentations; postDocuments = [int]$report.postDocuments; presentations = [int]$report.presentations; documents = [int]$report.documents; captured = [int]$report.itemCount; bytes = [long]$report.bytes; created = [int]$import.counts.created; updated = [int]$import.counts.updated; unchanged = [int]$import.counts.unchanged; textExtracted = [int]$import.counts.textExtracted; textUnavailable = [int]$import.counts.textUnavailable; coverageComplete = $false; coverageLimitation = $report.coverageLimitation }
+  $status = [ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o'); status = $(if ($skippedFiles.Count) { 'partial' } else { 'succeeded' }); dryRun = [bool]$DryRun; classes = [int]$report.classes; channels = [int]$report.channels; classSummaries = $report.classSummaries; postPresentations = [int]$report.postPresentations; postDocuments = [int]$report.postDocuments; presentations = [int]$report.presentations; documents = [int]$report.documents; captured = [int]$report.itemCount; skippedCount = $skippedFiles.Count; skippedFiles = $skippedFiles; bytes = [long]$report.bytes; created = [int]$import.counts.created; updated = [int]$import.counts.updated; unchanged = [int]$import.counts.unchanged; textExtracted = [int]$import.counts.textExtracted; textUnavailable = [int]$import.counts.textUnavailable; coverageComplete = $false; coverageLimitation = $report.coverageLimitation }
   [IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
   $status | ConvertTo-Json -Compress
 } catch {
