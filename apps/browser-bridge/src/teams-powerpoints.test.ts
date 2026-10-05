@@ -19,18 +19,18 @@ describe("Teams PowerPoint download retry", () => {
     const result = await retryInvalidDownload(async () => {
       if (++attempts === 1) throw new Error("teams_powerpoint_archive_invalid");
       return "valid";
-    });
+    }, async () => {});
     expect(result).toBe("valid");
     expect(attempts).toBe(2);
   });
 
-  it("stops after a second invalid download", async () => {
+  it("stops after four invalid downloads", async () => {
     let attempts = 0;
     await expect(retryInvalidDownload(async () => {
       attempts++;
       throw new Error("teams_powerpoint_download_invalid");
-    })).rejects.toThrow("teams_powerpoint_download_invalid");
-    expect(attempts).toBe(2);
+    }, async () => {})).rejects.toThrow("teams_powerpoint_download_invalid");
+    expect(attempts).toBe(4);
   });
 
   it("does not retry limits or changed rows", async () => {

@@ -52,11 +52,14 @@ const retryableDownloadErrors = new Set([
   "teams_school_file_download_was_bundle",
 ]);
 
-export async function retryInvalidDownload<T>(download: () => Promise<T>): Promise<T> {
-  try { return await download(); }
-  catch (error) {
-    if (!(error instanceof Error) || !retryableDownloadErrors.has(error.message)) throw error;
-    return download();
+export async function retryInvalidDownload<T>(download: () => Promise<T>, wait: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))): Promise<T> {
+  const delays = [500, 1_000, 2_000];
+  for (let attempt = 0; ; attempt++) {
+    try { return await download(); }
+    catch (error) {
+      if (!(error instanceof Error) || !retryableDownloadErrors.has(error.message) || attempt >= delays.length) throw error;
+      await wait(delays[attempt]);
+    }
   }
 }
 
@@ -205,7 +208,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
   const items: ManifestItem[] = [];
   const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[] = [];
   let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0, postPresentations = 0, postDocuments = 0, presentations = 0, documents = 0;
-  let phase = "open";
+  let phase = "open", fileContext = "none";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -240,6 +243,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       for (const channelName of channels) {
         phase = "channel";
         channelCount++;
+        const channelIndex = channelCount - before.channels - 1;
         const channel = probe.getByRole("treeitem", { name: channelName, exact: true });
         if (await channel.count() !== 1) throw new Error("teams_channel_changed");
         await channel.click();
@@ -248,6 +252,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         await shared.waitFor({ timeout: 15_000 });
         if (await shared.count() !== 1) throw new Error("teams_shared_tab_ambiguous");
         phase = "posts";
+        fileContext = `class_${classIndex}_channel_${channelIndex}_posts`;
         const postChannelName = /^(General|Generelt)$/.test(channelName) ? "General" : channelName;
         const postFiles = await collectPostFiles(probe, className, postChannelName, stagingRoot, items, totalBytes);
         postPresentations += postFiles.presentations;
@@ -285,6 +290,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           if (!supportedSchoolFile.test(entry.name)) continue;
           if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
           const relativePath = ["Teams", className, channelName, ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
+          fileContext = `class_${classIndex}_channel_${channelIndex}_file_${items.length}`;
           // SharePoint can return a stale selection or an incomplete download once.
           // Re-entering the folder clears selection before the single bounded retry.
           const bytes = await retryInvalidDownload(async () => {
@@ -328,6 +334,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       await cards.first().waitFor({ timeout: 15_000 });
     }
   } catch (error) {
+    if (error instanceof Error && retryableDownloadErrors.has(error.message)) throw new Error(`${error.message}_${fileContext}`);
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
