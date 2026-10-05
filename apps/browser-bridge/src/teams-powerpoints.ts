@@ -347,7 +347,8 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
   } catch (error) {
     if (error instanceof Error && retryableDownloadErrors.has(error.message)) throw new Error(`${error.message}_${fileContext}`);
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
-    throw new Error(`teams_powerpoint_${phase}_failed`);
+    const kind = error instanceof Error && error.name === "TimeoutError" ? "timeout" : error instanceof TypeError ? "type_error" : "unexpected";
+    throw new Error(`teams_powerpoint_${phase}_${kind}_${fileContext}`);
   } finally { await probe.close(); }
   return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, skippedFiles, classSummaries, coverageComplete: false, coverageLimitation: `Visible and hidden class-channel Shared folders plus rendered PPTX/PDF/DOCX post attachments only. ${skippedFiles.length} file(s) could not be downloaded and must be retried. Older or virtualized posts, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered.` } };
 }
