@@ -524,6 +524,19 @@ try {
   } else if (args.get("probe-assignments") === "true" && provider === "teams") {
     const probe = await browser.contexts()[0].newPage();
     try {
+      if (args.get("probe-assignments-direct") === "true") {
+        await probe.goto("https://assignments.edu.cloud.microsoft/classes/all/list", { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await probe.waitForTimeout(8_000);
+        const destination = new URL(probe.url());
+        const directShape = await probe.evaluate(() => ({
+          cards: document.querySelectorAll(".aui-assignmentListCard").length,
+          tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => (item.getAttribute("aria-label") ?? item.textContent ?? "").replace(/\s+/g, " ").trim()).filter(item => /^(upcoming|past due|completed)$/i.test(item)),
+          loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
+          passwordFields: document.querySelectorAll('input[type="password"]').length,
+          bodyCharacters: document.body?.innerText?.length ?? 0,
+        }));
+        console.log(JSON.stringify({ provider, directAssignmentShape: { origin: destination.origin, routeShape: destination.pathname, ...directShape } }));
+      }
       await probe.goto(page.url(), { waitUntil: "domcontentloaded" });
       if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_probe_left_registered_origin");
       await probe.locator("button").filter({ hasText: /Assignments/ }).first().waitFor({ timeout: 20_000 });
