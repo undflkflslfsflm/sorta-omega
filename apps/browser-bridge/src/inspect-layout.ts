@@ -540,7 +540,7 @@ try {
         });
         if (!assignmentsFrame) throw new Error("teams_assignments_frame_missing");
         const viewAssignments = assignmentsFrame.getByRole("link", { name: /^View assignments$/i });
-        if (await viewAssignments.count() !== 1) {
+        if (await viewAssignments.count() !== 1 && new URL(assignmentsFrame.url()).pathname !== "/classes/all/list") {
           const navigationShape = await assignmentsFrame.evaluate(() => ({
             routeShape: location.pathname,
             viewAssignmentsLinks: [...document.querySelectorAll<HTMLAnchorElement>("a")].filter(link => /^View assignments$/i.test((link.textContent ?? "").trim())).length,
@@ -554,8 +554,16 @@ try {
           console.log(JSON.stringify({ provider, assignmentNavigationShape: navigationShape }));
           throw new Error("teams_view_assignments_navigation_ambiguous");
         }
-        await viewAssignments.click();
+        if (await viewAssignments.count() === 1) await viewAssignments.click();
         await probe.waitForTimeout(8_000);
+        const listShape = await assignmentsFrame.evaluate(() => ({
+          routeShape: location.pathname,
+          cardCount: document.querySelectorAll(".aui-assignmentListCard").length,
+          tabLabels: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => (item.getAttribute("aria-label") ?? item.textContent ?? "").replace(/\s+/g, " ").trim()).filter(item => /^(upcoming|past due|completed)$/i.test(item)),
+          bodyCharacters: document.body?.innerText?.length ?? 0,
+          loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
+        }));
+        console.log(JSON.stringify({ provider, assignmentListShape: listShape }));
         if (args.get("probe-assignment-controls") === "true") {
           const controls = await assignmentsFrame.evaluate(() => ({
             routeShape: location.pathname,
