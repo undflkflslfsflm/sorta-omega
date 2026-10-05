@@ -1306,7 +1306,11 @@ app.get("/api/v1/vaults/:vaultId/notes", async (request, reply) => {
       to_char(notes.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_updated_at
     FROM notes
     LEFT JOIN LATERAL (
-      SELECT CASE WHEN count(*) = 1 AND bool_and(b.media_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation')
+      SELECT CASE WHEN count(*) = 1 AND bool_and(b.media_type IN (
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/pdf'
+      ))
         THEN min(b.sha256) ELSE NULL END AS original_sha256
       FROM source_blobs sb JOIN blobs b ON b.id = sb.blob_id AND b.vault_id = notes.vault_id
       WHERE sb.source_id = notes.source_id

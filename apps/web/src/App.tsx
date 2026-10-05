@@ -871,7 +871,7 @@ function BrainNotes({ notes, loading, incomplete, onOpen, onCreate, busy }: { no
     {personal.length > 0 ? <NoteList notes={personal} onOpen={onOpen}/> : !loading && !incomplete ? <p className="quiet-empty">No personal notes yet. Imported school posts and files are available below.</p> : null}
     {imported.length > 0 && <details className="brain-source-group">
       <summary>Imported materials <span>{importedGroups.length}{importedGroups.length !== imported.length ? ` · ${imported.length} source records` : ""}</span></summary>
-      <p>Identical PowerPoint originals appear once. Every source location and original record remains available.</p>
+      <p>Identical PowerPoint, PDF, and Word originals appear once. Every source location and original record remains available.</p>
       <div className="notes-grid">{importedGroups.map(group => {
         const primary = group.find(note => !importedSourceLocation(note).includes("/Posts/")) ?? group[0];
         return <div className="brain-material" key={primary.id}>

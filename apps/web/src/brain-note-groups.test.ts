@@ -40,6 +40,15 @@ describe("imported original grouping", () => {
     expect(groupImportedOriginals(notes)).toEqual([[notes[0]], [notes[1]]]);
   });
 
+  it("groups verified Word and PDF originals while keeping separate files and source records", () => {
+    const notes = [
+      { sourceId: "word-shared", body: "Imported from Teams/Maths/Shared/guide.docx", title: "guide.docx", originalSha256: "c".repeat(64) },
+      { sourceId: "word-post", body: "Imported from Teams/Maths/Posts/guide.docx", title: "guide.docx", originalSha256: "c".repeat(64) },
+      { sourceId: "pdf-shared", body: "Imported from Teams/Maths/Shared/sheet.pdf", title: "sheet.pdf", originalSha256: "d".repeat(64) }
+    ];
+    expect(groupImportedOriginals(notes)).toEqual([notes.slice(0, 2), [notes[2]]]);
+  });
+
   it("previews useful extracted content without losing provenance in the original record", () => {
     const body = "Imported from 4090: Teams/Maths/chapter.pptx\n\nSlide 1\nFractions";
     expect(notePreviewContent({ sourceId: "source-1", body })).toBe("Slide 1\nFractions");
