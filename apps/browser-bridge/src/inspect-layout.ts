@@ -183,7 +183,7 @@ try {
         const shape = await probe.evaluate(() => {
           const post = document.querySelector<HTMLElement>('[data-reply-chain-id][data-mid]');
           const ancestors = [];
-          for (let item: HTMLElement | null = post; item && ancestors.length < 14; item = item.parentElement) {
+          for (let item: HTMLElement | null = post; item && ancestors.length < 30; item = item.parentElement) {
             const style = getComputedStyle(item);
             ancestors.push({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), scrollHeight: item.scrollHeight, clientHeight: item.clientHeight, scrollTop: item.scrollTop, overflowY: style.overflowY, classes: [...item.classList].slice(0, 4) });
           }
