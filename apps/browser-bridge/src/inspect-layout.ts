@@ -200,14 +200,14 @@ try {
         if (args.get("teams-shared-download-probe") === "true") {
           const sharepoint = probe.frames().find(frame => { try { return new URL(frame.url()).hostname.endsWith(".sharepoint.com"); } catch { return false; } });
           if (!sharepoint) throw new Error("teams_sharepoint_frame_missing");
-          const file = sharepoint.locator('[role="row"]').filter({ hasText: /\.jpg\b/i });
-          await file.first().waitFor({ timeout: 15_000 }).catch(() => undefined);
-          const fileCount = await file.count();
-          if (fileCount !== 1) {
+          const rows = sharepoint.locator('[role="row"]');
+          await rows.first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+          const fileIndexes = await rows.evaluateAll(elements => elements.flatMap((row, index) => /\.jpg\b/i.test(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "") ? [index] : []));
+          if (fileIndexes.length !== 1) {
             const state = await sharepoint.evaluate(() => ({ rows: document.querySelectorAll('[role="row"]').length, extensions: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => /\.([a-z0-9]{2,5})\b/i.exec(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "")?.[1] ?? "none") }));
             throw new Error(`teams_download_probe_sample_ambiguous:${JSON.stringify(state)}`);
           }
-          await file.click();
+          await rows.nth(fileIndexes[0]).click();
           const downloadButton = sharepoint.getByRole("menuitem", { name: /^Download$/ });
           await downloadButton.waitFor({ timeout: 10_000 });
           const download = await Promise.all([probe.waitForEvent("download", { timeout: 20_000 }), downloadButton.click()]).then(([item]) => item);
