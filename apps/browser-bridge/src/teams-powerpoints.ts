@@ -12,6 +12,23 @@ const maxDepth = 10;
 const maxFiles = 2048;
 const maxFileBytes = 100 * 1024 * 1024;
 const maxBatchBytes = 5 * 1024 * 1024 * 1024;
+const supportedSchoolFile = /\.(?:pptx|pdf|docx)$/i;
+
+export function schoolFileByteLimit(name: string): number {
+  if (!supportedSchoolFile.test(name)) throw new Error("teams_school_file_type_unsupported");
+  return /\.pptx$/i.test(name) ? maxFileBytes : 25 * 1024 * 1024;
+}
+
+export function validateSchoolOriginal(name: string, contents: Uint8Array): void {
+  if (contents.length < 4 || contents.length > schoolFileByteLimit(name)) throw new Error("teams_school_file_size_invalid");
+  if (/\.pdf$/i.test(name)) {
+    if (contents[0] !== 0x25 || contents[1] !== 0x50 || contents[2] !== 0x44 || contents[3] !== 0x46) throw new Error("teams_school_file_signature_invalid");
+    return;
+  }
+  if (contents[0] !== 0x50 || contents[1] !== 0x4b) throw new Error("teams_school_file_signature_invalid");
+  const marker = /\.pptx$/i.test(name) ? "ppt/presentation.xml" : "word/document.xml";
+  if (!Buffer.from(contents).includes(marker)) throw new Error("teams_school_file_signature_invalid");
+}
 
 export function safeSegment(value: string): string {
   const cleaned = value.normalize("NFC").replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "");
@@ -19,11 +36,11 @@ export function safeSegment(value: string): string {
   return cleaned.slice(0, 180);
 }
 
-export function postPresentationRelativePath(className: string, chainId: string, messageId: string, fileName: string, ordinal = 0, channelName = "General"): string {
+export function postSchoolFileRelativePath(className: string, chainId: string, messageId: string, fileName: string, ordinal = 0, channelName = "General"): string {
   if (!chainId || !messageId || !Number.isInteger(ordinal) || ordinal < 0) throw new Error("teams_post_powerpoint_identity_invalid");
   const postId = createHash("sha256").update(`${className}:${chainId}:${messageId}`).digest("hex").slice(0, 24);
   const name = safeSegment(fileName);
-  if (!/\.pptx$/i.test(name)) throw new Error("teams_post_powerpoint_name_invalid");
+  if (!supportedSchoolFile.test(name)) throw new Error("teams_post_school_file_name_invalid");
   return ["Teams", safeSegment(className), safeSegment(channelName), "Posts", postId, ordinal ? `${ordinal + 1}-${name}` : name].join("/");
 }
 
@@ -31,6 +48,8 @@ const retryableDownloadErrors = new Set([
   "teams_powerpoint_download_invalid",
   "teams_powerpoint_download_was_bundle",
   "teams_powerpoint_archive_invalid",
+  "teams_school_file_signature_invalid",
+  "teams_school_file_download_was_bundle",
 ]);
 
 export async function retryInvalidDownload<T>(download: () => Promise<T>): Promise<T> {
@@ -107,7 +126,7 @@ function sharePointFrame(page: Page): Frame {
   return frames[0];
 }
 
-async function collectPostPresentations(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ captured: number; bytes: number }> {
+async function collectPostFiles(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ presentations: number; documents: number; bytes: number }> {
   const posts = probe.locator('[data-reply-chain-id][data-mid]');
   await posts.first().waitFor({ timeout: 5_000 }).catch(() => undefined);
   let previous = -1, stable = 0;
@@ -117,8 +136,9 @@ async function collectPostPresentations(probe: Page, className: string, channelN
     stable = count === previous ? stable + 1 : 0;
     previous = count;
   }
-  const cardSelector = '[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]';
-  const candidates = await probe.evaluate(selector => [...document.querySelectorAll<HTMLElement>(selector)].map((card, cardIndex) => {
+  const cardSelector = '[data-tid="file-attachment-grid"] [role="group"][aria-label]';
+  const candidates = await probe.evaluate(selector => [...document.querySelectorAll<HTMLElement>(selector)].flatMap((card, cardIndex) => {
+    if (!/\.(?:pptx|pdf|docx)$/i.test(card.getAttribute("aria-label") ?? "")) return [];
     let ancestor = card.parentElement;
     let owners: HTMLElement[] = [];
     while (ancestor && owners.length === 0) {
@@ -126,19 +146,19 @@ async function collectPostPresentations(probe: Page, className: string, channelN
       ancestor = ancestor.parentElement;
     }
     if (owners.length !== 1) throw new Error(`teams_post_powerpoint_owner_ambiguous_${cardIndex}_${owners.length}`);
-    return { cardIndex, messageId: owners[0].getAttribute("data-mid") ?? "", chainId: owners[0].getAttribute("data-reply-chain-id") ?? "", name: card.getAttribute("aria-label") ?? "" };
+    return [{ cardIndex, messageId: owners[0].getAttribute("data-mid") ?? "", chainId: owners[0].getAttribute("data-reply-chain-id") ?? "", name: card.getAttribute("aria-label") ?? "" }];
   }), cardSelector);
-  if (candidates.length > 200) throw new Error("teams_post_powerpoint_count_unbounded");
-  let bytes = 0, captured = 0;
+  if (candidates.length > 200) throw new Error("teams_post_school_file_count_unbounded");
+  let bytes = 0, presentations = 0, documents = 0;
   const duplicates = new Map<string, number>();
   for (const candidate of candidates) {
-    if (!candidate.messageId || !candidate.chainId || !/\.pptx$/i.test(candidate.name)) throw new Error("teams_post_powerpoint_identity_invalid");
+    if (!candidate.messageId || !candidate.chainId || !supportedSchoolFile.test(candidate.name)) throw new Error("teams_post_school_file_identity_invalid");
     if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
     const fileName = safeSegment(candidate.name);
     const key = `${candidate.chainId}:${candidate.messageId}/${fileName}`;
     const ordinal = duplicates.get(key) ?? 0;
     duplicates.set(key, ordinal + 1);
-    const relativePath = postPresentationRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal, channelName);
+    const relativePath = postSchoolFileRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal, channelName);
     const downloaded = await retryInvalidDownload(async () => {
       const currentIndex = await probe.locator(cardSelector).evaluateAll((elements, identity) => elements.flatMap((element, index) => {
         if (element.getAttribute("aria-label") !== identity.name) return [];
@@ -160,11 +180,11 @@ async function collectPostPresentations(probe: Page, className: string, channelN
       const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("teams_post_download_timeout")), 60_000); })]).finally(() => { if (timer) clearTimeout(timer); });
       const metadata = await stat(filePath);
       if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
-      if (!/\.pptx$/i.test(download.suggestedFilename())) throw new Error("teams_powerpoint_download_was_bundle");
-      if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
+      if (!download.suggestedFilename().toLowerCase().endsWith(fileName.slice(fileName.lastIndexOf(".")).toLowerCase())) throw new Error("teams_school_file_download_was_bundle");
+      if (metadata.size > schoolFileByteLimit(fileName)) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
       if (bytesSoFar + bytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${bytesSoFar + bytes + metadata.size}`);
       const contents = await readFile(filePath);
-      if (contents[0] !== 0x50 || contents[1] !== 0x4b || !contents.includes("ppt/presentation.xml")) throw new Error("teams_powerpoint_archive_invalid");
+      validateSchoolOriginal(fileName, contents);
       return contents;
     });
     const sha256 = createHash("sha256").update(downloaded).digest("hex");
@@ -175,16 +195,16 @@ async function collectPostPresentations(probe: Page, className: string, channelN
     });
     items.push({ relativePath, stagedName: sha256, sha256, byteLength: downloaded.length, modifiedAt: new Date().toISOString() });
     bytes += downloaded.length;
-    captured++;
+    if (/\.pptx$/i.test(fileName)) presentations++; else documents++;
   }
-  return { captured, bytes };
+  return { presentations, documents, bytes };
 }
 
-export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; presentations: number; bytes: number; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; presentations: number }[]; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; postDocuments: number; presentations: number; documents: number; bytes: number; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[]; coverageComplete: false; coverageLimitation: string } }> {
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
-  const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; presentations: number }[] = [];
-  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0, postPresentations = 0;
+  const classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[] = [];
+  let totalBytes = 0, classCount = 0, folderCount = 0, processedClasses = 0, entriesObserved = 0, folderCandidates = 0, channelCount = 0, postPresentations = 0, postDocuments = 0, presentations = 0, documents = 0;
   let phase = "open";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
@@ -206,7 +226,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
       if (classIndexOnly !== undefined && classIndex !== classIndexOnly) continue;
       phase = "class";
       processedClasses++;
-      const before = { channels: channelCount, folders: folderCount, entries: entriesObserved, postPresentations, presentations: items.length };
+      const before = { channels: channelCount, folders: folderCount, entries: entriesObserved, postPresentations, postDocuments, presentations, documents };
       const className = safeSegment((await cards.nth(classIndex).textContent() ?? "").replace(/\s+/g, " ").trim());
       await cards.nth(classIndex).click();
       const general = probe.getByRole("treeitem", { name: /^(General|Generelt)$/ });
@@ -229,8 +249,11 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         if (await shared.count() !== 1) throw new Error("teams_shared_tab_ambiguous");
         phase = "posts";
         const postChannelName = /^(General|Generelt)$/.test(channelName) ? "General" : channelName;
-        const postFiles = await collectPostPresentations(probe, className, postChannelName, stagingRoot, items, totalBytes);
-        postPresentations += postFiles.captured;
+        const postFiles = await collectPostFiles(probe, className, postChannelName, stagingRoot, items, totalBytes);
+        postPresentations += postFiles.presentations;
+        postDocuments += postFiles.documents;
+        presentations += postFiles.presentations;
+        documents += postFiles.documents;
         totalBytes += postFiles.bytes;
         phase = "channel";
         await shared.click();
@@ -259,7 +282,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
             else throw new Error("teams_sharepoint_folder_depth_exceeded");
             continue;
           }
-          if (!/\.pptx$/i.test(entry.name)) continue;
+          if (!supportedSchoolFile.test(entry.name)) continue;
           if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
           const relativePath = ["Teams", className, channelName, ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
           // SharePoint can return a stale selection or an incomplete download once.
@@ -281,11 +304,11 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
             const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("download_timeout")), 60_000); })]).catch(() => { throw new Error("teams_powerpoint_download_invalid"); }).finally(() => { if (timer) clearTimeout(timer); });
             const metadata = await stat(filePath).catch(() => { throw new Error("teams_powerpoint_download_invalid"); });
             if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
-            if (!/\.pptx$/i.test(download.suggestedFilename())) throw new Error("teams_powerpoint_download_was_bundle");
-            if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
+            if (!download.suggestedFilename().toLowerCase().endsWith(entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_school_file_download_was_bundle");
+            if (metadata.size > schoolFileByteLimit(entry.name)) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
             if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);
             const downloadedBytes = await readFile(filePath).catch(() => { throw new Error("teams_powerpoint_download_invalid"); });
-            if (downloadedBytes[0] !== 0x50 || downloadedBytes[1] !== 0x4b || !downloadedBytes.includes("ppt/presentation.xml")) throw new Error("teams_powerpoint_archive_invalid");
+            validateSchoolOriginal(entry.name, downloadedBytes);
             return downloadedBytes;
           });
           const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -296,10 +319,11 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           });
           items.push({ relativePath, stagedName: sha256, sha256, byteLength: bytes.length, modifiedAt: new Date().toISOString() });
           totalBytes += bytes.length;
+          if (/\.pptx$/i.test(entry.name)) presentations++; else documents++;
         }
         }
       }
-      classSummaries.push({ index: classIndex, channels: channelCount - before.channels, folders: folderCount - before.folders, entries: entriesObserved - before.entries, postPresentations: postPresentations - before.postPresentations, presentations: items.length - before.presentations });
+      classSummaries.push({ index: classIndex, channels: channelCount - before.channels, folders: folderCount - before.folders, entries: entriesObserved - before.entries, postPresentations: postPresentations - before.postPresentations, postDocuments: postDocuments - before.postDocuments, presentations: presentations - before.presentations, documents: documents - before.documents });
       await probe.getByText("All teams", { exact: true }).click();
       await cards.first().waitFor({ timeout: 15_000 });
     }
@@ -307,5 +331,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     if (error instanceof Error && /^teams_[a-z0-9_]+(?::\d+)?$/.test(error.message)) throw error;
     throw new Error(`teams_powerpoint_${phase}_failed`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, presentations: items.length, bytes: totalBytes, classSummaries, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PowerPoint post attachments in those channels only. Older or virtualized posts, Classwork, and image-only slides are not yet covered." } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, classSummaries, coverageComplete: false, coverageLimitation: "Visible and hidden class-channel Shared folders plus rendered PPTX/PDF/DOCX post attachments only. Older or virtualized posts, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered." } };
 }
