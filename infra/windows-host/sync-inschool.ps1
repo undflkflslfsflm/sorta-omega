@@ -19,14 +19,26 @@ $bridge = Join-Path $RepositoryRoot 'apps\browser-bridge\src\cli.ts'
 $tsx = Join-Path $RepositoryRoot 'apps\browser-bridge\node_modules\.bin\tsx.cmd'
 if (-not (Test-Path -LiteralPath $bridge) -or -not (Test-Path -LiteralPath $tsx)) { throw 'Install the bridge dependencies before syncing.' }
 $portFile = Join-Path $ProfilePath 'DevToolsActivePort'
-if (-not (Test-Path -LiteralPath $portFile)) { throw 'The school Edge window is closed. Open the Sorta Omega - Connect school accounts shortcut and leave the InSchool timetable tab open.' }
-$portText = (Get-Content -LiteralPath $portFile -TotalCount 1).Trim()
-if ($portText -notmatch '^\d{4,5}$' -or [int]$portText -lt 1024 -or [int]$portText -gt 65535) { throw 'The school Edge debug port is invalid. Reopen the Sorta Omega - Connect school accounts shortcut.' }
-try {
-  $cdpResponse = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$portText/json/version" -TimeoutSec 3
-  if ([int]$cdpResponse.StatusCode -ne 200) { throw 'unavailable' }
-} catch {
-  throw 'The school Edge window is closed or unreachable. Open the Sorta Omega - Connect school accounts shortcut and leave the InSchool timetable tab open.'
+function Test-SchoolEdgeReady {
+  if (-not (Test-Path -LiteralPath $portFile)) { return $false }
+  $portText = (Get-Content -LiteralPath $portFile -TotalCount 1).Trim()
+  if ($portText -notmatch '^\d{4,5}$' -or [int]$portText -lt 1024 -or [int]$portText -gt 65535) { return $false }
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$portText/json/version" -TimeoutSec 2
+    return [int]$response.StatusCode -eq 200
+  } catch { return $false }
+}
+
+if (-not (Test-SchoolEdgeReady)) {
+  $launcher = Join-Path $RepositoryRoot 'apps\browser-bridge\launch-edge-profile.ps1'
+  if (-not (Test-Path -LiteralPath $launcher)) { throw 'The school Edge launcher is missing.' }
+  & $launcher -InSchoolOrigin $origin.GetLeftPart([UriPartial]::Authority) | Out-Null
+  for ($attempt = 0; $attempt -lt 10 -and -not (Test-SchoolEdgeReady); $attempt++) {
+    Start-Sleep -Seconds 1
+  }
+  if (-not (Test-SchoolEdgeReady)) {
+    throw 'The school Edge window could not be reopened. Use the Sorta Omega - Connect school accounts shortcut and leave the InSchool timetable tab open.'
+  }
 }
 
 $spool = Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\spool'

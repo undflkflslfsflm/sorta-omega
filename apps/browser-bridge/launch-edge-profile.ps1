@@ -20,11 +20,17 @@ $profile = Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\EdgeUserData'
 New-Item -ItemType Directory -Force -Path $profile | Out-Null
 $portFile = Join-Path $profile 'DevToolsActivePort'
 if (Test-Path -LiteralPath $portFile) {
-  $port = [int](Get-Content -LiteralPath $portFile -TotalCount 1)
-  $listener = Get-NetTCPConnection -LocalAddress '127.0.0.1' -LocalPort $port -State Listen -ErrorAction SilentlyContinue
-  if ($listener) {
-    Write-Output 'Omega Edge automation profile already appears to be running.'
-    return
+  $portText = (Get-Content -LiteralPath $portFile -TotalCount 1).Trim()
+  if ($portText -match '^\d{4,5}$' -and [int]$portText -ge 1024 -and [int]$portText -le 65535) {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$portText/json/version" -TimeoutSec 2
+      if ([int]$response.StatusCode -eq 200) {
+        Write-Output 'Omega Edge automation profile is already running.'
+        return
+      }
+    } catch {
+      # A stale port file is normal after Edge closes; start the profile below.
+    }
   }
 }
 
