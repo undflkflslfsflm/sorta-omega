@@ -17,6 +17,7 @@ import { cacheCoreRecords, cachedCoreRecords, clearOfflinePrivateDataForLogout, 
 import { registerOmegaTools } from "./webmcp";
 import { desktopBridge } from "./desktop-bridge";
 import { orderSchoolAssessments } from "./school-assessment-order";
+import { openSchoolAssignmentsForToday } from "./today-school-assignments";
 import { CalendarTimeline } from "./CalendarTimeline";
 import { isoWeekForDate } from "./calendar-week";
 import { calendarRangeLabel } from "./calendar-range-label";
@@ -194,6 +195,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [todayCalendar, setTodayCalendar] = useState<CalendarViewData | null>(null);
+  const [todayAssignments, setTodayAssignments] = useState<SchoolAssignment[] | null>(null);
   const [entities, setEntities] = useState<CalendarEntity[]>([]);
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -240,7 +242,12 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
       onlineCoreLoaded=true;
       const dayRange=calendarProjectionRange("day",new Date());
       const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC";
-      setTodayCalendar(await api.calendarView(dayRange.from,dayRange.to,timezone,"day",[]).catch(()=>null));
+      const [calendar, assignments] = await Promise.all([
+        api.calendarView(dayRange.from,dayRange.to,timezone,"day",[]).catch(()=>null),
+        api.schoolAssignments().then(result=>result.items).catch(()=>null),
+      ]);
+      setTodayCalendar(calendar);
+      setTodayAssignments(assignments);
       await setCachedCoreAccessBlocked(false);
       if(offlineCaptureEnabled())await cacheCoreRecords({notes:nextNotes.items,tasks:nextTasks.items,events:nextEvents.items});
       if(offlineCaptureEnabled()){const flushed=await flushPendingCaptures(item=>api.capture(item.text,item.id));setPendingCount(flushed.remaining);}
@@ -249,10 +256,11 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
       if(failure==="authentication_required"){onAuthenticationRequired();return;}
       if(failure==="access_denied"){
         try{await setCachedCoreAccessBlocked(true);}catch{/* Current state is still removed immediately. */}
-        setToday(null);setTodayCalendar(null);setNextActions(null);setNotes([]);setTasks([]);setEvents([]);setEntities([]);setCommitments([]);setCollections([]);setActiveCollection(null);currentSelectedNote.current=null;updateSelectedNote(null);
+        setToday(null);setTodayCalendar(null);setTodayAssignments(null);setNextActions(null);setNotes([]);setTasks([]);setEvents([]);setEntities([]);setCommitments([]);setCollections([]);setActiveCollection(null);currentSelectedNote.current=null;updateSelectedNote(null);
         setError("Access to this workspace is unavailable. Cached workspace records will not be reopened until authorization succeeds.");return;
       }
       if(onlineCoreLoaded){setError("The workspace loaded, but trusted offline-cache maintenance did not finish. Online data remains available; offline freshness is not guaranteed.");return;}
+      setTodayAssignments(null);
       if(failure!=="outage"){setError("The workspace could not be refreshed. Cached records were not substituted for this response.");return;}
       const cached=offlineCaptureEnabled()?await cachedCoreRecords().catch(()=>null):null;if(cached){setNotes(cached.notes);setTasks(cached.tasks);setEvents(cached.events);setError(`The home host is unavailable. Showing this browser's private cache from ${friendlyDate(cached.cachedAt)}; pending writes will retry after reconnect.`);}else setError("The home host is unavailable. Your unsent draft stays in this browser tab.");
     }
@@ -351,6 +359,12 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const todayDate=new Intl.DateTimeFormat("sv-SE",{timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone||"UTC",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
   const todayMarkers=todayCalendar?.unknownTimeMarkers.filter(item=>item.date===todayDate)??[];
   const todayAssessmentTitle=todayMarkers.find(item=>item.kind==="assessment")?.title??todaySchedule.find(item=>item.kind==="assessment")?.title;
+  const openTasks=tasks.filter(task=>!task.completed);
+  const openSchoolAssignments=todayAssignments===null?null:openSchoolAssignmentsForToday(todayAssignments);
+  const firstSchoolAssignment=openSchoolAssignments?.[0];
+  const visibleSchoolAssignments=openSchoolAssignments?.slice(0,4)??[];
+  const visibleTasks=openTasks.slice(0,Math.max(0,5-visibleSchoolAssignments.length));
+  const schoolDueLabel=(assignment:SchoolAssignment)=>assignment.due.kind==="unknown"?"Due date unknown":assignment.due.kind==="date_only"?`Due ${friendlyDateOnly(assignment.due.date)}`:`Due ${friendlyDate(assignment.due.dueAt)}`;
 
   const quickCaptureMode = desktopBridge !== null && new URLSearchParams(window.location.search).get("desktop") === "quick";
 
@@ -376,19 +390,22 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
       {error && <div className="error-banner" role="status">{error}<button onClick={() => void refresh()}>Retry</button></div>}
       <section className="content">
         {view === "today" && <>
-          <div className="page-heading"><div><p className="eyebrow">{dateLabel}</p><h1>Your day.</h1><p>Start with one useful thing. The rest can wait.</p></div><div className="focus-score"><span>{tasks.filter(t => !t.completed).length}</span><small>open tasks</small></div></div>
+          <div className="page-heading"><div><p className="eyebrow">{dateLabel}</p><h1>Your day.</h1><p>Start with one useful thing. The rest can wait.</p></div><div className="focus-score"><span>{openSchoolAssignments===null?"—":openTasks.length+openSchoolAssignments.length}</span><small>{openSchoolAssignments===null?"school status unavailable":"open items"}</small></div></div>
           <div className="today-grid">
             <article className="next-action card">
               <div className="card-label"><Sparkles size={16}/> Next action</div>
-              {today?.nextActionPlan ? <><h2>{today.nextActionPlan.task.title}</h2><p>{today.nextActionPlan.explanation}</p><small>{today.nextActionPlan.durationMinutes} minutes · {today.nextActionPlan.canStartNow?"available now":`next slot ${friendlyDate(today.nextActionPlan.startsAt)}`} · {today.nextActionPlan.materialSourceIds.length?`${today.nextActionPlan.materialSourceIds.length} linked material source(s)`:"no linked material source"}</small>{today.nextActionPlan.canStartNow?<button className="primary" disabled={busy} onClick={()=>void startNextAction()}><Clock3 size={18}/> {busy?"Starting…":"Start focus"}</button>:<button className="primary" onClick={()=>setView("tasks")}><Clock3 size={18}/> Open task</button>}</> : todayAssessmentTitle ? <><h2>{todayAssessmentTitle}</h2><p>The test is today. Its exact start time has not been confirmed.</p><button className="primary" onClick={()=>setView("school")}>See test details</button></> : <div className="empty"><CheckCircle2/><h2>{tasks.some(task=>!task.completed)?"No feasible action yet":todaySchedule.length||todayMarkers.length?"Your schedule is below":"You’re clear for now"}</h2><p>{tasks.some(task=>!task.completed)?"Add an effort estimate or adjust the current constraints; no duration will be invented.":todaySchedule.length||todayMarkers.length?"Classes and other known commitments are listed under Coming up.":"Add a task or capture what is on your mind."}</p></div>}
+              {today?.nextActionPlan ? <><h2>{today.nextActionPlan.task.title}</h2><p>{today.nextActionPlan.explanation}</p><small>{today.nextActionPlan.durationMinutes} minutes · {today.nextActionPlan.canStartNow?"available now":`next slot ${friendlyDate(today.nextActionPlan.startsAt)}`} · {today.nextActionPlan.materialSourceIds.length?`${today.nextActionPlan.materialSourceIds.length} linked material source(s)`:"no linked material source"}</small>{today.nextActionPlan.canStartNow?<button className="primary" disabled={busy} onClick={()=>void startNextAction()}><Clock3 size={18}/> {busy?"Starting…":"Start focus"}</button>:<button className="primary" onClick={()=>setView("tasks")}><Clock3 size={18}/> Open task</button>}</> : todayAssessmentTitle ? <><h2>{todayAssessmentTitle}</h2><p>The test is today. Its exact start time has not been confirmed.</p><button className="primary" onClick={()=>setView("school")}>See test details</button></> : firstSchoolAssignment ? <><h2>{firstSchoolAssignment.title}</h2><p>Review this imported school assignment. Sorta has not confirmed whether it was submitted.</p><small>{firstSchoolAssignment.providerListSection==="past_due"?"Teams lists this as past due · ":""}{schoolDueLabel(firstSchoolAssignment)}</small><button className="primary" onClick={()=>setView("tasks")}>See assignment</button></> : <div className="empty"><CheckCircle2/><h2>{openTasks.length?"No feasible action yet":todaySchedule.length||todayMarkers.length?"Your schedule is below":openSchoolAssignments===null?"School status unavailable":"You’re clear for now"}</h2><p>{openTasks.length?"Add an effort estimate or adjust the current constraints; no duration will be invented.":todaySchedule.length||todayMarkers.length?"Classes and other known commitments are listed under Coming up.":openSchoolAssignments===null?"Your school assignments could not be checked. Try refreshing before assuming nothing is due.":"Nothing is currently due in your imported assignments or tasks."}</p></div>}
               {nextActions&&nextActions.candidates.filter(candidate=>candidate.task.id!==today?.nextActionPlan?.task.id).slice(0,2).length>0&&<div className="next-action-options"><span>Other grounded options</span>{nextActions.candidates.filter(candidate=>candidate.task.id!==today?.nextActionPlan?.task.id).slice(0,2).map(candidate=><button key={candidate.task.id} onClick={()=>setView("tasks")}><strong>{candidate.task.title}</strong><small>{candidate.durationKnown?`${candidate.durationMinutes} min · ${candidate.startsAt?friendlyDate(candidate.startsAt):"time not placed"}`:"effort unknown · no slot claimed"}</small></button>)}</div>}
             </article>
             <article className="card schedule"><div className="card-label"><CalendarDays size={16}/> Coming up</div>
               {todayCalendar ? todaySchedule.length||todayMarkers.length ? <>{todaySchedule.map(item=><button className="event-row" key={`${item.kind}-${item.id}`} onClick={()=>setView("calendar")}><time>{new Intl.DateTimeFormat("nb-NO",{hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(item.time))}</time><span>{item.title}</span></button>)}{todayMarkers.map(item=><button className="event-row" key={`${item.kind}-${item.id}`} onClick={()=>setView(item.kind==="assessment"?"school":"calendar")}><time>Time unknown</time><span>{item.title}</span></button>)}</> : <div className="empty compact"><CalendarDays/><p>Nothing scheduled today.</p></div> : <div className="empty compact"><CalendarDays/><p>Today’s schedule is unavailable. Open Calendar to retry.</p></div>}
             </article>
             <article className="card task-card"><div className="card-label"><ListTodo size={16}/> Due and open</div>
-              {tasks.length ? tasks.slice(0, 5).map(task => <TaskRow key={task.id} task={task} onToggle={()=>toggleTask(task)}/>) : <div className="empty compact"><ListTodo/><p>No open tasks.</p></div>}
-              <button className="text-button" onClick={() => setView("tasks")}>Open all tasks →</button>
+              {visibleSchoolAssignments.map(assignment=><button className="school-assignment-row" key={assignment.id} onClick={()=>setView("tasks")}><span>{assignment.title}</span><small>{assignment.providerListSection==="past_due"?"Teams: past due · ":"Teams · "}{schoolDueLabel(assignment)}</small></button>)}
+              {visibleTasks.map(task => <TaskRow key={task.id} task={task} onToggle={()=>toggleTask(task)}/>)}
+              {openTasks.length===0&&openSchoolAssignments?.length===0&&<div className="empty compact"><ListTodo/><p>No open tasks or imported assignments.</p></div>}
+              {openSchoolAssignments===null&&<p className="school-status-warning">School assignments could not be checked right now.</p>}
+              <button className="text-button" onClick={() => setView("tasks")}>Open all commitments →</button>
             </article>
             <article className="card memory-card"><div><div className="card-label"><Brain size={16}/> Your brain</div><h3>{today?.noteCount ?? 0} saved notes</h3><p>Originals are stored before any AI processing begins.</p></div><button className="text-button" onClick={() => setView("brain")}>Browse notes →</button></article>
           </div>
