@@ -193,7 +193,22 @@ try {
           const shape = (item: Element, depth: number): unknown => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), aria: item.getAttribute("aria-label"), title: item.getAttribute("title"), extension: /\.(pptx|ppt|pdf|docx|xlsx)\b/i.exec(item.textContent ?? "")?.[1]?.toLowerCase() ?? null, children: depth < 3 ? [...item.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
           return grid ? shape(grid, 0) : null;
         });
-        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid } }));
+        let opened: unknown = null;
+        if (args.get("teams-post-open-pptx") === "true") {
+          const card = probe.getByRole("group", { name: /\.pptx$/i });
+          if (await card.count() !== 1) throw new Error("teams_post_pptx_card_ambiguous");
+          const before = new Set(browser.contexts()[0].pages());
+          await card.click();
+          await probe.waitForTimeout(5_000);
+          const openedPages = browser.contexts()[0].pages().filter(page => page === probe || !before.has(page));
+          opened = await Promise.all(openedPages.map(async page => ({
+            origin: (() => { try { return new URL(page.url()).origin; } catch { return "unknown"; } })(),
+            routeShape: (() => { try { return new URL(page.url()).pathname.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 120); } catch { return "unknown"; } })(),
+            controls: await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="menuitem"]')].map(item => (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").trim().slice(0, 60)).filter(label => /download|save|open|share|last ned|åpne|lagre/i.test(label)).slice(0, 20)).catch(() => []),
+          })));
+          for (const page of openedPages) if (page !== probe) await page.close();
+        }
+        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid, opened } }));
       } else if (args.get("teams-classwork-probe") === "true") {
         const classwork = probe.getByText("Classwork", { exact: true });
         const matches = await classwork.count();
