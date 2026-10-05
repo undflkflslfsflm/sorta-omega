@@ -13,7 +13,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { ZodError } from "zod";
 import { safeFetchText } from "./safe-fetch.js";
-import { focusGroundedEvidence } from "./grounded-evidence.js";
+import { focusGroundedEvidence, isAssessmentQuestion } from "./grounded-evidence.js";
 import {
   activityEventSchema,
   preferencesSchema,
@@ -4306,6 +4306,12 @@ app.get("/api/v1/vaults/:vaultId/citations/:citationId",async(request,reply)=>{
   const messages=await query("SELECT m.citations FROM chat_messages m JOIN chats c ON c.id=m.chat_id WHERE c.vault_id=$1 AND EXISTS(SELECT 1 FROM jsonb_array_elements(m.citations) item WHERE item->>'citationId'=$2) ORDER BY m.created_at DESC LIMIT 2",[vaultId,citationId]);
   if(!messages.rowCount)return reply.code(404).send({error:"citation_not_found"});if((messages.rowCount??0)>1)return reply.code(409).send({error:"citation_id_ambiguous"});
   const citation=(messages.rows[0].citations as Array<Record<string,unknown>>).find(item=>item.citationId===citationId);if(!citation)return reply.code(404).send({error:"citation_not_found"});
+  if(citation.kind==="school_assessment"){
+    const assessmentId=idSchema.parse(citation.assessmentId),citedRevision=Number(citation.revision),retainedQuote=String(citation.quote??"");
+    const current=await query("SELECT title,revision,archived_at FROM school_assessments WHERE vault_id=$1 AND id=$2",[vaultId,assessmentId]);
+    const row=current.rows[0],available=Boolean(row&&!row.archived_at);
+    return resolvedCitationSchema.parse({kind:"school_assessment",assessmentId,citedRevision,currentRevision:row?.revision??null,title:String(citation.title??""),exactExcerpt:retainedQuote,currentAssessmentLink:available?{assessmentId,title:row.title,path:"/school"}:null,historical:!available||row.revision!==citedRevision});
+  }
   const sourceId=idSchema.parse(citation.sourceId),noteId=idSchema.parse(citation.noteId),chunkId=idSchema.parse(citation.chunkId),citedRevision=Number(citation.revision),startOffset=Number(citation.startOffset),endOffset=Number(citation.endOffset),retainedQuote=String(citation.quote??"");
   const evidence=await query("SELECT s.id,s.kind,s.content_hash,s.original_text,n.id AS note_id,n.title,n.revision AS current_revision,n.deleted_at FROM sources s LEFT JOIN notes n ON n.id=$3 AND n.vault_id=$1 WHERE s.vault_id=$1 AND s.id=$2",[vaultId,sourceId,noteId]);const row=evidence.rows[0];
   if(!row)return reply.code(410).send({error:"citation_source_unavailable",sourceId,noteId,citedRevision,historical:true});
@@ -4876,7 +4882,8 @@ app.post("/api/v1/worker/jobs/:jobId/evidence", async (request, reply) => {
     const job = leased.rows[0];
     if (!job?.lease_token_hash || !leaseSecretMatches(input.leaseToken, job.lease_token_hash)) return "invalid_lease" as const;
     if (job.input.mode !== "grounded") return "evidence_not_allowed_for_brainstorm" as const;
-    if (!(job.input.scope.kinds as string[]).includes("note")) return { items: [] };
+    const answerScope = new Set(job.input.scope.kinds as string[]);
+    if (!answerScope.has("note") && !answerScope.has("school_assessment")) return { items: [] };
     const generation = await client.query(
       `SELECT g.* FROM index_generations g WHERE g.vault_id = $1 AND g.status = 'active'
        AND g.model_profile_id = $2 ORDER BY g.activated_at DESC LIMIT 1`, [job.vault_id, input.modelProfileId]
@@ -4887,19 +4894,43 @@ app.post("/api/v1/worker/jobs/:jobId/evidence", async (request, reply) => {
        WHERE w.id = $1 AND profile->>'id' = $2`, [worker.id, input.modelProfileId]
     );
     if (workerProfile.rows[0]?.digest !== generation.rows[0].model_digest) return "embedding_model_digest_mismatch" as const;
-    const ranked = await client.query(
+    const ranked = answerScope.has("note") ? await client.query(
       `SELECT c.id AS chunk_id, c.note_id, n.source_id, c.note_revision, n.title, c.text, c.start_offset, c.end_offset
        FROM chunk_embeddings e JOIN semantic_chunks c ON c.id = e.chunk_id AND c.generation_id = e.generation_id
        JOIN notes n ON n.id = c.note_id AND n.revision = c.note_revision
        WHERE e.generation_id = $1 AND n.vault_id = $3 AND n.trashed_at IS NULL
        ORDER BY e.embedding <=> $2::vector, c.id LIMIT 32`,
       [generation.rows[0].id, `[${input.embedding.join(",")}]`, job.vault_id]
-    );
+    ) : { rows: [] as Record<string, any>[] };
     await client.query("DELETE FROM job_evidence WHERE job_id = $1", [jobId]);
     const items: Array<{ citationId: string; title: string; text: string }> = [];
+    if (answerScope.has("school_assessment") && isAssessmentQuestion(job.input.question)) {
+      const assessments = await client.query(
+        `SELECT a.id, a.revision, a.title, a.time_spec, a.material_scope, c.name AS course_name
+         FROM school_assessments a JOIN school_courses c ON c.id = a.course_id
+         WHERE a.vault_id = $1 AND a.archived_at IS NULL AND c.archived_at IS NULL
+         ORDER BY a.updated_at DESC, a.id LIMIT 100`,
+        [job.vault_id]
+      );
+      const assessmentCandidates = assessments.rows.map((row) => {
+        const date = typeof row.time_spec?.date === "string" ? row.time_spec.date : "unknown";
+        const scope = typeof row.material_scope?.description === "string" ? row.material_scope.description : "unknown";
+        return { id: row.id as string, revision: row.revision as number, title: `${row.course_name} · ${row.title}`,
+          text: `Course: ${row.course_name}\nAssessment: ${row.title}\nDate: ${date}\nDetails: ${scope}`.slice(0, 4000) };
+      });
+      for (const row of focusGroundedEvidence(job.input.question, assessmentCandidates, 3)) {
+        const citationId = `c${String(items.length + 1).padStart(3, "0")}`;
+        await client.query(
+          `INSERT INTO job_evidence(job_id, citation_id, assessment_id, note_revision, title, text, start_offset, end_offset)
+           VALUES ($1,$2,$3,$4,$5,$6,0,$7)`,
+          [jobId, citationId, row.id, row.revision, row.title, row.text, row.text.length]
+        );
+        items.push({ citationId, title: row.title, text: row.text });
+      }
+    }
     const focused = focusGroundedEvidence(job.input.question, ranked.rows, 8);
-    for (const [index, row] of focused.entries()) {
-      const citationId = `c${String(index + 1).padStart(3, "0")}`;
+    for (const row of focused) {
+      const citationId = `c${String(items.length + 1).padStart(3, "0")}`;
       await client.query(
         `INSERT INTO job_evidence(job_id, citation_id, chunk_id, note_id, source_id, note_revision, title, text, start_offset, end_offset)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
@@ -5161,19 +5192,29 @@ app.post("/api/v1/worker/jobs/:jobId/complete", async (request, reply) => {
       );
       if (!assistant.rows[0]) return "answer_target_missing" as const;
       const evidence = input.result.citationIds.length ? await client.query(
-        `SELECT e.*, n.revision AS current_revision, s.original_text
-         FROM job_evidence e JOIN notes n ON n.id = e.note_id JOIN sources s ON s.id = e.source_id
+        `SELECT e.*, n.revision AS current_revision, s.original_text,
+                a.revision AS current_assessment_revision, a.archived_at AS assessment_archived_at
+         FROM job_evidence e
+         LEFT JOIN notes n ON n.id = e.note_id
+         LEFT JOIN sources s ON s.id = e.source_id
+         LEFT JOIN school_assessments a ON a.id = e.assessment_id AND a.vault_id = $3
          WHERE e.job_id = $1 AND e.citation_id = ANY($2::text[]) ORDER BY e.citation_id`,
-        [jobId, input.result.citationIds]
+        [jobId, input.result.citationIds, job.vault_id]
       ) : { rows: [] as Record<string, any>[] };
       if (evidence.rows.length !== input.result.citationIds.length) return "citation_not_in_evidence_packet" as const;
-      if (evidence.rows.some((row) => row.current_revision !== row.note_revision || row.original_text.slice(row.start_offset, row.end_offset) !== row.text)) return "citation_source_stale" as const;
+      if (evidence.rows.some((row) => row.assessment_id
+        ? row.current_assessment_revision !== row.note_revision || row.assessment_archived_at !== null
+        : row.current_revision !== row.note_revision || typeof row.original_text !== "string" || row.original_text.slice(row.start_offset, row.end_offset) !== row.text)) return "citation_source_stale" as const;
       const byId = new Map(evidence.rows.map((row) => [row.citation_id, row]));
       const citations = input.result.citationIds.map((citationId) => {
         const row = byId.get(citationId)!;
-        return { citationId:`${jobId.replaceAll("-","")}.${citationId}`, chunkId: row.chunk_id, noteId: row.note_id, sourceId: row.source_id, revision: row.note_revision, title: row.title, startOffset: row.start_offset, endOffset: row.end_offset, quote: row.text };
+        return row.assessment_id
+          ? { citationId:`${jobId.replaceAll("-","")}.${citationId}`, kind:"school_assessment" as const, assessmentId:row.assessment_id, revision:row.note_revision, title:row.title, quote:row.text }
+          : { citationId:`${jobId.replaceAll("-","")}.${citationId}`, kind:"note" as const, chunkId: row.chunk_id, noteId: row.note_id, sourceId: row.source_id, revision: row.note_revision, title: row.title, startOffset: row.start_offset, endOffset: row.end_offset, quote: row.text };
       });
-      const sourceManifest = evidence.rows.map((row) => ({ citationId:`${jobId.replaceAll("-","")}.${row.citation_id}`, noteId: row.note_id, sourceId: row.source_id, revision: row.note_revision, chunkId: row.chunk_id }));
+      const sourceManifest = evidence.rows.map((row) => row.assessment_id
+        ? { citationId:`${jobId.replaceAll("-","")}.${row.citation_id}`, kind:"school_assessment", assessmentId:row.assessment_id, revision:row.note_revision }
+        : { citationId:`${jobId.replaceAll("-","")}.${row.citation_id}`, kind:"note", noteId: row.note_id, sourceId: row.source_id, revision: row.note_revision, chunkId: row.chunk_id });
       const updatedMessage = await client.query(
         `UPDATE chat_messages SET text = $2, status = 'succeeded', citations = $3::jsonb, source_manifest = $4::jsonb, updated_at = now()
          WHERE id = $1 RETURNING *`, [job.input.assistantMessageId, input.result.answer, JSON.stringify(citations), JSON.stringify(sourceManifest)]

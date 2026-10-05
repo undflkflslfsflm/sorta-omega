@@ -44679,13 +44679,15 @@
                   "enum": [
                     "note",
                     "task",
-                    "calendar_event"
+                    "calendar_event",
+                    "school_assessment"
                   ]
                 },
                 "minItems": 1,
-                "maxItems": 3,
+                "maxItems": 4,
                 "default": [
-                  "note"
+                  "note",
+                  "school_assessment"
                 ]
               }
             },
@@ -44752,13 +44754,15 @@
                         "enum": [
                           "note",
                           "task",
-                          "calendar_event"
+                          "calendar_event",
+                          "school_assessment"
                         ]
                       },
                       "minItems": 1,
-                      "maxItems": 3,
+                      "maxItems": 4,
                       "default": [
-                        "note"
+                        "note",
+                        "school_assessment"
                       ]
                     }
                   },
@@ -44820,20 +44824,23 @@
                   "enum": [
                     "note",
                     "task",
-                    "calendar_event"
+                    "calendar_event",
+                    "school_assessment"
                   ]
                 },
                 "minItems": 1,
-                "maxItems": 3,
+                "maxItems": 4,
                 "default": [
-                  "note"
+                  "note",
+                  "school_assessment"
                 ]
               }
             },
             "additionalProperties": false,
             "default": {
               "kinds": [
-                "note"
+                "note",
+                "school_assessment"
               ]
             }
           }
@@ -44901,60 +44908,112 @@
                 "citations": {
                   "type": "array",
                   "items": {
-                    "type": "object",
-                    "properties": {
-                      "citationId": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 40
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "citationId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "note"
+                            ]
+                          },
+                          "chunkId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "noteId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "sourceId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "startOffset": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "endOffset": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4000
+                          }
+                        },
+                        "required": [
+                          "citationId",
+                          "chunkId",
+                          "noteId",
+                          "sourceId",
+                          "revision",
+                          "title",
+                          "startOffset",
+                          "endOffset",
+                          "quote"
+                        ],
+                        "additionalProperties": false
                       },
-                      "chunkId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "noteId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "sourceId": {
-                        "type": "string",
-                        "format": "uuid"
-                      },
-                      "revision": {
-                        "type": "integer",
-                        "exclusiveMinimum": true,
-                        "minimum": 0
-                      },
-                      "title": {
-                        "type": "string"
-                      },
-                      "startOffset": {
-                        "type": "integer",
-                        "minimum": 0
-                      },
-                      "endOffset": {
-                        "type": "integer",
-                        "exclusiveMinimum": true,
-                        "minimum": 0
-                      },
-                      "quote": {
-                        "type": "string",
-                        "minLength": 1,
-                        "maxLength": 4000
+                      {
+                        "type": "object",
+                        "properties": {
+                          "citationId": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 40
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "school_assessment"
+                            ]
+                          },
+                          "assessmentId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "revision": {
+                            "type": "integer",
+                            "exclusiveMinimum": true,
+                            "minimum": 0
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "quote": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4000
+                          }
+                        },
+                        "required": [
+                          "citationId",
+                          "kind",
+                          "assessmentId",
+                          "revision",
+                          "title",
+                          "quote"
+                        ],
+                        "additionalProperties": false
                       }
-                    },
-                    "required": [
-                      "citationId",
-                      "chunkId",
-                      "noteId",
-                      "sourceId",
-                      "revision",
-                      "title",
-                      "startOffset",
-                      "endOffset",
-                      "quote"
-                    ],
-                    "additionalProperties": false
+                    ]
                   }
                 },
                 "createdAt": {
@@ -45025,13 +45084,15 @@
                   "enum": [
                     "note",
                     "task",
-                    "calendar_event"
+                    "calendar_event",
+                    "school_assessment"
                   ]
                 },
                 "minItems": 1,
-                "maxItems": 3,
+                "maxItems": 4,
                 "default": [
-                  "note"
+                  "note",
+                  "school_assessment"
                 ]
               }
             },
@@ -45107,60 +45168,112 @@
               "citations": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "citationId": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 40
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "citationId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "note"
+                          ]
+                        },
+                        "chunkId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "noteId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "startOffset": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "endOffset": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "citationId",
+                        "chunkId",
+                        "noteId",
+                        "sourceId",
+                        "revision",
+                        "title",
+                        "startOffset",
+                        "endOffset",
+                        "quote"
+                      ],
+                      "additionalProperties": false
                     },
-                    "chunkId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "noteId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "sourceId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "revision": {
-                      "type": "integer",
-                      "exclusiveMinimum": true,
-                      "minimum": 0
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "startOffset": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "endOffset": {
-                      "type": "integer",
-                      "exclusiveMinimum": true,
-                      "minimum": 0
-                    },
-                    "quote": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 4000
+                    {
+                      "type": "object",
+                      "properties": {
+                        "citationId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "school_assessment"
+                          ]
+                        },
+                        "assessmentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "citationId",
+                        "kind",
+                        "assessmentId",
+                        "revision",
+                        "title",
+                        "quote"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "citationId",
-                    "chunkId",
-                    "noteId",
-                    "sourceId",
-                    "revision",
-                    "title",
-                    "startOffset",
-                    "endOffset",
-                    "quote"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "createdAt": {
@@ -45244,60 +45357,112 @@
               "citations": {
                 "type": "array",
                 "items": {
-                  "type": "object",
-                  "properties": {
-                    "citationId": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 40
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "citationId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "note"
+                          ]
+                        },
+                        "chunkId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "noteId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "startOffset": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "endOffset": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "citationId",
+                        "chunkId",
+                        "noteId",
+                        "sourceId",
+                        "revision",
+                        "title",
+                        "startOffset",
+                        "endOffset",
+                        "quote"
+                      ],
+                      "additionalProperties": false
                     },
-                    "chunkId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "noteId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "sourceId": {
-                      "type": "string",
-                      "format": "uuid"
-                    },
-                    "revision": {
-                      "type": "integer",
-                      "exclusiveMinimum": true,
-                      "minimum": 0
-                    },
-                    "title": {
-                      "type": "string"
-                    },
-                    "startOffset": {
-                      "type": "integer",
-                      "minimum": 0
-                    },
-                    "endOffset": {
-                      "type": "integer",
-                      "exclusiveMinimum": true,
-                      "minimum": 0
-                    },
-                    "quote": {
-                      "type": "string",
-                      "minLength": 1,
-                      "maxLength": 4000
+                    {
+                      "type": "object",
+                      "properties": {
+                        "citationId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 40
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "school_assessment"
+                          ]
+                        },
+                        "assessmentId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": true,
+                          "minimum": 0
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "quote": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 4000
+                        }
+                      },
+                      "required": [
+                        "citationId",
+                        "kind",
+                        "assessmentId",
+                        "revision",
+                        "title",
+                        "quote"
+                      ],
+                      "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "citationId",
-                    "chunkId",
-                    "noteId",
-                    "sourceId",
-                    "revision",
-                    "title",
-                    "startOffset",
-                    "endOffset",
-                    "quote"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               },
               "createdAt": {
@@ -45527,39 +45692,138 @@
         "additionalProperties": false
       },
       "ResolvedCitation": {
-        "type": "object",
-        "properties": {
-          "source": {
+        "anyOf": [
+          {
             "type": "object",
             "properties": {
-              "id": {
+              "source": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "contentHash": {
+                    "type": "string",
+                    "minLength": 64,
+                    "maxLength": 64
+                  },
+                  "available": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "id",
+                  "kind",
+                  "contentHash",
+                  "available"
+                ],
+                "additionalProperties": false
+              },
+              "revision": {
+                "type": "object",
+                "properties": {
+                  "noteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "citedRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "currentRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "noteId",
+                  "citedRevision",
+                  "currentRevision"
+                ],
+                "additionalProperties": false
+              },
+              "anchor": {
+                "type": "object",
+                "properties": {
+                  "chunkId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "startOffset": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "endOffset": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "chunkId",
+                  "startOffset",
+                  "endOffset"
+                ],
+                "additionalProperties": false
+              },
+              "exactExcerpt": {
                 "type": "string",
-                "format": "uuid"
+                "minLength": 1,
+                "maxLength": 4000
               },
-              "kind": {
-                "type": "string"
+              "currentNoteLink": {
+                "type": "object",
+                "properties": {
+                  "noteId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "noteId",
+                  "title",
+                  "path"
+                ],
+                "additionalProperties": false,
+                "nullable": true
               },
-              "contentHash": {
-                "type": "string",
-                "minLength": 64,
-                "maxLength": 64
-              },
-              "available": {
+              "historical": {
                 "type": "boolean"
               }
             },
             "required": [
-              "id",
-              "kind",
-              "contentHash",
-              "available"
+              "source",
+              "revision",
+              "anchor",
+              "exactExcerpt",
+              "currentNoteLink",
+              "historical"
             ],
             "additionalProperties": false
           },
-          "revision": {
+          {
             "type": "object",
             "properties": {
-              "noteId": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "school_assessment"
+                ]
+              },
+              "assessmentId": {
                 "type": "string",
                 "format": "uuid"
               },
@@ -45573,79 +45837,54 @@
                 "exclusiveMinimum": true,
                 "minimum": 0,
                 "nullable": true
-              }
-            },
-            "required": [
-              "noteId",
-              "citedRevision",
-              "currentRevision"
-            ],
-            "additionalProperties": false
-          },
-          "anchor": {
-            "type": "object",
-            "properties": {
-              "chunkId": {
-                "type": "string",
-                "format": "uuid"
-              },
-              "startOffset": {
-                "type": "integer",
-                "minimum": 0
-              },
-              "endOffset": {
-                "type": "integer",
-                "exclusiveMinimum": true,
-                "minimum": 0
-              }
-            },
-            "required": [
-              "chunkId",
-              "startOffset",
-              "endOffset"
-            ],
-            "additionalProperties": false
-          },
-          "exactExcerpt": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 4000
-          },
-          "currentNoteLink": {
-            "type": "object",
-            "properties": {
-              "noteId": {
-                "type": "string",
-                "format": "uuid"
               },
               "title": {
                 "type": "string"
               },
-              "path": {
-                "type": "string"
+              "exactExcerpt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "currentAssessmentLink": {
+                "type": "object",
+                "properties": {
+                  "assessmentId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "assessmentId",
+                  "title",
+                  "path"
+                ],
+                "additionalProperties": false,
+                "nullable": true
+              },
+              "historical": {
+                "type": "boolean"
               }
             },
             "required": [
-              "noteId",
+              "kind",
+              "assessmentId",
+              "citedRevision",
+              "currentRevision",
               "title",
-              "path"
+              "exactExcerpt",
+              "currentAssessmentLink",
+              "historical"
             ],
-            "additionalProperties": false,
-            "nullable": true
-          },
-          "historical": {
-            "type": "boolean"
+            "additionalProperties": false
           }
-        },
-        "required": [
-          "source",
-          "revision",
-          "anchor",
-          "exactExcerpt",
-          "currentNoteLink",
-          "historical"
-        ],
-        "additionalProperties": false
+        ]
       },
       "Job": {
         "type": "object",
@@ -46012,60 +46251,112 @@
                   "citations": {
                     "type": "array",
                     "items": {
-                      "type": "object",
-                      "properties": {
-                        "citationId": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 40
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "citationId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "note"
+                              ]
+                            },
+                            "chunkId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "noteId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "sourceId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "startOffset": {
+                              "type": "integer",
+                              "minimum": 0
+                            },
+                            "endOffset": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "quote": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 4000
+                            }
+                          },
+                          "required": [
+                            "citationId",
+                            "chunkId",
+                            "noteId",
+                            "sourceId",
+                            "revision",
+                            "title",
+                            "startOffset",
+                            "endOffset",
+                            "quote"
+                          ],
+                          "additionalProperties": false
                         },
-                        "chunkId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "noteId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "sourceId": {
-                          "type": "string",
-                          "format": "uuid"
-                        },
-                        "revision": {
-                          "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "title": {
-                          "type": "string"
-                        },
-                        "startOffset": {
-                          "type": "integer",
-                          "minimum": 0
-                        },
-                        "endOffset": {
-                          "type": "integer",
-                          "exclusiveMinimum": true,
-                          "minimum": 0
-                        },
-                        "quote": {
-                          "type": "string",
-                          "minLength": 1,
-                          "maxLength": 4000
+                        {
+                          "type": "object",
+                          "properties": {
+                            "citationId": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 40
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "school_assessment"
+                              ]
+                            },
+                            "assessmentId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": true,
+                              "minimum": 0
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "quote": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 4000
+                            }
+                          },
+                          "required": [
+                            "citationId",
+                            "kind",
+                            "assessmentId",
+                            "revision",
+                            "title",
+                            "quote"
+                          ],
+                          "additionalProperties": false
                         }
-                      },
-                      "required": [
-                        "citationId",
-                        "chunkId",
-                        "noteId",
-                        "sourceId",
-                        "revision",
-                        "title",
-                        "startOffset",
-                        "endOffset",
-                        "quote"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   }
                 },
@@ -48957,60 +49248,112 @@
                         "citations": {
                           "type": "array",
                           "items": {
-                            "type": "object",
-                            "properties": {
-                              "citationId": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 40
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "citationId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "note"
+                                    ]
+                                  },
+                                  "chunkId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "noteId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "sourceId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "revision": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "startOffset": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                  },
+                                  "endOffset": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  },
+                                  "quote": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                  }
+                                },
+                                "required": [
+                                  "citationId",
+                                  "chunkId",
+                                  "noteId",
+                                  "sourceId",
+                                  "revision",
+                                  "title",
+                                  "startOffset",
+                                  "endOffset",
+                                  "quote"
+                                ],
+                                "additionalProperties": false
                               },
-                              "chunkId": {
-                                "type": "string",
-                                "format": "uuid"
-                              },
-                              "noteId": {
-                                "type": "string",
-                                "format": "uuid"
-                              },
-                              "sourceId": {
-                                "type": "string",
-                                "format": "uuid"
-                              },
-                              "revision": {
-                                "type": "integer",
-                                "exclusiveMinimum": true,
-                                "minimum": 0
-                              },
-                              "title": {
-                                "type": "string"
-                              },
-                              "startOffset": {
-                                "type": "integer",
-                                "minimum": 0
-                              },
-                              "endOffset": {
-                                "type": "integer",
-                                "exclusiveMinimum": true,
-                                "minimum": 0
-                              },
-                              "quote": {
-                                "type": "string",
-                                "minLength": 1,
-                                "maxLength": 4000
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "citationId": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 40
+                                  },
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "school_assessment"
+                                    ]
+                                  },
+                                  "assessmentId": {
+                                    "type": "string",
+                                    "format": "uuid"
+                                  },
+                                  "revision": {
+                                    "type": "integer",
+                                    "exclusiveMinimum": true,
+                                    "minimum": 0
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "quote": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 4000
+                                  }
+                                },
+                                "required": [
+                                  "citationId",
+                                  "kind",
+                                  "assessmentId",
+                                  "revision",
+                                  "title",
+                                  "quote"
+                                ],
+                                "additionalProperties": false
                               }
-                            },
-                            "required": [
-                              "citationId",
-                              "chunkId",
-                              "noteId",
-                              "sourceId",
-                              "revision",
-                              "title",
-                              "startOffset",
-                              "endOffset",
-                              "quote"
-                            ],
-                            "additionalProperties": false
+                            ]
                           }
                         }
                       },
@@ -76578,13 +76921,15 @@
                           "enum": [
                             "note",
                             "task",
-                            "calendar_event"
+                            "calendar_event",
+                            "school_assessment"
                           ]
                         },
                         "minItems": 1,
-                        "maxItems": 3,
+                        "maxItems": 4,
                         "default": [
-                          "note"
+                          "note",
+                          "school_assessment"
                         ]
                       }
                     },
@@ -77837,60 +78182,112 @@
                       "citations": {
                         "type": "array",
                         "items": {
-                          "type": "object",
-                          "properties": {
-                            "citationId": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 40
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "citationId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "note"
+                                  ]
+                                },
+                                "chunkId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "noteId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "sourceId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "revision": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "startOffset": {
+                                  "type": "integer",
+                                  "minimum": 0
+                                },
+                                "endOffset": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                },
+                                "quote": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4000
+                                }
+                              },
+                              "required": [
+                                "citationId",
+                                "chunkId",
+                                "noteId",
+                                "sourceId",
+                                "revision",
+                                "title",
+                                "startOffset",
+                                "endOffset",
+                                "quote"
+                              ],
+                              "additionalProperties": false
                             },
-                            "chunkId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "noteId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "sourceId": {
-                              "type": "string",
-                              "format": "uuid"
-                            },
-                            "revision": {
-                              "type": "integer",
-                              "exclusiveMinimum": true,
-                              "minimum": 0
-                            },
-                            "title": {
-                              "type": "string"
-                            },
-                            "startOffset": {
-                              "type": "integer",
-                              "minimum": 0
-                            },
-                            "endOffset": {
-                              "type": "integer",
-                              "exclusiveMinimum": true,
-                              "minimum": 0
-                            },
-                            "quote": {
-                              "type": "string",
-                              "minLength": 1,
-                              "maxLength": 4000
+                            {
+                              "type": "object",
+                              "properties": {
+                                "citationId": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 40
+                                },
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "school_assessment"
+                                  ]
+                                },
+                                "assessmentId": {
+                                  "type": "string",
+                                  "format": "uuid"
+                                },
+                                "revision": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0
+                                },
+                                "title": {
+                                  "type": "string"
+                                },
+                                "quote": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4000
+                                }
+                              },
+                              "required": [
+                                "citationId",
+                                "kind",
+                                "assessmentId",
+                                "revision",
+                                "title",
+                                "quote"
+                              ],
+                              "additionalProperties": false
                             }
-                          },
-                          "required": [
-                            "citationId",
-                            "chunkId",
-                            "noteId",
-                            "sourceId",
-                            "revision",
-                            "title",
-                            "startOffset",
-                            "endOffset",
-                            "quote"
-                          ],
-                          "additionalProperties": false
+                          ]
                         }
                       }
                     },

@@ -9918,10 +9918,11 @@ export interface components {
             defaultScope: {
                 /**
                  * @default [
-                 *       "note"
+                 *       "note",
+                 *       "school_assessment"
                  *     ]
                  */
-                kinds: ("note" | "task" | "calendar_event")[];
+                kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
             };
             /** Format: date-time */
             createdAt: string;
@@ -9940,10 +9941,11 @@ export interface components {
                 defaultScope: {
                     /**
                      * @default [
-                     *       "note"
+                     *       "note",
+                     *       "school_assessment"
                      *     ]
                      */
-                    kinds: ("note" | "task" | "calendar_event")[];
+                    kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
                 };
                 /** Format: date-time */
                 createdAt: string;
@@ -9961,17 +9963,19 @@ export interface components {
             /**
              * @default {
              *       "kinds": [
-             *         "note"
+             *         "note",
+             *         "school_assessment"
              *       ]
              *     }
              */
             defaultScope: {
                 /**
                  * @default [
-                 *       "note"
+                 *       "note",
+                 *       "school_assessment"
                  *     ]
                  */
-                kinds: ("note" | "task" | "calendar_event")[];
+                kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
             };
         };
         ChatMessageList: {
@@ -9992,8 +9996,10 @@ export interface components {
                 answerToId: string | null;
                 /** Format: uuid */
                 jobId: string | null;
-                citations: {
+                citations: ({
                     citationId: string;
+                    /** @enum {string} */
+                    kind?: "note";
                     /** Format: uuid */
                     chunkId: string;
                     /** Format: uuid */
@@ -10005,7 +10011,16 @@ export interface components {
                     startOffset: number;
                     endOffset: number;
                     quote: string;
-                }[];
+                } | {
+                    citationId: string;
+                    /** @enum {string} */
+                    kind: "school_assessment";
+                    /** Format: uuid */
+                    assessmentId: string;
+                    revision: number;
+                    title: string;
+                    quote: string;
+                })[];
                 /** Format: date-time */
                 createdAt: string;
                 /** Format: date-time */
@@ -10024,10 +10039,11 @@ export interface components {
             scope?: {
                 /**
                  * @default [
-                 *       "note"
+                 *       "note",
+                 *       "school_assessment"
                  *     ]
                  */
-                kinds: ("note" | "task" | "calendar_event")[];
+                kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
             };
             /** @default true */
             queueWhenOffline: boolean;
@@ -10050,8 +10066,10 @@ export interface components {
                 answerToId: string | null;
                 /** Format: uuid */
                 jobId: string | null;
-                citations: {
+                citations: ({
                     citationId: string;
+                    /** @enum {string} */
+                    kind?: "note";
                     /** Format: uuid */
                     chunkId: string;
                     /** Format: uuid */
@@ -10063,7 +10081,16 @@ export interface components {
                     startOffset: number;
                     endOffset: number;
                     quote: string;
-                }[];
+                } | {
+                    citationId: string;
+                    /** @enum {string} */
+                    kind: "school_assessment";
+                    /** Format: uuid */
+                    assessmentId: string;
+                    revision: number;
+                    title: string;
+                    quote: string;
+                })[];
                 /** Format: date-time */
                 createdAt: string;
                 /** Format: date-time */
@@ -10086,8 +10113,10 @@ export interface components {
                 answerToId: string | null;
                 /** Format: uuid */
                 jobId: string | null;
-                citations: {
+                citations: ({
                     citationId: string;
+                    /** @enum {string} */
+                    kind?: "note";
                     /** Format: uuid */
                     chunkId: string;
                     /** Format: uuid */
@@ -10099,7 +10128,16 @@ export interface components {
                     startOffset: number;
                     endOffset: number;
                     quote: string;
-                }[];
+                } | {
+                    citationId: string;
+                    /** @enum {string} */
+                    kind: "school_assessment";
+                    /** Format: uuid */
+                    assessmentId: string;
+                    revision: number;
+                    title: string;
+                    quote: string;
+                })[];
                 /** Format: date-time */
                 createdAt: string;
                 /** Format: date-time */
@@ -10170,6 +10208,22 @@ export interface components {
             currentNoteLink: {
                 /** Format: uuid */
                 noteId: string;
+                title: string;
+                path: string;
+            } | null;
+            historical: boolean;
+        } | {
+            /** @enum {string} */
+            kind: "school_assessment";
+            /** Format: uuid */
+            assessmentId: string;
+            citedRevision: number;
+            currentRevision: number | null;
+            title: string;
+            exactExcerpt: string;
+            currentAssessmentLink: {
+                /** Format: uuid */
+                assessmentId: string;
                 title: string;
                 path: string;
             } | null;
@@ -10252,8 +10306,10 @@ export interface components {
                 /** Format: uuid */
                 messageId: string;
                 answer: string;
-                citations: {
+                citations: ({
                     citationId: string;
+                    /** @enum {string} */
+                    kind?: "note";
                     /** Format: uuid */
                     chunkId: string;
                     /** Format: uuid */
@@ -10265,7 +10321,16 @@ export interface components {
                     startOffset: number;
                     endOffset: number;
                     quote: string;
-                }[];
+                } | {
+                    citationId: string;
+                    /** @enum {string} */
+                    kind: "school_assessment";
+                    /** Format: uuid */
+                    assessmentId: string;
+                    revision: number;
+                    title: string;
+                    quote: string;
+                })[];
             } | {
                 /** @enum {string} */
                 type: "schedule_preview";
@@ -10911,8 +10976,10 @@ export interface components {
                     /** Format: uuid */
                     messageId: string;
                     answer: string;
-                    citations: {
+                    citations: ({
                         citationId: string;
+                        /** @enum {string} */
+                        kind?: "note";
                         /** Format: uuid */
                         chunkId: string;
                         /** Format: uuid */
@@ -10924,7 +10991,16 @@ export interface components {
                         startOffset: number;
                         endOffset: number;
                         quote: string;
-                    }[];
+                    } | {
+                        citationId: string;
+                        /** @enum {string} */
+                        kind: "school_assessment";
+                        /** Format: uuid */
+                        assessmentId: string;
+                        revision: number;
+                        title: string;
+                        quote: string;
+                    })[];
                 } | {
                     /** @enum {string} */
                     type: "schedule_preview";
@@ -17440,10 +17516,11 @@ export interface components {
                 scope: {
                     /**
                      * @default [
-                     *       "note"
+                     *       "note",
+                     *       "school_assessment"
                      *     ]
                      */
-                    kinds: ("note" | "task" | "calendar_event")[];
+                    kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
                 };
             } | {
                 /** @enum {string} */
@@ -17703,8 +17780,10 @@ export interface components {
                 /** Format: uuid */
                 messageId: string;
                 answer: string;
-                citations: {
+                citations: ({
                     citationId: string;
+                    /** @enum {string} */
+                    kind?: "note";
                     /** Format: uuid */
                     chunkId: string;
                     /** Format: uuid */
@@ -17716,7 +17795,16 @@ export interface components {
                     startOffset: number;
                     endOffset: number;
                     quote: string;
-                }[];
+                } | {
+                    citationId: string;
+                    /** @enum {string} */
+                    kind: "school_assessment";
+                    /** Format: uuid */
+                    assessmentId: string;
+                    revision: number;
+                    title: string;
+                    quote: string;
+                })[];
             } | {
                 /** @enum {string} */
                 type: "schedule_preview";

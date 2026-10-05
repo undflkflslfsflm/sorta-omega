@@ -230,7 +230,7 @@ export const api = {
     method: "POST", body: JSON.stringify({ query, mode, scope: { kinds: ["note", "task", "calendar_event"] }, limit: 20 })
   }),
   chats: () => request<{ items: Chat[] }>(`${vaultPath}/chats`),
-  createChat: (mode: "notes" | "brainstorm" = "notes") => request<Chat>(`${vaultPath}/chats`, { method: "POST", body: JSON.stringify({ defaultMode: mode, defaultScope: { kinds: ["note"] } }) }),
+  createChat: (mode: "notes" | "brainstorm" = "notes") => request<Chat>(`${vaultPath}/chats`, { method: "POST", body: JSON.stringify({ defaultMode: mode, defaultScope: { kinds: ["note", "school_assessment"] } }) }),
   chatMessages: (chatId: string) => request<{ items: ChatMessage[] }>(`${vaultPath}/chats/${chatId}/messages`),
   ask: (chatId: string, text: string, mode: "grounded" | "brainstorm") => request<AskHandle>(`${vaultPath}/chats/${chatId}/messages`, {
     method: "POST", body: JSON.stringify({ clientMessageId: crypto.randomUUID(), text, mode, scope: { kinds: ["note"] }, queueWhenOffline: true })

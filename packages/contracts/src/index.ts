@@ -528,14 +528,17 @@ export const searchResultSchema = z.object({
   nextCursor: z.string().nullable()
 });
 
-export const chatScopeSchema = z.object({ kinds: z.array(searchKindSchema).min(1).max(3).default(["note"]) });
+export const chatEvidenceKindSchema = z.enum(["note", "task", "calendar_event", "school_assessment"]);
+export const chatScopeSchema = z.object({ kinds: z.array(chatEvidenceKindSchema).min(1).max(4).default(["note", "school_assessment"]) });
 export const chatSchema = z.object({
   id: idSchema, vaultId: vaultIdSchema, title: z.string().max(240).nullable(),
   defaultMode: z.enum(["notes", "tutor", "calendar", "profile", "brainstorm"]),
   defaultScope: chatScopeSchema, createdAt: z.string().datetime(), updatedAt: z.string().datetime()
 });
-export const createChatSchema = z.object({ title: z.string().trim().min(1).max(240).optional(), defaultMode: z.enum(["notes", "tutor", "calendar", "profile", "brainstorm"]).default("notes"), defaultScope: chatScopeSchema.default({ kinds: ["note"] }) });
-export const citationSchema = z.object({ citationId: z.string().min(1).max(40), chunkId: idSchema, noteId: idSchema, sourceId: idSchema, revision: z.number().int().positive(), title: z.string(), startOffset: z.number().int().nonnegative(), endOffset: z.number().int().positive(), quote: z.string().min(1).max(4000) });
+export const createChatSchema = z.object({ title: z.string().trim().min(1).max(240).optional(), defaultMode: z.enum(["notes", "tutor", "calendar", "profile", "brainstorm"]).default("notes"), defaultScope: chatScopeSchema.default({ kinds: ["note", "school_assessment"] }) });
+export const noteCitationSchema = z.object({ citationId: z.string().min(1).max(40), kind: z.literal("note").optional(), chunkId: idSchema, noteId: idSchema, sourceId: idSchema, revision: z.number().int().positive(), title: z.string(), startOffset: z.number().int().nonnegative(), endOffset: z.number().int().positive(), quote: z.string().min(1).max(4000) });
+export const assessmentCitationSchema = z.object({ citationId: z.string().min(1).max(40), kind: z.literal("school_assessment"), assessmentId: idSchema, revision: z.number().int().positive(), title: z.string(), quote: z.string().min(1).max(4000) });
+export const citationSchema = z.union([noteCitationSchema, assessmentCitationSchema]);
 export const chatMessageSchema = z.object({
   id: idSchema, chatId: idSchema, clientMessageId: z.string().nullable(), role: z.enum(["user", "assistant"]), text: z.string(),
   mode: z.enum(["grounded", "brainstorm"]), status: z.enum(["persisted", "waiting_for_worker", "running", "succeeded", "failed", "cancelled"]),
@@ -547,7 +550,9 @@ export const artifactScopeSchema=z.object({noteIds:z.array(idSchema).max(30).def
 export const generateArtifactSchema=z.object({kind:artifactGenerationKindSchema,scope:artifactScopeSchema,instructions:z.string().trim().max(4000).optional(),outputLanguage:z.string().trim().min(2).max(35).optional(),targetGeneratedNoteId:idSchema.optional(),expectedRevision:z.number().int().positive().optional()}).strict().superRefine((value,context)=>{if(Boolean(value.targetGeneratedNoteId)!==Boolean(value.expectedRevision))context.addIssue({code:"custom",message:"Generated-note refresh requires both target and expected revision"});});
 export const askHandleSchema=z.object({jobId:idSchema,userMessageId:idSchema,answerMessageId:idSchema,status:z.enum(["waiting_for_worker","running","succeeded","failed","cancelled"])}).strict();
 export const searchSuggestionsSchema=z.object({labels:z.array(z.object({id:idSchema,name:z.string()}).strict()),titles:z.array(z.object({kind:searchKindSchema,id:idSchema,title:z.string()}).strict()),savedQueries:z.array(z.object({id:idSchema,title:z.string(),query:z.string()}).strict())}).strict();
-export const resolvedCitationSchema=z.object({source:z.object({id:idSchema,kind:z.string(),contentHash:z.string().length(64),available:z.boolean()}).strict(),revision:z.object({noteId:idSchema,citedRevision:z.number().int().positive(),currentRevision:z.number().int().positive().nullable()}).strict(),anchor:z.object({chunkId:idSchema,startOffset:z.number().int().nonnegative(),endOffset:z.number().int().positive()}).strict(),exactExcerpt:z.string().min(1).max(4000),currentNoteLink:z.object({noteId:idSchema,title:z.string(),path:z.string()}).strict().nullable(),historical:z.boolean()}).strict();
+export const resolvedNoteCitationSchema=z.object({source:z.object({id:idSchema,kind:z.string(),contentHash:z.string().length(64),available:z.boolean()}).strict(),revision:z.object({noteId:idSchema,citedRevision:z.number().int().positive(),currentRevision:z.number().int().positive().nullable()}).strict(),anchor:z.object({chunkId:idSchema,startOffset:z.number().int().nonnegative(),endOffset:z.number().int().positive()}).strict(),exactExcerpt:z.string().min(1).max(4000),currentNoteLink:z.object({noteId:idSchema,title:z.string(),path:z.string()}).strict().nullable(),historical:z.boolean()}).strict();
+export const resolvedAssessmentCitationSchema=z.object({kind:z.literal("school_assessment"),assessmentId:idSchema,citedRevision:z.number().int().positive(),currentRevision:z.number().int().positive().nullable(),title:z.string(),exactExcerpt:z.string().min(1).max(4000),currentAssessmentLink:z.object({assessmentId:idSchema,title:z.string(),path:z.string()}).strict().nullable(),historical:z.boolean()}).strict();
+export const resolvedCitationSchema=z.union([resolvedNoteCitationSchema,resolvedAssessmentCitationSchema]);
 
 export const scheduleReasonCodeSchema = z.enum(["preferred_window", "earliest_feasible", "bounded_block", "short_final_block", "unknown_effort", "exceeds_unsplittable_maximum", "deadline_before_horizon", "no_capacity"]);
 export const schedulePlacementSchema = z.object({ taskId: idSchema, startsAt: z.string().datetime(), endsAt: z.string().datetime(), minutes: z.number().int().positive(), reasonCodes: z.array(scheduleReasonCodeSchema).min(1) });

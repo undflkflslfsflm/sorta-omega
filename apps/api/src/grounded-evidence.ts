@@ -9,8 +9,12 @@ const subjectAliases = [
   { question: /\b(?:economics|økonomi|økonomistyring)\b/iu, evidence: /\b(?:economics|økonomi|økonomistyring)\b/iu }
 ];
 
+export function isAssessmentQuestion(question: string): boolean {
+  return assessmentTerms.test(question);
+}
+
 export function focusGroundedEvidence<T extends GroundedEvidenceCandidate>(question: string, candidates: T[], limit = 8): T[] {
-  if (!assessmentTerms.test(question)) return candidates.slice(0, limit);
+  if (!isAssessmentQuestion(question)) return candidates.slice(0, limit);
   const subject = subjectAliases.find((alias) => alias.question.test(question));
   const subjectCandidates = subject
     ? candidates.filter((candidate) => subject.evidence.test(`${candidate.title} ${candidate.text}`))
