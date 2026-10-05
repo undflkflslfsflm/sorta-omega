@@ -206,6 +206,15 @@ try {
         }, before);
         console.log(JSON.stringify({ provider, classIndex, postExpand: { count, visibleCount, before: { tag: before.tag, role: before.role, tid: before.tid, withinPost: before.withinPost, textLength: before.textLength }, after } }));
         }
+      } else if (args.get("teams-post-replies-probe") === "true") {
+        const replyShape = await probe.evaluate(() => {
+          const posts = [...document.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')];
+          const labels = (post: HTMLElement) => [...(post.closest<HTMLElement>('[role="group"]') ?? post).querySelectorAll<HTMLElement>('button, [role="button"], [role="link"]')]
+            .map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute('role'), tid: item.getAttribute('data-tid'), label: (item.getAttribute('aria-label') ?? item.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80) }))
+            .filter(item => /repl|svar|comment|kommentar|thread|tråd/i.test(`${item.label} ${item.tid ?? ''}`)).slice(0, 12);
+          return { postCount: posts.length, samples: posts.slice(0, 10).map(post => ({ controls: labels(post), nestedPosts: post.closest<HTMLElement>('[role="group"]')?.querySelectorAll('[data-reply-chain-id][data-mid]').length ?? 0 })), globalReplyControls: [...document.querySelectorAll<HTMLElement>('button, [role="button"]')].filter(item => /repl|svar|comment|kommentar|thread|tråd/i.test(`${item.getAttribute('aria-label') ?? ''} ${item.getAttribute('data-tid') ?? ''}`)).length };
+        });
+        console.log(JSON.stringify({ provider, classIndex, replyShape }));
       } else if (args.get("teams-post-history-probe") === "true") {
         const shape = await probe.evaluate(() => {
           const post = document.querySelector<HTMLElement>('[data-reply-chain-id][data-mid]');
