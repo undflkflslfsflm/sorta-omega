@@ -7,11 +7,11 @@ type Entry = { name: string; rowIndex: number; folder: boolean };
 type ManifestItem = { relativePath: string; stagedName: string; sha256: string; byteLength: number; modifiedAt: string };
 
 const maxClasses = 30;
-const maxFolders = 200;
-const maxDepth = 6;
-const maxFiles = 512;
+const maxFolders = 1000;
+const maxDepth = 10;
+const maxFiles = 2048;
 const maxFileBytes = 100 * 1024 * 1024;
-const maxBatchBytes = 300 * 1024 * 1024;
+const maxBatchBytes = 5 * 1024 * 1024 * 1024;
 
 export function safeSegment(value: string): string {
   const cleaned = value.normalize("NFC").replace(/[\\/:*?"<>|\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "");
