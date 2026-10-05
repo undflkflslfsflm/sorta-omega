@@ -349,8 +349,20 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         }
       }
       classSummaries.push({ index: classIndex, channels: channelCount - before.channels, folders: folderCount - before.folders, entries: entriesObserved - before.entries, postPresentations: postPresentations - before.postPresentations, postDocuments: postDocuments - before.postDocuments, presentations: presentations - before.presentations, documents: documents - before.documents });
-      await probe.getByText("All teams", { exact: true }).click();
-      await cards.first().waitFor({ timeout: 15_000 });
+      // A SharePoint file-browser frame can retain selection/download state
+      // after Teams switches classes. Rebuild the probe page before the next
+      // class, rather than carrying that state into another class's files.
+      if (classIndex < classCount - 1 && classIndexOnly === undefined) {
+        phase = "class_reset";
+        await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await teamsNav.waitFor({ timeout: 20_000 });
+        await teamsNav.click();
+        await classes.waitFor({ timeout: 20_000 });
+        if (await classes.count() !== 1) throw new Error("teams_classes_accordion_ambiguous");
+        if (await header.getAttribute("aria-expanded") === "false") await header.click();
+        await cards.first().waitFor({ timeout: 15_000 });
+        if (await cards.count() !== classCount) throw new Error("teams_class_count_changed_during_capture");
+      }
     }
   } catch (error) {
     if (error instanceof Error && retryableDownloadErrors.has(error.message)) throw new Error(`${error.message}_${fileContext}`);
