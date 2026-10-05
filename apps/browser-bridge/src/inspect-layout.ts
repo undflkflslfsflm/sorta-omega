@@ -197,9 +197,9 @@ try {
         if (args.get("teams-post-open-pptx") === "true") {
           const card = probe.locator('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]');
           const cardCount = await card.count();
-          if (cardCount !== 1) throw new Error(`teams_post_pptx_card_ambiguous:${cardCount}`);
+          if (cardCount < 1 || cardCount > 10) throw new Error(`teams_post_pptx_card_ambiguous:${cardCount}`);
           const before = new Set(browser.contexts()[0].pages());
-          await card.click();
+          await card.first().click();
           await probe.waitForTimeout(5_000);
           const openedPages = browser.contexts()[0].pages().filter(page => page === probe || !before.has(page));
           opened = await Promise.all(openedPages.map(async page => ({
