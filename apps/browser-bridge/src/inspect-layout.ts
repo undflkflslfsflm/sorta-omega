@@ -199,6 +199,15 @@ try {
           } catch { metadata = { parseable: false, length: raw.length, prefix: raw.slice(0, 1) }; }
           return grid ? { tree: shape(grid, 0), metadata } : null;
         });
+        const postOwnership = await probe.evaluate(() => [...document.querySelectorAll<HTMLElement>('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]')].map(card => {
+          const ancestry: { depth: number; postCount: number; directPostCount: number; group: boolean; grid: boolean }[] = [];
+          let current: HTMLElement | null = card;
+          for (let depth = 0; current && depth < 12; depth++, current = current.parentElement) {
+            const posts = [...current.querySelectorAll<HTMLElement>('[data-reply-chain-id][data-mid]')];
+            ancestry.push({ depth, postCount: posts.length, directPostCount: [...current.children].filter(child => child.matches('[data-reply-chain-id][data-mid]')).length, group: current.getAttribute('role') === 'group', grid: current.getAttribute('data-tid') === 'file-attachment-grid' });
+          }
+          return { ancestry };
+        }));
         let opened: unknown = null;
         if (args.get("teams-post-open-pptx") === "true") {
           const card = probe.locator('[data-tid="file-attachment-grid"] [role="group"][aria-label$=".pptx"]');
@@ -226,7 +235,7 @@ try {
           for (const page of openedPages) if (page !== probe) await page.close();
           opened = { pages: opened, downloadProbe };
         }
-        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid, opened } }));
+        console.log(JSON.stringify({ provider, classIndex, postAttachmentShape: { posts: posts.length, withCandidates: posts.filter(post => post.elements > 0).length, candidates: posts.reduce((total, post) => total + post.elements, 0), extensions: posts.flatMap(post => post.extensions), samples: posts.filter(post => post.elements > 0).slice(0, 12).map(post => post.shapes), pptxGrid, postOwnership, opened } }));
       } else if (args.get("teams-classwork-probe") === "true") {
         const classwork = probe.getByText("Classwork", { exact: true });
         const matches = await classwork.count();
