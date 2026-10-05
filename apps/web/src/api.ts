@@ -233,7 +233,7 @@ export const api = {
   createChat: (mode: "notes" | "brainstorm" = "notes") => request<Chat>(`${vaultPath}/chats`, { method: "POST", body: JSON.stringify({ defaultMode: mode, defaultScope: { kinds: ["note", "school_assessment"] } }) }),
   chatMessages: (chatId: string) => request<{ items: ChatMessage[] }>(`${vaultPath}/chats/${chatId}/messages`),
   ask: (chatId: string, text: string, mode: "grounded" | "brainstorm") => request<AskHandle>(`${vaultPath}/chats/${chatId}/messages`, {
-    method: "POST", body: JSON.stringify({ clientMessageId: crypto.randomUUID(), text, mode, scope: { kinds: ["note"] }, queueWhenOffline: true })
+    method: "POST", body: JSON.stringify({ clientMessageId: crypto.randomUUID(), text, mode, scope: { kinds: ["note", "school_assessment"] }, queueWhenOffline: true })
   }),
   job: (jobId: string) => request<Job>(`${vaultPath}/jobs/${jobId}`),
   cancelJob: (jobId: string) => request<Job>(`${vaultPath}/jobs/${jobId}/cancel`, { method: "POST", body: "{}" }),
