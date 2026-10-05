@@ -68,11 +68,20 @@ async function waitForGrid(frame: Frame): Promise<void> {
 }
 
 async function enterFolder(frame: Frame, name: string): Promise<void> {
-  const entries = (await visibleEntries(frame)).entries;
-  const matches = entries.filter(entry => entry.folder && entry.name === name);
-  if (matches.length !== 1) throw new Error("teams_sharepoint_folder_changed");
-  await frame.locator('[role="row"]').nth(matches[0].rowIndex).locator('[data-automationid="field-LinkFilename"]').dblclick();
-  await waitForGrid(frame);
+  // A double-click can leave the previous grid visible while SharePoint loads the
+  // next folder. Do not treat those old rows as a changed or removed folder.
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const entries = (await visibleEntries(frame)).entries;
+    const matches = entries.filter(entry => entry.folder && entry.name === name);
+    if (matches.length > 1) throw new Error("teams_sharepoint_folder_ambiguous");
+    if (matches.length === 1) {
+      await frame.locator('[role="row"]').nth(matches[0].rowIndex).locator('[data-automationid="field-LinkFilename"]').dblclick();
+      await waitForGrid(frame);
+      return;
+    }
+    await frame.waitForTimeout(500);
+  }
+  throw new Error("teams_sharepoint_folder_changed");
 }
 
 async function goToFolder(frame: Frame, rootUrl: string, segments: string[]): Promise<void> {
