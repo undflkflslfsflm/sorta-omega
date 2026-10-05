@@ -13,6 +13,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { ZodError } from "zod";
 import { safeFetchText } from "./safe-fetch.js";
+import { decodeNotesCursor, encodeNotesCursor } from "./notes-cursor.js";
 import { focusGroundedEvidence, isAssessmentQuestion } from "./grounded-evidence.js";
 import {
   activityEventSchema,
@@ -1291,11 +1292,23 @@ app.post("/api/v1/restore-plans",async(request,reply)=>{const session=await getO
 
 app.post("/api/v1/restore-plans/:restorePlanId/apply",async(request,reply)=>{const session=await getOwnerSession(request);if(!session)return reply.code(401).send({error:"authentication_required"});if(!hasRecentStrongAuthentication(session))return reply.code(403).send({error:"recent_strong_authentication_required"});const {restorePlanId}=request.params as {restorePlanId:string};idSchema.parse(restorePlanId);const input=applyRestoreSchema.parse(request.body);const outcome=await transaction(async client=>{const plan=(await client.query("SELECT * FROM restore_plans WHERE owner_id=$1 AND id=$2 FOR UPDATE",[session.owner_id,restorePlanId])).rows[0];if(!plan)return"not_found" as const;if(plan.state!=="ready"||plan.plan_revision!==input.planRevision||plan.compatibility?.compatible!==true)return"restore_plan_not_ready_compatible_or_current" as const;if(plan.applied_job_id){const prior=(await client.query("SELECT * FROM system_jobs WHERE owner_id=$1 AND id=$2",[session.owner_id,plan.applied_job_id])).rows[0];return prior;}const payload={type:"restore_apply",restorePlanId,backupId:plan.backup_id,targetMode:plan.target_mode,planRevision:plan.plan_revision},serialized=JSON.stringify(payload),created=await client.query("INSERT INTO system_jobs(owner_id,kind,status,stage,input,input_hash,max_attempts) VALUES ($1,'restore_apply','queued','queued',$2::jsonb,$3,1) RETURNING *",[session.owner_id,serialized,createHash("sha256").update(serialized).digest("hex")]);await client.query("UPDATE restore_plans SET state='applying',applied_job_id=$3,updated_at=now() WHERE owner_id=$1 AND id=$2",[session.owner_id,restorePlanId,created.rows[0].id]);await client.query("INSERT INTO system_job_events(job_id,sequence,kind,data) VALUES ($1,1,'accepted',$2::jsonb)",[created.rows[0].id,JSON.stringify({restorePlanId,targetMode:plan.target_mode,maintenanceModeRequired:true})]);return created.rows[0];});if(outcome==="not_found")return reply.code(404).send({error:"restore_plan_not_found"});if(typeof outcome==="string")return reply.code(409).send({error:outcome});return reply.code(202).send(mapSystemJobHandle(outcome));});
 
-app.get("/api/v1/vaults/:vaultId/notes", async (request) => {
+app.get("/api/v1/vaults/:vaultId/notes", async (request, reply) => {
   const { vaultId } = request.params as { vaultId: string };
   idSchema.parse(vaultId);
-  const result = await query("SELECT * FROM notes WHERE vault_id = $1 AND trashed_at IS NULL ORDER BY updated_at DESC LIMIT 100", [vaultId]);
-  return { items: result.rows.map(mapNote) };
+  const rawCursor = (request.query as { cursor?: unknown }).cursor;
+  if (rawCursor !== undefined && typeof rawCursor !== "string") return reply.code(400).send({ error: "invalid_cursor" });
+  let cursor: ReturnType<typeof decodeNotesCursor> | null = null;
+  if (rawCursor) {
+    try { cursor = decodeNotesCursor(rawCursor); }
+    catch { return reply.code(400).send({ error: "invalid_cursor" }); }
+  }
+  const result = await query(`SELECT *,to_char(updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_updated_at
+    FROM notes WHERE vault_id = $1 AND trashed_at IS NULL
+    AND ($2::timestamptz IS NULL OR (updated_at,id) < ($2::timestamptz,$3::uuid))
+    ORDER BY updated_at DESC,id DESC LIMIT 101`, [vaultId, cursor?.updatedAt ?? null, cursor?.id ?? null]);
+  const rows = result.rows.slice(0, 100);
+  const last = rows.at(-1);
+  return { items: rows.map(mapNote), nextCursor: result.rows.length > 100 && last ? encodeNotesCursor({ updatedAt: last.cursor_updated_at, id: last.id }) : null };
 });
 
 app.post("/api/v1/vaults/:vaultId/notes",async(request,reply)=>{

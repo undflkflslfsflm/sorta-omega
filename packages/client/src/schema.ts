@@ -5404,6 +5404,7 @@ export interface components {
                 /** Format: date-time */
                 updatedAt: string;
             }[];
+            nextCursor: string | null;
         };
         UpdateNoteMetadata: {
             title?: string;

@@ -68,7 +68,20 @@ export const api = {
   revokeApiToken: (tokenId: string) => request<void>(`/api/v1/tokens/${tokenId}`, { method: "DELETE" }),
   today: () => request<Today>(`${vaultPath}/today`),
   nextActions: (availableMinutes?: number) => request<NextActionSet>(`${vaultPath}/scheduler/recommendations${availableMinutes ? `?available_minutes=${availableMinutes}` : ""}`),
-  notes: () => request<{ items: Note[] }>(`${vaultPath}/notes`),
+  notes: (cursor?: string) => request<{ items: Note[]; nextCursor: string | null }>(`${vaultPath}/notes${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`),
+  allNotes: async () => {
+    const items: Note[] = [];
+    let cursor: string | null = null;
+    const seen = new Set<string>();
+    do {
+      const page = await api.notes(cursor ?? undefined);
+      items.push(...page.items);
+      if (page.nextCursor && seen.has(page.nextCursor)) throw new Error("notes_pagination_repeated_cursor");
+      cursor = page.nextCursor;
+      if (cursor) seen.add(cursor);
+    } while (cursor);
+    return items;
+  },
   createNote: (text="") => request<Note>(`${vaultPath}/notes`,{method:"POST",body:JSON.stringify({content:{kind:"text",text}})}),
   note: (noteId: string) => request<Note>(`${vaultPath}/notes/${noteId}`),
   trashNote: (noteId:string,expectedRevision:number) => request<void>(`${vaultPath}/notes/${noteId}`,{method:"DELETE",body:JSON.stringify({expectedRevision})}),

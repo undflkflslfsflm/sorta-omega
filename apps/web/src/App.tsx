@@ -195,6 +195,8 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   const [today, setToday] = useState<Today | null>(null);
   const [nextActions, setNextActions] = useState<NextActionSet | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [brainNotes, setBrainNotes] = useState<Note[] | null>(null);
+  const [brainNotesError, setBrainNotesError] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [todayCalendar, setTodayCalendar] = useState<CalendarViewData | null>(null);
@@ -271,6 +273,14 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
   }
 
   useEffect(() => { void pendingCaptures().then(items=>setPendingCount(items.length));void refresh();const reconnect=()=>void refresh();window.addEventListener("online",reconnect);return()=>window.removeEventListener("online",reconnect); }, []);
+  useEffect(() => {
+    if (view !== "brain" || selectedNote) return;
+    let cancelled = false;
+    setBrainNotes(null);
+    setBrainNotesError(false);
+    void api.allNotes().then(items => { if (!cancelled) setBrainNotes(items); }).catch(() => { if (!cancelled) setBrainNotesError(true); });
+    return () => { cancelled = true; };
+  }, [view, selectedNote?.id]);
   useEffect(()=>{
     if(!desktopBridge)return;
     let disposed=false,unsubscribe:(()=>void)|undefined;
@@ -427,7 +437,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         </>}
         {view === "tasks" && <><TasksView focusAssignmentId={focusAssignmentId} tasks={tasks} actionNotes={notes.filter(note=>note.classification==="task"&&!tasks.some(task=>task.sourceNoteId===note.id))} sourceNotes={notes} people={entities.filter(entity => entity.kind === "person")} commitments={commitments} refresh={refresh} toggleTask={toggleTask} onOpenNote={note=>{setSelectedNote(note);setView("brain");}}/><details className="advanced-workspace"><summary>Reminder setup and corrections</summary><RemindersWorkspace tasks={tasks} refreshTasks={refresh}/></details></>}
         {view === "calendar" && <><PageTitle eyebrow="Your time" title="Calendar" copy="Classes, commitments, and absences in one place." accessory={<CalendarWeekBadge/>}/><CalendarProjection eventCount={events.length}/><details className="advanced-workspace"><summary>Calendar setup and manual corrections</summary><CalendarDailyBrief/><CalendarSourcesWorkspace/><CalendarImportWorkspace/><CalendarExportWorkspace/><CalendarView events={events} people={entities.filter(entity => entity.kind === "person")} createEvent={createLocalEvent}/><PreparationPlanWorkspace tasks={tasks} events={events}/><CalendarReminderWorkspace events={events}/><ProviderCalendarOutboxWorkspace events={events}/></details></>}
-        {view === "brain" && <>{recentlyTrashed&&<p className="pending-banner">“{recentlyTrashed.title}” is in trash. <button className="text-button" disabled={busy} onClick={()=>void undoRecentTrash()}>Undo trash</button></p>}{selectedNote ? <NoteEditor note={selectedNote} onClose={() => setSelectedNote(null)} onTrashed={trashed=>{setRecentlyTrashed(trashed);setSelectedNote(null);void refresh();}} onSaved={async () => { await refresh(); const latest=await api.note(selectedNote.id); setSelectedNote(latest); }}/> : <BrainNotes notes={notes} onOpen={setSelectedNote} onCreate={()=>void createBlankNote()} busy={busy}/>}</>}
+        {view === "brain" && <>{recentlyTrashed&&<p className="pending-banner">“{recentlyTrashed.title}” is in trash. <button className="text-button" disabled={busy} onClick={()=>void undoRecentTrash()}>Undo trash</button></p>}{selectedNote ? <NoteEditor note={selectedNote} onClose={() => setSelectedNote(null)} onTrashed={trashed=>{setRecentlyTrashed(trashed);setSelectedNote(null);void refresh();}} onSaved={async () => { await refresh(); const latest=await api.note(selectedNote.id); setSelectedNote(latest); }}/> : <BrainNotes notes={brainNotes ?? notes} loading={brainNotes === null && !brainNotesError} incomplete={brainNotesError} onOpen={setSelectedNote} onCreate={()=>void createBlankNote()} busy={busy}/>}</>}
         {view === "collection" && activeCollection && <><PageTitle eyebrow={activeCollection.collection.system ? "System collection" : "Saved collection"} title={activeCollection.collection.name} copy={`${activeCollection.items.length} matching note${activeCollection.items.length === 1 ? "" : "s"} · ${activeCollection.collection.sort.replace("_", " ")}`}/><NoteList notes={activeCollection.items} onOpen={note => { setSelectedNote(note); setView("brain"); }}/></>}
         {view === "search" && <SearchWorkspace onOpen={item=>void openSearchResult(item)} onOpenAssessment={assessmentId=>{setFocusAssessmentId(assessmentId);setView("school");}}/>}
         {view === "settings" && <><OfflineSettingsWorkspace pendingCount={pendingCount} onPendingCount={setPendingCount}/><OwnerPreferencesWorkspace/><DeviceAccessWorkspace/><VaultExportWorkspace/><IntegrationSettingsWorkspace/><CalendarAutomationPolicyWorkspace/><SchedulerPreferencesWorkspace/><SettingsWorkspace/></>}
@@ -850,12 +860,14 @@ function noteCardPreview(note: Note): string {
   return body.length > 180 ? `${body.slice(0, 180).trimEnd()}…` : body;
 }
 
-function BrainNotes({ notes, onOpen, onCreate, busy }: { notes: Note[]; onOpen: (note: Note) => void; onCreate: () => void; busy: boolean }) {
+function BrainNotes({ notes, loading, incomplete, onOpen, onCreate, busy }: { notes: Note[]; loading: boolean; incomplete: boolean; onOpen: (note: Note) => void; onCreate: () => void; busy: boolean }) {
   const { personal, imported } = groupBrainNotes(notes);
   return <>
     <PageTitle eyebrow="Notes and sources" title="Brain" copy="Your notes first. Imported source records stay available below."/>
     <button className="primary" disabled={busy} onClick={onCreate}><Plus size={17}/> New note</button>
-    {personal.length > 0 ? <NoteList notes={personal} onOpen={onOpen}/> : <p className="quiet-empty">No personal notes yet. Imported school posts and files are available below.</p>}
+    {loading && <p className="quiet-empty" role="status">Loading all saved notes…</p>}
+    {incomplete && <p className="pending-banner" role="status">Could not load all notes. Showing only the most recent records; older notes may be missing.</p>}
+    {personal.length > 0 ? <NoteList notes={personal} onOpen={onOpen}/> : !loading && !incomplete ? <p className="quiet-empty">No personal notes yet. Imported school posts and files are available below.</p> : null}
     {imported.length > 0 && <details className="brain-source-group">
       <summary>Imported sources <span>{imported.length}</span></summary>
       <p>Read-only school posts and file imports. Open any record to inspect its original evidence.</p>

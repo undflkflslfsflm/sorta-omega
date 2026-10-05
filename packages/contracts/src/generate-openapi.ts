@@ -336,7 +336,7 @@ const schemaMap: Record<string, z.ZodTypeAny> = {
   BootstrapResult: z.object({ owner: z.object({ id: z.string().uuid(), label: z.string() }), recovery_codes_once: z.array(z.string()), session: sessionSchema }),
   Session: sessionSchema,
   Note: noteSchema,
-  NoteList: z.object({ items: z.array(noteSchema) }),
+  NoteList: z.object({ items: z.array(noteSchema), nextCursor: z.string().nullable() }),
   UpdateNoteMetadata: updateNoteMetadataSchema,
   DocumentRepresentation: documentRepresentationSchema,
   EditNote: editNoteSchema,

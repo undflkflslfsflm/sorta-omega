@@ -24713,10 +24713,15 @@
               ],
               "additionalProperties": false
             }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
           }
         },
         "required": [
-          "items"
+          "items",
+          "nextCursor"
         ],
         "additionalProperties": false
       },
