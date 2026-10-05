@@ -200,7 +200,7 @@ try {
         if (args.get("teams-shared-folder-probe") === "true") {
           const sharepoint = probe.frames().find(frame => { try { return new URL(frame.url()).hostname.endsWith(".sharepoint.com"); } catch { return false; } });
           if (!sharepoint) throw new Error("teams_sharepoint_frame_missing");
-          const folders = sharepoint.locator('[role="row"]').filter({ has: sharepoint.locator('[title="Yellow folder"]') });
+          const folders = sharepoint.locator('[role="row"]').filter({ has: sharepoint.locator('[title="Yellow folder"], [aria-label="Yellow folder"]') });
           const folderCount = await folders.count();
           if (folderCount > 0 && folderCount <= 20) {
             await folders.first().locator('[data-automationid="field-LinkFilename"] button').first().click();
@@ -209,7 +209,7 @@ try {
           const folderShape = await sharepoint.evaluate(() => ({
             rows: document.querySelectorAll('[role="row"]').length,
             pptxRows: [...document.querySelectorAll<HTMLElement>('[role="row"]')].filter(row => /\.pptx\b/i.test(row.textContent ?? "")).length,
-            folderRows: document.querySelectorAll('[role="row"] [title="Yellow folder"]').length,
+            folderRows: document.querySelectorAll('[role="row"] [title="Yellow folder"], [role="row"] [aria-label="Yellow folder"]').length,
             extensions: [...document.querySelectorAll<HTMLElement>('[role="row"]')].map(row => (/\.([a-z0-9]{2,5})\b/i.exec(row.querySelector('[data-automationid="field-LinkFilename"]')?.textContent ?? "")?.[1] ?? "none").toLowerCase()).reduce<Record<string, number>>((all, extension) => { all[extension] = (all[extension] ?? 0) + 1; return all; }, {}),
           }));
           console.log(JSON.stringify({ provider, classIndex, folderCount, folderShape }));
