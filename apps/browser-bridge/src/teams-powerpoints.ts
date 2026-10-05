@@ -19,6 +19,20 @@ export function safeSegment(value: string): string {
   return cleaned.slice(0, 180);
 }
 
+const retryableDownloadErrors = new Set([
+  "teams_powerpoint_download_invalid",
+  "teams_powerpoint_download_was_bundle",
+  "teams_powerpoint_archive_invalid",
+]);
+
+export async function retryInvalidDownload<T>(download: () => Promise<T>): Promise<T> {
+  try { return await download(); }
+  catch (error) {
+    if (!(error instanceof Error) || !retryableDownloadErrors.has(error.message)) throw error;
+    return download();
+  }
+}
+
 async function visibleEntries(frame: Frame): Promise<{ entries: Entry[]; totalRows: number | null }> {
   const snapshot = await frame.evaluate(() => {
     const grid = document.querySelector<HTMLElement>('[role="grid"]');
@@ -146,27 +160,31 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
           if (!/\.pptx$/i.test(entry.name)) continue;
           if (items.length >= maxFiles) throw new Error("teams_powerpoint_file_limit_exceeded");
           const relativePath = ["Teams", className, channelName, ...segments.map(safeSegment), safeSegment(entry.name)].join("/");
-          // SharePoint retains prior row selections; downloading several selected files creates a ZIP bundle.
-          phase = "reset";
-          await goToFolder(frame, rootUrl, segments);
-          const currentEntries = (await visibleEntries(frame)).entries.filter(candidate => !candidate.folder && candidate.name === entry.name);
-          if (currentEntries.length !== 1) throw new Error("teams_powerpoint_row_changed");
-          const row = frame.locator('[role="row"]').nth(currentEntries[0].rowIndex);
-          phase = "select";
-          await row.click();
-          phase = "download";
-          const downloadButton = frame.getByRole("menuitem", { name: /^Download$/ });
-          await downloadButton.waitFor({ timeout: 10_000 });
-          const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), downloadButton.click()]).then(([item]) => item);
-          phase = "validate";
-          const filePath = await download.path();
-          const metadata = await stat(filePath);
-          if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
-          if (!/\.pptx$/i.test(download.suggestedFilename())) throw new Error("teams_powerpoint_download_was_bundle");
-          if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
-          if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);
-          const bytes = await readFile(filePath);
-          if (bytes[0] !== 0x50 || bytes[1] !== 0x4b || !Buffer.from(bytes).includes("ppt/presentation.xml")) throw new Error("teams_powerpoint_archive_invalid");
+          // SharePoint can return a stale selection or an incomplete download once.
+          // Re-entering the folder clears selection before the single bounded retry.
+          const bytes = await retryInvalidDownload(async () => {
+            phase = "reset";
+            await goToFolder(frame, rootUrl, segments);
+            const currentEntries = (await visibleEntries(frame)).entries.filter(candidate => !candidate.folder && candidate.name === entry.name);
+            if (currentEntries.length !== 1) throw new Error("teams_powerpoint_row_changed");
+            const row = frame.locator('[role="row"]').nth(currentEntries[0].rowIndex);
+            phase = "select";
+            await row.click();
+            phase = "download";
+            const downloadButton = frame.getByRole("menuitem", { name: /^Download$/ });
+            await downloadButton.waitFor({ timeout: 10_000 });
+            const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), downloadButton.click()]).then(([item]) => item);
+            phase = "validate";
+            const filePath = await download.path();
+            const metadata = await stat(filePath);
+            if (!metadata.isFile() || metadata.size < 1) throw new Error("teams_powerpoint_download_invalid");
+            if (!/\.pptx$/i.test(download.suggestedFilename())) throw new Error("teams_powerpoint_download_was_bundle");
+            if (metadata.size > maxFileBytes) throw new Error(`teams_powerpoint_file_limit_exceeded:${metadata.size}`);
+            if (totalBytes + metadata.size > maxBatchBytes) throw new Error(`teams_powerpoint_batch_limit_exceeded:${totalBytes + metadata.size}`);
+            const downloadedBytes = await readFile(filePath);
+            if (downloadedBytes[0] !== 0x50 || downloadedBytes[1] !== 0x4b || !downloadedBytes.includes("ppt/presentation.xml")) throw new Error("teams_powerpoint_archive_invalid");
+            return downloadedBytes;
+          });
           const sha256 = createHash("sha256").update(bytes).digest("hex");
           const stagedPath = path.join(stagingRoot, "files", sha256);
           await writeFile(stagedPath, bytes, { flag: "wx" }).catch(async error => {
