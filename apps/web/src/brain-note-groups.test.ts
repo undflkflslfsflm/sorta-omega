@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupBrainNotes, groupImportedOriginals, importedSourceLocation, isAutomaticSourceNote } from "./brain-note-groups";
+import { groupBrainNotes, groupImportedOriginals, importedSourceLocation, isAutomaticSourceNote, notePreviewContent } from "./brain-note-groups";
 
 describe("Brain note grouping", () => {
   it("keeps owner captures in the primary view", () => {
@@ -38,5 +38,12 @@ describe("imported original grouping", () => {
       { sourceId: "b", body: "Source: Teams class channel post\nSame text", title: "post" }
     ];
     expect(groupImportedOriginals(notes)).toEqual([[notes[0]], [notes[1]]]);
+  });
+
+  it("previews useful extracted content without losing provenance in the original record", () => {
+    const body = "Imported from 4090: Teams/Maths/chapter.pptx\n\nSlide 1\nFractions";
+    expect(notePreviewContent({ sourceId: "source-1", body })).toBe("Slide 1\nFractions");
+    expect(body).toContain("Teams/Maths/chapter.pptx");
+    expect(notePreviewContent({ sourceId: null, body })).toBe(body);
   });
 });

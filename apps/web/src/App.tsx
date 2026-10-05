@@ -26,7 +26,7 @@ import { assessmentScopeParts } from "./assessment-scope";
 import { parseNorwegianDate, parseNorwegianDateTime } from "./norwegian-date-time";
 import { emptyNoteMessage, type AttachmentLoadState } from "./note-empty-state";
 import { passkeySignInMessage, type PasskeySignInStage } from "./passkey-signin";
-import { groupBrainNotes, groupImportedOriginals, importedSourceLocation } from "./brain-note-groups";
+import { groupBrainNotes, groupImportedOriginals, importedSourceLocation, notePreviewContent } from "./brain-note-groups";
 import type { NoteCommitmentCandidate } from "@sorta/contracts";
 
 const RichDocumentEditor=lazy(()=>import("./ManagedNoteEditor"));
@@ -855,7 +855,7 @@ function SettingsWorkspace() {
 function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) { return <button className={task.completed ? "task-row done" : "task-row"} onClick={onToggle}>{task.completed ? <CheckCircle2 size={20}/> : <Circle size={20}/>}<span>{task.title}</span>{task.dueAt && <time>{friendlyDate(task.dueAt)}</time>}</button>; }
 
 function noteCardPreview(note: Note): string {
-  const body = note.body.trim().replace(/\s+/g, " ");
+  const body = notePreviewContent(note).trim().replace(/\s+/g, " ");
   if (!body) return note.sourceId ? "No text preview · open to inspect the original and any attached files." : "Empty note · no text added yet.";
   return body.length > 180 ? `${body.slice(0, 180).trimEnd()}…` : body;
 }

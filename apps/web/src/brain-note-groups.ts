@@ -31,3 +31,9 @@ export function importedSourceLocation(note: SourceNote & { title: string }): st
   const firstLine = note.body.split("\n", 1)[0];
   return firstLine.startsWith("Imported from ") ? firstLine.slice("Imported from ".length) : note.title;
 }
+
+export function notePreviewContent(note: SourceNote): string {
+  if (!isAutomaticSourceNote(note) || !note.body.startsWith("Imported from ")) return note.body;
+  const separator = note.body.indexOf("\n\n");
+  return separator < 0 ? note.body : note.body.slice(separator + 2);
+}
