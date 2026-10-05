@@ -26,6 +26,7 @@ import { assessmentScopeParts } from "./assessment-scope";
 import { parseNorwegianDate, parseNorwegianDateTime } from "./norwegian-date-time";
 import { emptyNoteMessage, type AttachmentLoadState } from "./note-empty-state";
 import { passkeySignInMessage, type PasskeySignInStage } from "./passkey-signin";
+import { groupBrainNotes } from "./brain-note-groups";
 import type { NoteCommitmentCandidate } from "@sorta/contracts";
 
 const RichDocumentEditor=lazy(()=>import("./ManagedNoteEditor"));
@@ -426,7 +427,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         </>}
         {view === "tasks" && <><TasksView focusAssignmentId={focusAssignmentId} tasks={tasks} actionNotes={notes.filter(note=>note.classification==="task"&&!tasks.some(task=>task.sourceNoteId===note.id))} sourceNotes={notes} people={entities.filter(entity => entity.kind === "person")} commitments={commitments} refresh={refresh} toggleTask={toggleTask} onOpenNote={note=>{setSelectedNote(note);setView("brain");}}/><details className="advanced-workspace"><summary>Reminder setup and corrections</summary><RemindersWorkspace tasks={tasks} refreshTasks={refresh}/></details></>}
         {view === "calendar" && <><PageTitle eyebrow="Your time" title="Calendar" copy="Classes, commitments, and absences in one place." accessory={<CalendarWeekBadge/>}/><CalendarProjection eventCount={events.length}/><details className="advanced-workspace"><summary>Calendar setup and manual corrections</summary><CalendarDailyBrief/><CalendarSourcesWorkspace/><CalendarImportWorkspace/><CalendarExportWorkspace/><CalendarView events={events} people={entities.filter(entity => entity.kind === "person")} createEvent={createLocalEvent}/><PreparationPlanWorkspace tasks={tasks} events={events}/><CalendarReminderWorkspace events={events}/><ProviderCalendarOutboxWorkspace events={events}/></details></>}
-        {view === "brain" && <>{recentlyTrashed&&<p className="pending-banner">“{recentlyTrashed.title}” is in trash. <button className="text-button" disabled={busy} onClick={()=>void undoRecentTrash()}>Undo trash</button></p>}{selectedNote ? <NoteEditor note={selectedNote} onClose={() => setSelectedNote(null)} onTrashed={trashed=>{setRecentlyTrashed(trashed);setSelectedNote(null);void refresh();}} onSaved={async () => { await refresh(); const latest=await api.note(selectedNote.id); setSelectedNote(latest); }}/> : <><PageTitle eyebrow="Notes and sources" title="Brain" copy="Find the idea and open its original evidence."/><button className="primary" disabled={busy} onClick={()=>void createBlankNote()}><Plus size={17}/> New note</button><NoteList notes={notes} onOpen={setSelectedNote}/></>}</>}
+        {view === "brain" && <>{recentlyTrashed&&<p className="pending-banner">“{recentlyTrashed.title}” is in trash. <button className="text-button" disabled={busy} onClick={()=>void undoRecentTrash()}>Undo trash</button></p>}{selectedNote ? <NoteEditor note={selectedNote} onClose={() => setSelectedNote(null)} onTrashed={trashed=>{setRecentlyTrashed(trashed);setSelectedNote(null);void refresh();}} onSaved={async () => { await refresh(); const latest=await api.note(selectedNote.id); setSelectedNote(latest); }}/> : <BrainNotes notes={notes} onOpen={setSelectedNote} onCreate={()=>void createBlankNote()} busy={busy}/>}</>}
         {view === "collection" && activeCollection && <><PageTitle eyebrow={activeCollection.collection.system ? "System collection" : "Saved collection"} title={activeCollection.collection.name} copy={`${activeCollection.items.length} matching note${activeCollection.items.length === 1 ? "" : "s"} · ${activeCollection.collection.sort.replace("_", " ")}`}/><NoteList notes={activeCollection.items} onOpen={note => { setSelectedNote(note); setView("brain"); }}/></>}
         {view === "search" && <SearchWorkspace onOpen={item=>void openSearchResult(item)} onOpenAssessment={assessmentId=>{setFocusAssessmentId(assessmentId);setView("school");}}/>}
         {view === "settings" && <><OfflineSettingsWorkspace pendingCount={pendingCount} onPendingCount={setPendingCount}/><OwnerPreferencesWorkspace/><DeviceAccessWorkspace/><VaultExportWorkspace/><IntegrationSettingsWorkspace/><CalendarAutomationPolicyWorkspace/><SchedulerPreferencesWorkspace/><SettingsWorkspace/></>}
@@ -847,6 +848,20 @@ function noteCardPreview(note: Note): string {
   const body = note.body.trim().replace(/\s+/g, " ");
   if (!body) return note.sourceId ? "No text preview · open to inspect the original and any attached files." : "Empty note · no text added yet.";
   return body.length > 180 ? `${body.slice(0, 180).trimEnd()}…` : body;
+}
+
+function BrainNotes({ notes, onOpen, onCreate, busy }: { notes: Note[]; onOpen: (note: Note) => void; onCreate: () => void; busy: boolean }) {
+  const { personal, imported } = groupBrainNotes(notes);
+  return <>
+    <PageTitle eyebrow="Notes and sources" title="Brain" copy="Your notes first. Imported source records stay available below."/>
+    <button className="primary" disabled={busy} onClick={onCreate}><Plus size={17}/> New note</button>
+    {personal.length > 0 ? <NoteList notes={personal} onOpen={onOpen}/> : <p className="quiet-empty">No personal notes yet. Imported school posts and files are available below.</p>}
+    {imported.length > 0 && <details className="brain-source-group">
+      <summary>Imported sources <span>{imported.length}</span></summary>
+      <p>Read-only school posts and file imports. Open any record to inspect its original evidence.</p>
+      <NoteList notes={imported} onOpen={onOpen}/>
+    </details>}
+  </>;
 }
 
 function NoteList({ notes, onOpen }: { notes: Note[]; onOpen?: (note: Note) => void }) { return <div className="notes-grid">{notes.map(note => <article className={onOpen ? "note-card interactive" : "note-card"} key={note.id} onClick={() => onOpen?.(note)} onKeyDown={event => { if (onOpen && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onOpen(note); } }} role={onOpen?"button":undefined} tabIndex={onOpen ? 0 : undefined}><div className="note-meta"><Archive size={15}/><span>{note.classification ?? "unclassified"}{note.classificationLocked ? " · locked" : ""}</span><time>{new Intl.DateTimeFormat("nb-NO", { day: "2-digit", month: "2-digit" }).format(new Date(note.updatedAt))}</time></div><h3>{note.title}</h3><p>{noteCardPreview(note)}</p><small>{note.status === "saved" ? "Saved" : note.status.replaceAll("_", " ")} · version {note.revision}</small></article>)}{notes.length === 0 && <div className="large-empty"><Brain/><h2>Your brain is ready</h2><p>Capture your first note. It will remain available even if AI is offline.</p></div>}</div>; }
