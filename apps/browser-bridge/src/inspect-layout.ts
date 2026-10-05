@@ -191,7 +191,13 @@ try {
         const pptxGrid = await probe.evaluate(() => {
           const grid = [...document.querySelectorAll<HTMLElement>('[data-tid="file-attachment-grid"]')].find(item => /\.pptx\b/i.test(item.textContent ?? ""));
           const shape = (item: Element, depth: number): unknown => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), tid: item.getAttribute("data-tid"), aria: item.getAttribute("aria-label"), title: item.getAttribute("title"), attributes: [...item.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 12), extension: /\.(pptx|ppt|pdf|docx|xlsx)\b/i.exec(item.textContent ?? "")?.[1]?.toLowerCase() ?? null, children: depth < 7 ? [...item.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
-          return grid ? shape(grid, 0) : null;
+          const raw = grid?.querySelector('[atpsharepointdata]')?.getAttribute("atpsharepointdata") ?? "";
+          let metadata: unknown = null;
+          try {
+            const parsed: unknown = JSON.parse(raw);
+            metadata = parsed && typeof parsed === "object" ? Object.fromEntries(Object.entries(parsed).map(([key, value]) => [key, typeof value === "string" ? { type: "string", length: value.length, looksLikeUrl: /^https?:\/\//i.test(value) } : { type: typeof value }])) : { type: typeof parsed };
+          } catch { metadata = { parseable: false, length: raw.length, prefix: raw.slice(0, 1) }; }
+          return grid ? { tree: shape(grid, 0), metadata } : null;
         });
         let opened: unknown = null;
         if (args.get("teams-post-open-pptx") === "true") {
