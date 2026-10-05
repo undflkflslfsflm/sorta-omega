@@ -50,7 +50,7 @@ try {
     throw "The Teams PowerPoint capture failed: $errorCode"
   }
   $report = $bridgeOutput[-1] | ConvertFrom-Json
-  $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+  $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
   if ($report.provider -ne 'teams-powerpoints' -or $report.format -ne 'omega_personal_files_v1' -or $report.itemCount -lt 1 -or $report.itemCount -gt 2048 -or $manifest.deviceKey -ne 'teams-sharepoint' -or @($manifest.items).Count -ne [int]$report.itemCount) { throw 'The Teams PowerPoint capture report is inconsistent.' }
 
   $importScript = Join-Path $PSScriptRoot 'import-teams-powerpoints.ps1'

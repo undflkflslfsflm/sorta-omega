@@ -13,7 +13,7 @@ $source = [IO.Path]::GetFullPath($StagingRoot).TrimEnd('\')
 if ([IO.Path]::GetDirectoryName($source) -ne $spool -or [IO.Path]::GetFileName($source) -notmatch '^personal-[0-9a-f]{32}$') { throw 'The staged scan must be an exact personal-<32hex> directory in the browser-bridge spool.' }
 $sourceManifestPath = Join-Path $source 'manifest.json'
 if (-not (Test-Path -LiteralPath $sourceManifestPath -PathType Leaf)) { throw 'The complete Teams PowerPoint manifest is missing; nothing was imported.' }
-$manifest = Get-Content -LiteralPath $sourceManifestPath -Raw | ConvertFrom-Json
+$manifest = Get-Content -LiteralPath $sourceManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $items = @($manifest.items)
 if ($manifest.version -ne 'omega_personal_files_v1' -or $manifest.deviceKey -ne 'teams-sharepoint' -or $items.Count -lt 1 -or $items.Count -gt 2048) { throw 'The Teams PowerPoint manifest is invalid or empty.' }
 
@@ -73,4 +73,4 @@ foreach ($batchItems in $batches) {
   }
 }
 if ($accounted -ne $items.Count) { throw 'The staged scan was not fully accounted for.' }
-[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'General-channel Shared folders only; other Teams locations still require capture.' } | ConvertTo-Json -Compress
+[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'Class-channel Shared folders only; Classwork and post attachments still require capture.' } | ConvertTo-Json -Compress
