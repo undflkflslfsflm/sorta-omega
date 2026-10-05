@@ -2298,12 +2298,12 @@ app.get("/api/v1/vaults/:vaultId/school/assignments/:assignmentId/sources", asyn
   const instructionIds: string[] = assignment.rows[0].instructions_source_ids ?? [];
   const materialIds: string[] = assignment.rows[0].material_source_ids ?? [];
   const ids = [...new Set([...instructionIds, ...materialIds])];
-  const sources = ids.length ? await query("SELECT id,kind,original_text,source_url,mime_type FROM sources WHERE vault_id=$1 AND id=ANY($2::uuid[])", [vaultId, ids]) : { rows: [] };
+  const sources = ids.length ? await query("SELECT id,kind,original_text,source_url,mime_type,created_at FROM sources WHERE vault_id=$1 AND id=ANY($2::uuid[])", [vaultId, ids]) : { rows: [] };
   const byId = new Map(sources.rows.map(row => [row.id, row]));
   reply.header("cache-control", "no-store");
   return { items: ids.map(id => {
     const source = byId.get(id);
-    return { sourceId: id, role: instructionIds.includes(id) ? "instructions" : "material", kind: source?.kind ?? "unavailable", text: source?.original_text ?? null, sourceUrl: source?.source_url ?? null, mimeType: source?.mime_type ?? null };
+    return { sourceId: id, role: instructionIds.includes(id) ? "instructions" : "material", kind: source?.kind ?? "unavailable", text: source?.original_text ?? null, sourceUrl: source?.source_url ?? null, mimeType: source?.mime_type ?? null, storedAt: source?.created_at ? iso(source.created_at) : null };
   }) };
 });
 
