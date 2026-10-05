@@ -48,7 +48,7 @@ try {
   if (!page) throw new Error("matching_tab_not_found");
   if (args.get("inschool-section") && provider === "inschool") {
     const section = args.get("inschool-section");
-    if (!section || !["attendance", "attendance/lessons", "attendance/future", "assessment"].includes(section)) throw new Error("inschool_section_not_registered");
+    if (!section || !["attendance", "attendance/lessons", "attendance/future", "assessment", "assessment/exams"].includes(section)) throw new Error("inschool_section_not_registered");
     const probe = await browser.contexts()[0].newPage();
     try {
       await probe.goto(`${expectedOrigin}/#/app/${section}`, { waitUntil: "domcontentloaded", timeout: 30_000 });
@@ -68,6 +68,7 @@ try {
           bodyCharacters: document.body?.innerText?.length ?? 0,
           counts: { tables: document.querySelectorAll("table").length, rows: document.querySelectorAll('tr, [role="row"]').length, tabs: document.querySelectorAll('[role="tab"]').length },
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.textContent ?? "").trim().slice(0, 60), selected: item.getAttribute("aria-selected"), hrefShape: item.getAttribute("href")?.replace(/\d+/g, "*") ?? null })),
+          selectors: [...document.querySelectorAll<HTMLSelectElement>("main select")].map(item => ({ optionCount: item.options.length, selectedIndex: item.selectedIndex, options: [...item.options].slice(0, 30).map(option => ({ valueShape: option.value.replace(/\d+/g, "*"), label: (option.textContent ?? "").trim().slice(0, 40) })) })),
           table: [...document.querySelectorAll<HTMLTableElement>("table")].map(item => ({
             reportedRows: item.getAttribute("aria-rowcount"),
             headerRows: item.querySelectorAll("thead tr").length,
