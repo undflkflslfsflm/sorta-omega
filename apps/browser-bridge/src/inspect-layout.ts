@@ -187,7 +187,7 @@ try {
         await probe.waitForTimeout(5_000);
         const shape = await probe.evaluate(() => ({
           tabs: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => ({ label: (item.getAttribute("aria-label") ?? item.textContent ?? "").trim().slice(0, 40), selected: item.getAttribute("aria-selected") })),
-          headings: [...document.querySelectorAll<HTMLElement>("h1, h2, h3")].map(item => ({ tag: item.tagName.toLowerCase(), length: (item.textContent ?? "").trim().length })).slice(0, 20),
+          headings: [...document.querySelectorAll<HTMLElement>("h1, h2, h3")].map(item => ({ tag: item.tagName.toLowerCase(), text: (item.textContent ?? "").trim().slice(0, 200) })).slice(0, 20),
           counts: { pptxMentions: (document.body?.innerText?.match(/\.pptx\b/gi) ?? []).length, links: document.querySelectorAll("a[href]").length, iframes: document.querySelectorAll("iframe").length, dialogs: document.querySelectorAll('[role="dialog"]').length },
           controls: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')].slice(0, 80).map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), label: (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").trim().slice(0, 80) })).filter(item => /classwork|material|assignment|module|resource|file|folder|show|open|view|oppgave|materiell/i.test(item.label)).slice(0, 30),
           frames: [...document.querySelectorAll<HTMLIFrameElement>("iframe")].map(item => { try { return new URL(item.src).origin; } catch { return "unknown"; } }).slice(0, 10),
@@ -197,7 +197,7 @@ try {
           routeShape: `${location.pathname}${location.hash}`.replace(/[a-f0-9-]{20,}/gi, "*").slice(0, 150),
           bodyCharacters: document.body?.innerText?.length ?? 0,
           counts: { links: document.querySelectorAll("a[href]").length, rows: document.querySelectorAll('tr, [role="row"]').length, cards: document.querySelectorAll('article, [role="article"]').length, pptxMentions: (document.body?.innerText?.match(/\.pptx\b/gi) ?? []).length },
-          headings: [...document.querySelectorAll<HTMLElement>("h1, h2, h3")].map(item => ({ tag: item.tagName.toLowerCase(), length: (item.textContent ?? "").trim().length })).slice(0, 20),
+          headings: [...document.querySelectorAll<HTMLElement>("h1, h2, h3")].map(item => ({ tag: item.tagName.toLowerCase(), text: (item.textContent ?? "").trim().slice(0, 200) })).slice(0, 20),
           controls: [...document.querySelectorAll<HTMLElement>('button, a, [role="button"], [role="tab"]')].slice(0, 100).map(item => ({ tag: item.tagName.toLowerCase(), role: item.getAttribute("role"), label: (item.getAttribute("aria-label") ?? item.getAttribute("title") ?? item.textContent ?? "").trim().slice(0, 60) })).filter(item => /material|assignment|resource|file|folder|show|open|view|oppgave|materiell/i.test(item.label)).slice(0, 30),
         })) : null;
         console.log(JSON.stringify({ provider, classIndex, classwork: shape, embedded }));
