@@ -18,7 +18,16 @@ if ($origin.Scheme -ne 'https' -or -not $origin.Host.EndsWith('.inschool.visma.n
 $bridge = Join-Path $RepositoryRoot 'apps\browser-bridge\src\cli.ts'
 $tsx = Join-Path $RepositoryRoot 'apps\browser-bridge\node_modules\.bin\tsx.cmd'
 if (-not (Test-Path -LiteralPath $bridge) -or -not (Test-Path -LiteralPath $tsx)) { throw 'Install the bridge dependencies before syncing.' }
-if (-not (Test-Path -LiteralPath (Join-Path $ProfilePath 'DevToolsActivePort'))) { throw 'The signed-in Edge bridge profile is not running.' }
+$portFile = Join-Path $ProfilePath 'DevToolsActivePort'
+if (-not (Test-Path -LiteralPath $portFile)) { throw 'The school Edge window is closed. Open the Sorta Omega - Connect school accounts shortcut and leave the InSchool timetable tab open.' }
+$portText = (Get-Content -LiteralPath $portFile -TotalCount 1).Trim()
+if ($portText -notmatch '^\d{4,5}$' -or [int]$portText -lt 1024 -or [int]$portText -gt 65535) { throw 'The school Edge debug port is invalid. Reopen the Sorta Omega - Connect school accounts shortcut.' }
+try {
+  $cdpResponse = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$portText/json/version" -TimeoutSec 3
+  if ([int]$cdpResponse.StatusCode -ne 200) { throw 'unavailable' }
+} catch {
+  throw 'The school Edge window is closed or unreachable. Open the Sorta Omega - Connect school accounts shortcut and leave the InSchool timetable tab open.'
+}
 
 $spool = Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\spool'
 New-Item -ItemType Directory -Path $spool -Force | Out-Null
