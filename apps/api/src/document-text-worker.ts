@@ -1,8 +1,9 @@
 import { parentPort, workerData } from "node:worker_threads";
 import JSZip from "jszip";
 import type { Readable } from "node:stream";
+import { extractXlsxText } from "./xlsx-text.js";
 
-type ExtractionInput = { bytes: Uint8Array; kind: "pdf" | "docx" | "pptx" };
+type ExtractionInput = { bytes: Uint8Array; kind: "pdf" | "docx" | "pptx" | "xlsx" };
 type ExtractionResult = { text: string | null; complete: boolean; reason: string | null };
 
 const maxCharacters = 1_000_000;
@@ -80,6 +81,7 @@ async function extractPptx(bytes: Uint8Array): Promise<ExtractionResult> {
 
 export async function extractRichDocument(input: ExtractionInput): Promise<ExtractionResult> {
   if (input.kind === "pptx") return extractPptx(input.bytes);
+  if (input.kind === "xlsx") return extractXlsxText(input.bytes);
   if (input.kind === "docx") {
     const mammoth = (await import("mammoth")).default;
     const result = await mammoth.extractRawText({ buffer: Buffer.from(input.bytes) });

@@ -90,6 +90,34 @@ describe("document text extraction", () => {
     expect(result).toEqual({ text: "Quadratic functions", complete: true, reason: null });
   }, 20_000);
 
+  it("extracts named Excel sheets, cell locations, saved formulas and shared strings", async () => {
+    const zip = new JSZip();
+    zip.file("xl/workbook.xml", '<workbook><sheets><sheet name="Prøveplan" sheetId="1" r:id="rId2"/></sheets></workbook>');
+    zip.file("xl/_rels/workbook.xml.rels", '<Relationships><Relationship Id="rId2" Target="worksheets/sheet3.xml"/></Relationships>');
+    zip.file("xl/sharedStrings.xml", '<sst><si><t>Matematikk &amp; statistikk</t></si></sst>');
+    zip.file("xl/worksheets/sheet3.xml", '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>24.09.2026</t></is></c></row><row r="2"><c r="A2"><f>SUM(B2:B3)</f><v>42</v></c><c r="C2" t="b"><v>1</v></c></row></sheetData></worksheet>');
+    expect(await extractDocumentText(await zip.generateAsync({ type: "uint8array" }), "plan.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+      .toEqual({ text: "Sheet 1: Prøveplan\nA1: Matematikk & statistikk\nB1: 24.09.2026\nA2: 42 (saved formula result; =SUM(B2:B3))\nC2: TRUE", complete: true, reason: null });
+  }, 20_000);
+
+  it("marks Excel formulas without saved results incomplete", async () => {
+    const zip = new JSZip();
+    zip.file("xl/workbook.xml", '<workbook><sheets><sheet name="Tasks" r:id="rId1"/></sheets></workbook>');
+    zip.file("xl/_rels/workbook.xml.rels", '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>');
+    zip.file("xl/worksheets/sheet1.xml", '<worksheet><sheetData><row r="1"><c r="A1"><f>SUM(B1:B4)</f></c></row></sheetData></worksheet>');
+    expect(await extractDocumentText(await zip.generateAsync({ type: "uint8array" }), "tasks.xlsx", "application/octet-stream"))
+      .toEqual({ text: "Sheet 1: Tasks\nA1: Formula =SUM(B1:B4) (saved result unavailable)", complete: false, reason: "workbook_feature_or_text_limit" });
+  }, 20_000);
+
+  it("does not claim text extraction from an empty Excel sheet", async () => {
+    const zip = new JSZip();
+    zip.file("xl/workbook.xml", '<workbook><sheets><sheet name="Empty" r:id="rId1"/></sheets></workbook>');
+    zip.file("xl/_rels/workbook.xml.rels", '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/></Relationships>');
+    zip.file("xl/worksheets/sheet1.xml", "<worksheet><sheetData/></worksheet>");
+    expect(await extractDocumentText(await zip.generateAsync({ type: "uint8array" }), "empty.xlsx", "application/octet-stream"))
+      .toEqual({ text: null, complete: false, reason: "no_embedded_text" });
+  }, 20_000);
+
   it("keeps unsupported and invalid originals explicitly incomplete", async () => {
     expect(await extractDocumentText(new TextEncoder().encode("hello"), "photo.png", "image/png"))
       .toEqual({ text: null, complete: false, reason: "unsupported_format" });

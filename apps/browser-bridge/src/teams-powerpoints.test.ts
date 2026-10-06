@@ -60,6 +60,7 @@ describe("Teams post school-file identity", () => {
     expect(postSchoolFileRelativePath("Økonomistyring", "chain", "message", "Prøve.pptx", 0, "Kapittel 3")).toMatch(/^Teams\/Økonomistyring\/Kapittel 3\/Posts\/[0-9a-f]{24}\/Prøve\.pptx$/);
     expect(postSchoolFileRelativePath("Økonomistyring", "chain", "message", "Oppgaver.pdf")).toMatch(/\/Oppgaver\.pdf$/);
     expect(postSchoolFileRelativePath("Økonomistyring", "chain", "message", "Notater.docx")).toMatch(/\/Notater\.docx$/);
+    expect(postSchoolFileRelativePath("Økonomistyring", "chain", "message", "Tabell.xlsx")).toMatch(/\/Tabell\.xlsx$/);
   });
 
   it("rejects missing identities and other file types", () => {
@@ -72,9 +73,11 @@ describe("downloaded school originals", () => {
   it("accepts supported signatures and bounds each file type", () => {
     expect(schoolFileByteLimit("slides.pptx")).toBe(100 * 1024 * 1024);
     expect(schoolFileByteLimit("handout.pdf")).toBe(25 * 1024 * 1024);
+    expect(schoolFileByteLimit("table.xlsx")).toBe(25 * 1024 * 1024);
     expect(() => validateSchoolOriginal("handout.pdf", Buffer.from("%PDF-1.7"))).not.toThrow();
     expect(() => validateSchoolOriginal("notes.docx", Buffer.from("PKxxword/document.xml"))).not.toThrow();
     expect(() => validateSchoolOriginal("slides.pptx", Buffer.from("PKxxppt/presentation.xml"))).not.toThrow();
+    expect(() => validateSchoolOriginal("table.xlsx", Buffer.from("PKxxxl/workbook.xml"))).not.toThrow();
   });
 
   it("rejects bundles, wrong signatures and unsupported types", () => {

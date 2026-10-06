@@ -12,7 +12,7 @@ const maxDepth = 10;
 const maxFiles = 2048;
 const maxFileBytes = 100 * 1024 * 1024;
 const maxBatchBytes = 5 * 1024 * 1024 * 1024;
-const supportedSchoolFile = /\.(?:pptx|pdf|docx)$/i;
+const supportedSchoolFile = /\.(?:pptx|pdf|docx|xlsx)$/i;
 
 export function schoolFileByteLimit(name: string): number {
   if (!supportedSchoolFile.test(name)) throw new Error("teams_school_file_type_unsupported");
@@ -26,7 +26,7 @@ export function validateSchoolOriginal(name: string, contents: Uint8Array): void
     return;
   }
   if (contents[0] !== 0x50 || contents[1] !== 0x4b) throw new Error("teams_school_file_signature_invalid");
-  const marker = /\.pptx$/i.test(name) ? "ppt/presentation.xml" : "word/document.xml";
+  const marker = /\.pptx$/i.test(name) ? "ppt/presentation.xml" : /\.xlsx$/i.test(name) ? "xl/workbook.xml" : "word/document.xml";
   if (!Buffer.from(contents).includes(marker)) throw new Error("teams_school_file_signature_invalid");
 }
 
@@ -150,7 +150,7 @@ async function collectPostFiles(probe: Page, className: string, channelName: str
   }
   const cardSelector = '[data-tid="file-attachment-grid"] [role="group"][aria-label]';
   const candidates = await probe.evaluate(selector => [...document.querySelectorAll<HTMLElement>(selector)].flatMap((card, cardIndex) => {
-    if (!/\.(?:pptx|pdf|docx)$/i.test(card.getAttribute("aria-label") ?? "")) return [];
+    if (!/\.(?:pptx|pdf|docx|xlsx)$/i.test(card.getAttribute("aria-label") ?? "")) return [];
     let ancestor = card.parentElement;
     let owners: HTMLElement[] = [];
     while (ancestor && owners.length === 0) {
