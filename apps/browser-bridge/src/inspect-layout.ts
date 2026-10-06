@@ -1,4 +1,5 @@
 import { chromium } from "playwright-core";
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -731,7 +732,19 @@ try {
         for (let ancestor = message?.parentElement, depth = 0; ancestor && depth < 8; ancestor = ancestor.parentElement, depth++) messageAncestors.push({ tag: ancestor.tagName.toLowerCase(), classes: safeClasses(ancestor), scrollHeight: ancestor.scrollHeight, clientHeight: ancestor.clientHeight, attributes: [...ancestor.attributes].map(attribute => attribute.name).filter(name => name !== "style" && name !== "class").slice(0, 10) });
         return { routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120), counts: { trees: document.querySelectorAll('[role="tree"]').length, treeItems: document.querySelectorAll('[role="treeitem"]').length, listItems: document.querySelectorAll('[role="listitem"]').length, chatDataElements: document.querySelectorAll('[data-tid*="chat" i]').length, messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"]').length }, itemTypes, selectedChatItems: chatItems.filter(node => node.getAttribute("aria-selected") === "true").length, firstItem: item ? shape(item, 0) : null, firstMessage: message ? shape(message, 1) : null, messageAncestors };
       });
-      console.log(JSON.stringify({ provider, chatLayout: layout }));
+      const samples: Array<{ index: number; messageCount: number; distinctMessageIds: number; messageSetHash: string }> = [];
+      if (args.get("teams-chat-sample") === "true") {
+        const rows = probe.locator('[role="treeitem"][data-item-type="chat"], [role="treeitem"][data-item-type="muted-chat"]');
+        const count = await rows.count();
+        if (count < 1 || count > 200) throw new Error("teams_chat_row_count_unbounded");
+        for (let index = 0; index < Math.min(3, count); index++) {
+          await rows.nth(index).click();
+          await probe.waitForTimeout(1_500);
+          const ids = await probe.locator('[data-tid="chat-pane-message"][data-mid]').evaluateAll(nodes => nodes.map(node => node.getAttribute("data-mid") ?? "").filter(Boolean));
+          samples.push({ index, messageCount: ids.length, distinctMessageIds: new Set(ids).size, messageSetHash: createHash("sha256").update(ids.join("\0")).digest("hex").slice(0, 12) });
+        }
+      }
+      console.log(JSON.stringify({ provider, chatLayout: layout, samples }));
     } finally { await probe.close(); }
   } else if (args.get("navigation-only") === "true" && provider === "teams") {
     const navigation = await page.evaluate(() => {
