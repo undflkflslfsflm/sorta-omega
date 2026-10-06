@@ -710,8 +710,11 @@ try {
           if (!Number.isInteger(cardIndex) || cardIndex < 0 || cardIndex > 20) throw new Error("teams_assignment_probe_index_invalid");
           const firstCard = assignmentsFrame.locator(".aui-assignmentListCard").nth(cardIndex);
           if (await firstCard.count() !== 1) throw new Error("teams_assignment_card_missing");
+          const cardDomId = await firstCard.getAttribute("id");
           await firstCard.click();
           await probe.waitForTimeout(8_000);
+          const detailRouteId = new URL(assignmentsFrame.url()).pathname.split("/").at(-1) ?? "";
+          console.log(JSON.stringify({ provider, assignmentCardRouteIdentity: { domIdPresent: Boolean(cardDomId), matchesDetailRouteId: cardDomId === detailRouteId, domIdContainsDetailRouteId: Boolean(cardDomId && detailRouteId && cardDomId.includes(detailRouteId)) } }));
           if (args.get("probe-assignment-file-menu") === "true") {
             const more = assignmentsFrame.locator('[class*="resource-well" i] button[class*="more-options-button" i]').first();
             if (await more.count() === 1) {
