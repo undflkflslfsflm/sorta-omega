@@ -712,6 +712,14 @@ try {
           if (await firstCard.count() !== 1) throw new Error("teams_assignment_card_missing");
           await firstCard.click();
           await probe.waitForTimeout(8_000);
+          if (args.get("probe-assignment-file-menu") === "true") {
+            const more = assignmentsFrame.locator('[class*="resource-well" i] button[class*="more-options-button" i]').first();
+            if (await more.count() === 1) {
+              await more.click();
+              const menuShape = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>('[role="menuitem"], [role="menu"] button, [role="menu"] a')].slice(0, 20).map(element => ({ tag: element.tagName.toLowerCase(), role: element.getAttribute("role"), label: (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 60), hrefOrigin: element instanceof HTMLAnchorElement && element.href ? (() => { try { return new URL(element.href).origin; } catch { return "invalid"; } })() : null })));
+              console.log(JSON.stringify({ provider, assignmentFileMenuShape: menuShape }));
+            }
+          }
         }
       }
       const structure = await probe.evaluate(() => {
