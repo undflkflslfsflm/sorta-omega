@@ -40,9 +40,11 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
   const probe = await source.context().newPage();
   const items: ManifestItem[] = [];
   let resources = 0, eligible = 0, unsupported = 0, bytes = 0;
+  let stage = "open";
   await mkdir(path.join(stagingRoot, "files"), { recursive: true });
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+    stage = "navigation";
     const nav = probe.getByRole("button", { name: /^Assignments \(Ctrl\+Shift\+4\)$/ });
     await nav.waitFor({ timeout: 25_000 });
     if (await nav.count() !== 1) throw new Error("teams_assignment_files_navigation_ambiguous");
@@ -52,13 +54,16 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
       try { frame = assignmentFrame(probe); } catch { await probe.waitForTimeout(250); }
     }
     if (!frame) throw new Error("teams_assignment_files_frame_not_loaded");
-    for (const record of snapshot.records) {
+    for (const [recordIndex, record] of snapshot.records.entries()) {
       if (record.detailState !== "available") continue;
+      stage = `detail_open_${recordIndex}`;
       frame = assignmentFrame(probe);
       await frame.goto(record.detailUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       if (new URL(frame.url()).origin !== assignmentOrigin || new URL(frame.url()).pathname !== new URL(record.detailUrl).pathname) throw new Error("teams_assignment_files_detail_redirected");
+      stage = `detail_wait_${recordIndex}`;
       await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
       await frame.locator('[class*="assignment-details-files-container"]').first().waitFor({ timeout: 15_000 });
+      stage = `resource_read_${recordIndex}`;
       const resourceButtons = frame.locator('[class*="assignment-details-files-container"] [class*="resource-well"] button[class*="open-button"]');
       const names = (await resourceButtons.allTextContents()).map(value => value.replace(/\s+/g, " ").trim());
       if (names.length > 100 || names.some(name => !name || name.length > 500)) throw new Error("teams_assignment_files_resource_list_invalid");
@@ -67,6 +72,7 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
       const duplicates = new Map<string, number>();
       for (const [index, name] of names.entries()) {
         if (!supportedFile.test(name)) { unsupported++; continue; }
+        stage = `download_${recordIndex}_${index}`;
         eligible++;
         if (items.length >= maxFiles) throw new Error("teams_assignment_files_count_limit_exceeded");
         const ordinal = duplicates.get(name) ?? 0;
@@ -96,5 +102,8 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
       }
     }
     return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { assignments: snapshot.records.length, resources, eligible, downloaded: items.length, unsupported, bytes, coverageComplete: false, coverageLimitation: "Only rendered assignment PPTX/PDF/DOCX/XLSX resources were downloaded; other formats, older server-side history, and submission files remain unverified." } };
+  } catch (caught) {
+    if (caught instanceof Error && /^teams_[a-z0-9_]{1,95}$/.test(caught.message)) throw caught;
+    throw new Error(`teams_assignment_files_${stage}_failed`);
   } finally { await probe.close(); }
 }
