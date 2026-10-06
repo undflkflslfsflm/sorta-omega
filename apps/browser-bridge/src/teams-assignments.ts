@@ -103,7 +103,16 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       const tab = frame.getByRole("tab", { name: new RegExp(label, "i") });
       await tab.waitFor({ timeout: 25_000 });
       if (await tab.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
+      const selectedBefore = await tab.getAttribute("aria-selected") === "true";
+      const idsBefore = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id).join("|"));
       await tab.click();
+      if (!selectedBefore) {
+        await frame.waitForFunction(({ previousIds, tabName }) => {
+          const selected = [...document.querySelectorAll<HTMLElement>('[role="tab"][aria-selected="true"]')].some(item => new RegExp(tabName, "i").test((item.getAttribute("aria-label") ?? item.textContent ?? "").trim()));
+          const currentIds = [...document.querySelectorAll<HTMLElement>(".aui-assignmentListCard")].map(element => element.id).join("|");
+          return selected && currentIds !== previousIds;
+        }, { previousIds: idsBefore, tabName: label }, { timeout: 25_000 }).catch(() => { throw new Error("teams_assignment_section_transition_unverified"); });
+      }
       let previous = "", stable = 0;
       for (let attempt = 0; attempt < 24 && stable < 4; attempt++) {
         await probe.waitForTimeout(500);
