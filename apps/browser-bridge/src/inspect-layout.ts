@@ -731,7 +731,7 @@ try {
         const chatRowNames = chatItems.filter(node => ["chat", "muted-chat"].includes(node.getAttribute("data-item-type") ?? "")).slice(0, 3).map(node => {
           const labelId = node.getAttribute("aria-labelledby") ?? "";
           const label = labelId ? document.getElementById(labelId) : null;
-          return { rowTextLength: node.textContent?.trim().length ?? 0, labelIdPresent: Boolean(labelId), labelFound: Boolean(label), labelTextLength: label?.textContent?.trim().length ?? 0, labelDescendant: Boolean(label && node.contains(label)) };
+          return { rowTextLength: node.textContent?.trim().length ?? 0, lineLengths: node.innerText.split(/\n+/).map(value => value.trim().length).filter(Boolean), labelIdPresent: Boolean(labelId), labelFound: Boolean(label), labelTextLength: label?.textContent?.trim().length ?? 0, labelDescendant: Boolean(label && node.contains(label)) };
         });
         const message = document.querySelector<HTMLElement>('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"]');
         const messageAncestors: Array<{ tag: string; classes: string[]; scrollHeight: number; clientHeight: number; attributes: string[] }> = [];
