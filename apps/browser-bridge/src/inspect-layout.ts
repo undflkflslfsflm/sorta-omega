@@ -701,7 +701,8 @@ try {
               const ids = await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id));
               filterCoverage.push({ optionIndex: index, count: ids.length, notInUnfilteredView: ids.filter(id => !allIds.has(id)).length });
             }
-            console.log(JSON.stringify({ provider, assignmentFilterCoverage: { unfilteredCount: allIds.size, options: filterCoverage } }));
+            const resetControls = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>('button, [role="button"]')].map(element => (element.getAttribute("aria-label") ?? element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(label => /clear|reset|remove|all classes|filter/i.test(label) && label.length < 80).slice(0, 15));
+            console.log(JSON.stringify({ provider, assignmentFilterCoverage: { unfilteredCount: allIds.size, options: filterCoverage, resetControls } }));
           }
         }
         if (args.get("probe-assignment-detail") === "true") {
