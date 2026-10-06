@@ -144,12 +144,16 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
           let timer: ReturnType<typeof setTimeout> | undefined;
           stage = `download_path_${recordIndex}_${index}`;
           const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("teams_assignment_files_download_timeout")), 60_000); })]).finally(() => { if (timer) clearTimeout(timer); });
-          stage = `download_validate_${recordIndex}_${index}`;
+          stage = `download_stat_${recordIndex}_${index}`;
           const metadata = await stat(filePath);
+          stage = `download_validate_${recordIndex}_${index}`;
           if (!metadata.isFile() || metadata.size < 1 || metadata.size > schoolFileByteLimit(name) || bytes + metadata.size > maxBatchBytes) throw new Error("teams_assignment_files_download_size_invalid");
           if (!download.suggestedFilename().toLowerCase().endsWith(name.slice(name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_assignment_files_download_type_changed");
+          stage = `download_read_${recordIndex}_${index}`;
           const contents = await readFile(filePath);
+          stage = `download_signature_${recordIndex}_${index}`;
           validateSchoolOriginal(name, contents);
+          stage = `download_stage_${recordIndex}_${index}`;
           const sha256 = createHash("sha256").update(contents).digest("hex");
           const stagedPath = path.join(stagingRoot, "files", sha256);
           await writeFile(stagedPath, contents, { flag: "wx" }).catch(async error => {
