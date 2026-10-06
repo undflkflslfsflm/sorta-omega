@@ -42,7 +42,7 @@ function assignmentIdentity(urlText: string): { classExternalId: string; assignm
   return { classExternalId: decodeURIComponent(match[1]), assignmentExternalId: decodeURIComponent(match[2]) };
 }
 
-async function waitForAssignmentListSettled(frame: Frame, quietSamples = 5): Promise<void> {
+export async function waitForAssignmentListSettled(frame: Frame, quietSamples = 5): Promise<void> {
   let previous = "", stable = 0;
   for (let attempt = 0; attempt < 70; attempt++) {
     const ids = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id).join("|"));
@@ -65,7 +65,7 @@ async function readAssignmentCards(frame: Frame, classFilterIndex: number | null
   })), classFilterIndex);
 }
 
-async function assignmentClassCombo(frame: Frame) {
+export async function assignmentClassCombo(frame: Frame) {
   const classCombo = frame.locator('[data-test="list-class-selector"]');
   if (await classCombo.count() !== 1 || !await classCombo.isVisible()) {
     const openFilter = frame.getByRole("button", { name: "Open filter pane" });
@@ -77,7 +77,7 @@ async function assignmentClassCombo(frame: Frame) {
   return classCombo;
 }
 
-async function selectAssignmentClass(frame: Frame, optionIndex: number): Promise<void> {
+export async function selectAssignmentClass(frame: Frame, optionIndex: number): Promise<void> {
   const classCombo = await assignmentClassCombo(frame);
   await classCombo.click();
   const option = frame.locator('[role="option"]:visible').nth(optionIndex);
