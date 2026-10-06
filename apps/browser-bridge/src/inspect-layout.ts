@@ -693,8 +693,8 @@ try {
             if (optionCount < 1 || optionCount > 30) throw new Error("teams_assignment_filter_options_unbounded");
             const filterCoverage = [];
             for (let index = 0; index < optionCount; index++) {
-              if (await assignmentsFrame.locator('[role="option"]').count() !== optionCount) await combo.click();
-              await assignmentsFrame.locator('[role="option"]').nth(index).click();
+              if (index > 0) await combo.click();
+              await assignmentsFrame.locator('[role="option"]:visible').nth(index).click();
               await probe.waitForTimeout(3_000);
               const ids = await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id));
               filterCoverage.push({ optionIndex: index, count: ids.length, notInUnfilteredView: ids.filter(id => !allIds.has(id)).length });
