@@ -41,7 +41,7 @@ function assignmentIdentity(urlText: string): { classExternalId: string; assignm
   return { classExternalId: decodeURIComponent(match[1]), assignmentExternalId: decodeURIComponent(match[2]) };
 }
 
-async function waitForAssignmentListSettled(frame: Frame): Promise<void> {
+async function waitForAssignmentListSettled(frame: Frame, quietSamples = 5): Promise<void> {
   let previous = "", stable = 0;
   for (let attempt = 0; attempt < 70; attempt++) {
     const state = await frame.evaluate(() => {
@@ -52,7 +52,7 @@ async function waitForAssignmentListSettled(frame: Frame): Promise<void> {
       return { busy, ids: [...document.querySelectorAll<HTMLElement>(".aui-assignmentListCard")].map(element => element.id).join("|") };
     });
     stable = !state.busy && state.ids === previous ? stable + 1 : 0;
-    if (stable >= 5) return;
+    if (stable >= quietSamples) return;
     previous = state.ids;
     await frame.waitForTimeout(500);
   }
@@ -131,7 +131,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
           return selected && currentIds !== previousIds;
         }, { previousIds: idsBefore, tabName: label }, { timeout: 25_000 }).catch(() => { throw new Error("teams_assignment_section_transition_unverified"); });
       }
-      await waitForAssignmentListSettled(frame);
+      await waitForAssignmentListSettled(frame, 24);
       const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
         id: element.id,
         text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
@@ -146,17 +146,27 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       for (const [index, captured] of cards.entries()) {
         if (index > 0) {
           stage = "list_return";
-          frame = await retryAssignmentListReturn(async () => {
-            const current = assignmentFrame(probe);
-            await current.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-            const reopened = current.getByRole("tab", { name: new RegExp(label, "i") });
-            await reopened.waitFor({ timeout: 25_000 });
-            if (await reopened.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
-            await reopened.click();
-            await waitForAssignmentListSettled(current);
-            await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
-            return current;
-          }, milliseconds => probe.waitForTimeout(milliseconds));
+          let returnStage = "frame";
+          try {
+            frame = await retryAssignmentListReturn(async () => {
+              returnStage = "frame";
+              const current = assignmentFrame(probe);
+              returnStage = "navigate";
+              await current.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+              returnStage = "tab";
+              const reopened = current.getByRole("tab", { name: new RegExp(label, "i") });
+              await reopened.waitFor({ timeout: 25_000 });
+              if (await reopened.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
+              await reopened.click();
+              returnStage = "settle";
+              await waitForAssignmentListSettled(current);
+              returnStage = "card";
+              await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
+              return current;
+            }, milliseconds => probe.waitForTimeout(milliseconds));
+          } catch {
+            throw new Error(`teams_assignment_list_return_${returnStage}_failed`);
+          }
         }
         const card = frame.locator(`[id="${captured.id}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
