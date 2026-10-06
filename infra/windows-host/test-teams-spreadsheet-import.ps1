@@ -35,7 +35,7 @@ try {
   $importer = Join-Path $PSScriptRoot 'import-teams-powerpoints.ps1'
   $lines = @(& $importer -StagingRoot $root -VaultId $VaultId -AppContainer $AppContainer -DryRun)
   $result = $lines[-1] | ConvertFrom-Json
-  if ($result.status -ne 'succeeded' -or -not $result.dryRun -or $result.captured -ne 1 -or $result.counts.created -ne 1 -or $result.counts.textExtracted -ne 1 -or $result.counts.originalsStored -ne 0) { throw 'The spreadsheet dry run did not pass end to end.' }
+  if ($result.status -ne 'succeeded' -or -not $result.dryRun -or $result.captured -ne 1 -or $result.counts.created -ne 1 -or $result.counts.textExtracted -ne 1 -or $result.counts.originalsStored -ne 0) { throw "The spreadsheet dry run returned unexpected counts: $($result | ConvertTo-Json -Compress -Depth 5)" }
   [pscustomobject]@{ status = 'passed'; dryRun = $true; captured = 1; textExtracted = 1 } | ConvertTo-Json -Compress
 } finally {
   if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction Stop }
