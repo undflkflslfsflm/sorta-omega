@@ -573,6 +573,12 @@ try {
         const listShape = await assignmentsFrame.evaluate(() => ({
           routeShape: location.pathname,
           cardCount: document.querySelectorAll(".aui-assignmentListCard").length,
+          cardIdentityShape: [...document.querySelectorAll<HTMLElement>(".aui-assignmentListCard")].slice(0, 3).map(card => ({
+            idLength: card.id.length,
+            dataTestLength: (card.getAttribute("data-test") ?? "").length,
+            anchorCount: card.querySelectorAll("a[href]").length,
+            anchorPathShapes: [...card.querySelectorAll<HTMLAnchorElement>("a[href]")].slice(0, 3).map(anchor => { try { const url = new URL(anchor.href); return `${url.origin}${url.pathname}`.replace(/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, "*"); } catch { return "invalid"; } }),
+          })),
           tabLabels: [...document.querySelectorAll<HTMLElement>('[role="tab"]')].map(item => (item.getAttribute("aria-label") ?? item.textContent ?? "").replace(/\s+/g, " ").trim()).filter(item => /^(upcoming|past due|completed)$/i.test(item)),
           bodyCharacters: document.body?.innerText?.length ?? 0,
           loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
