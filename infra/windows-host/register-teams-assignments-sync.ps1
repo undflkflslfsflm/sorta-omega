@@ -36,7 +36,7 @@ $action = New-ScheduledTaskAction -Execute (Join-Path $PSHOME 'powershell.exe') 
 $next = (Get-Date).Date.AddHours((Get-Date).Hour).AddMinutes(20)
 if ($next -le (Get-Date)) { $next = $next.AddHours(1) }
 $trigger = New-ScheduledTaskTrigger -Once -At $next -RepetitionInterval (New-TimeSpan -Hours 1) -RepetitionDuration (New-TimeSpan -Days 3650)
-$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 8) -MultipleInstances IgnoreNew
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 20) -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType Interactive -RunLevel Limited
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Refresh visible Teams Assignments through the separately signed-in Edge profile. Captures Upcoming, Past due, and Completed cards; pagination and attachments are not verified.' | Out-Null
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Refresh Teams Assignments across class-filtered Upcoming, Past due, and Completed views through the separately signed-in Edge profile. Pagination and attachments are not verified.' | Out-Null
 Get-ScheduledTask -TaskName $taskName | Select-Object TaskName,State
