@@ -111,7 +111,11 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
     const sections = [["upcoming", "Upcoming"], ["past_due", "Past due"], ["completed", "Completed"]] as const;
     for (const [listSection, label] of sections) {
       stage = "section_open";
-      await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      frame = assignmentFrame(probe);
+      if (new URL(frame.url()).pathname !== "/classes/all/list") {
+        await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+        await probe.waitForTimeout(3_000);
+      }
       const tab = frame.getByRole("tab", { name: new RegExp(label, "i") });
       await tab.waitFor({ timeout: 25_000 });
       if (await tab.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
