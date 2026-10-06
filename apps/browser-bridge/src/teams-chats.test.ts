@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mergeRenderedMessages, teamsChatNote } from "./teams-chats.js";
+import { mergeRenderedMessages, teamsChatNameFromRow, teamsChatNote } from "./teams-chats.js";
 
 describe("Teams chat capture", () => {
+  it("uses the conversation name, excluding date and message preview", () => {
+    expect(teamsChatNameFromRow("Maths group\n10/6\nTeacher: Homework due Friday")).toBe("Maths group");
+    expect(() => teamsChatNameFromRow("\n\n")).toThrow("teams_chat_name_missing_or_unbounded");
+  });
   it("deduplicates messages by source identity and retains richer loaded text", () => {
     const seen = new Map();
     mergeRenderedMessages(seen, [{ id: "message-one", text: "Hello" }]);

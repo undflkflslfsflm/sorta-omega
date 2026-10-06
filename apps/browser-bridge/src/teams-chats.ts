@@ -12,6 +12,12 @@ export function mergeRenderedMessages(existing: Map<string, RenderedMessage>, me
   }
 }
 
+export function teamsChatNameFromRow(rowText: string): string {
+  const name = rowText.split(/\n+/).map(value => value.trim()).find(Boolean) ?? "";
+  if (!name || name.length > 180) throw new Error("teams_chat_name_missing_or_unbounded");
+  return name;
+}
+
 export function teamsChatNote(conversationKey: string, conversationName: string, messages: RenderedMessage[]): Note {
   if (!conversationKey || !conversationName.trim() || !messages.length) throw new Error("teams_chat_identity_invalid");
   const id = createHash("sha256").update(`teams-chat:${conversationKey}`).digest("hex");
@@ -94,8 +100,7 @@ export async function collectTeamsChats(source: Page): Promise<{ notes: Note[]; 
     for (const key of keys) {
       const target = probe.locator(`[role="treeitem"][data-fui-tree-item-value=${JSON.stringify(key)}]`);
       if (await target.count() !== 1) throw new Error("teams_chat_row_not_rendered_after_scroll");
-      const name = (await target.innerText()).replace(/\s+/g, " ").trim();
-      if (!name) throw new Error("teams_chat_name_missing");
+      const name = teamsChatNameFromRow(await target.innerText());
       await target.click();
       await probe.waitForTimeout(750);
       const history = await collectConversationMessages(probe);
