@@ -584,6 +584,21 @@ try {
           loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
         }));
         console.log(JSON.stringify({ provider, assignmentListShape: listShape }));
+        if (args.get("probe-assignment-settle") === "true") {
+          const counts = [];
+          const completed = assignmentsFrame.getByRole("tab", { name: /Completed/i });
+          await completed.click();
+          for (let second = 0; second < 35; second++) {
+            counts.push(await assignmentsFrame.evaluate(time => ({
+              second: time,
+              cards: document.querySelectorAll(".aui-assignmentListCard").length,
+              completedSelected: [...document.querySelectorAll<HTMLElement>('[role="tab"][aria-selected="true"]')].some(tab => /Completed/i.test(tab.textContent ?? "")),
+              visibleLoading: [...document.querySelectorAll<HTMLElement>('[role="progressbar"], [aria-busy="true"], [class*="loading" i]')].filter(element => { const style = getComputedStyle(element); return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0; }).length,
+            }), second));
+            await probe.waitForTimeout(1_000);
+          }
+          console.log(JSON.stringify({ provider, assignmentSettle: counts }));
+        }
         if (args.get("probe-assignment-return") === "true") {
           const listUrl = assignmentsFrame.url();
           const section = args.get("probe-assignment-return-section") ?? "Upcoming";
