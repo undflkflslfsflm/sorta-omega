@@ -689,11 +689,13 @@ try {
             // The filter flyout overlays the tabs; the loop above already left
             // Completed selected before opening it.
             const allIds = new Set(await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)));
+            const classCombo = assignmentsFrame.locator('[data-test="list-class-selector"]');
+            if (await classCombo.count() !== 1) throw new Error("teams_assignment_class_filter_ambiguous");
             const optionCount = await assignmentsFrame.locator('[role="option"]').count();
             if (optionCount < 1 || optionCount > 30) throw new Error("teams_assignment_filter_options_unbounded");
             const filterCoverage = [];
             for (let index = 0; index < optionCount; index++) {
-              if (index > 0) await combo.click();
+              if (index > 0) await classCombo.click();
               await assignmentsFrame.locator('[role="option"]:visible').nth(index).click();
               await probe.waitForTimeout(3_000);
               const ids = await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id));
