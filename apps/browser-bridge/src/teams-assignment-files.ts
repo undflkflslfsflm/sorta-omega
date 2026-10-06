@@ -20,12 +20,13 @@ function assignmentFrame(page: Page): Frame {
   return frames[0];
 }
 
-function validateSnapshot(snapshot: TeamsAssignmentSnapshot): void {
-  if (snapshot.version !== "omega_teams_assignments_json_v1" || snapshot.source_origin !== assignmentOrigin || snapshot.records.length < 1 || snapshot.records.length > 500) throw new Error("teams_assignment_files_snapshot_invalid");
+export function validateAssignmentFileSnapshot(snapshot: TeamsAssignmentSnapshot): void {
+  if (snapshot.version !== "omega_teams_assignments_json_v1" || snapshot.source_origin !== assignmentOrigin || !Array.isArray(snapshot.records) || snapshot.records.length < 1 || snapshot.records.length > 500) throw new Error("teams_assignment_files_snapshot_invalid");
   const keys = new Set<string>();
   for (const record of snapshot.records) {
+    if (typeof record.classExternalId !== "string" || !record.classExternalId || record.classExternalId.length > 200 || typeof record.assignmentExternalId !== "string" || !record.assignmentExternalId || record.assignmentExternalId.length > 200 || typeof record.courseTitle !== "string" || !record.courseTitle || record.courseTitle.length > 500 || !["available", "not_assigned"].includes(record.detailState) || !Array.isArray(record.linkedFileNames) || record.linkedFileNames.length > 100 || record.linkedFileNames.some(name => typeof name !== "string" || !name || name.length > 500)) throw new Error("teams_assignment_files_snapshot_record_invalid");
     const url = new URL(record.detailUrl);
-    if (url.origin !== assignmentOrigin || url.username || url.password || url.search || url.hash || url.pathname !== `/classes/${encodeURIComponent(record.classExternalId)}/assignments/${encodeURIComponent(record.assignmentExternalId)}` || record.linkedFileNames.length > 100) throw new Error("teams_assignment_files_snapshot_route_invalid");
+    if (url.origin !== assignmentOrigin || url.username || url.password || url.search || url.hash || url.pathname !== `/classes/${encodeURIComponent(record.classExternalId)}/assignments/${encodeURIComponent(record.assignmentExternalId)}`) throw new Error("teams_assignment_files_snapshot_route_invalid");
     const key = `${record.classExternalId}:${record.assignmentExternalId}`;
     if (keys.has(key)) throw new Error("teams_assignment_files_snapshot_duplicate");
     keys.add(key);
@@ -33,7 +34,7 @@ function validateSnapshot(snapshot: TeamsAssignmentSnapshot): void {
 }
 
 export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsAssignmentSnapshot, stagingRoot: string): Promise<{ manifest: { version: "omega_personal_files_v1"; deviceKey: "teams-sharepoint"; items: ManifestItem[] }; report: { assignments: number; resources: number; eligible: number; downloaded: number; unsupported: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
-  validateSnapshot(snapshot);
+  validateAssignmentFileSnapshot(snapshot);
   const sourceUrl = new URL(source.url());
   if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(sourceUrl.origin) || sourceUrl.username || sourceUrl.password) throw new Error("teams_assignment_files_source_invalid");
   const probe = await source.context().newPage();
