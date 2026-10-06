@@ -111,9 +111,17 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
         await frame.locator('[class*="assignment-details-files-container"]').first().waitFor({ timeout: 15_000 });
         stage = `resource_read_${recordIndex}`;
         const resourceButtons = frame.locator('[class*="assignment-details-files-container"] [class*="resource-well"] button[class*="open-button"]');
-        const names = (await resourceButtons.allTextContents()).map(value => value.replace(/\s+/g, " ").trim());
+        let names: string[] = [], prior = "", stable = 0;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const current = (await resourceButtons.allTextContents()).map(value => value.replace(/\s+/g, " ").trim());
+          const signature = JSON.stringify(current);
+          stable = signature === prior ? stable + 1 : 0;
+          prior = signature;
+          if (stable >= 3 && current.length > 0) { names = current; break; }
+          await frame.waitForTimeout(500);
+        }
         if (names.length > 100 || names.some(name => !name || name.length > 500)) throw new Error("teams_assignment_files_resource_list_invalid");
-        if (record.linkedFileNames.length && names.some(name => !record.linkedFileNames.includes(name))) throw new Error("teams_assignment_files_resource_list_changed");
+        if (!names.length) throw new Error(`teams_assignment_files_resource_list_missing_${recordIndex}`);
         resources += names.length;
         const duplicates = new Map<string, number>();
         for (const [index, name] of names.entries()) {
