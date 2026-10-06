@@ -65,14 +65,20 @@ async function readAssignmentCards(frame: Frame, classFilterIndex: number | null
   })), classFilterIndex);
 }
 
-async function selectAssignmentClass(frame: Frame, optionIndex: number, filterIsOpen = false): Promise<void> {
-  if (!filterIsOpen) {
+async function assignmentClassCombo(frame: Frame) {
+  const classCombo = frame.locator('[data-test="list-class-selector"]');
+  if (await classCombo.count() !== 1 || !await classCombo.isVisible()) {
     const openFilter = frame.getByRole("button", { name: "Open filter pane" });
     if (await openFilter.count() !== 1) throw new Error("teams_assignment_filter_pane_ambiguous");
     await openFilter.click();
   }
-  const classCombo = frame.locator('[data-test="list-class-selector"]');
+  await classCombo.waitFor({ state: "visible", timeout: 10_000 });
   if (await classCombo.count() !== 1) throw new Error("teams_assignment_class_filter_ambiguous");
+  return classCombo;
+}
+
+async function selectAssignmentClass(frame: Frame, optionIndex: number): Promise<void> {
+  const classCombo = await assignmentClassCombo(frame);
   await classCombo.click();
   const option = frame.locator('[role="option"]:visible').nth(optionIndex);
   await option.waitFor({ timeout: 10_000 });
@@ -168,11 +174,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       await waitForAssignmentListSettled(frame, 24);
       const unfiltered = await readAssignmentCards(frame, null);
       const cardsById = new Map(unfiltered.map(card => [card.id, card]));
-      const openFilter = frame.getByRole("button", { name: "Open filter pane" });
-      if (await openFilter.count() !== 1) throw new Error("teams_assignment_filter_pane_ambiguous");
-      await openFilter.click();
-      const classCombo = frame.locator('[data-test="list-class-selector"]');
-      if (await classCombo.count() !== 1) throw new Error("teams_assignment_class_filter_ambiguous");
+      const classCombo = await assignmentClassCombo(frame);
       await classCombo.click();
       const classCount = await frame.locator('[role="option"]:visible').count();
       if (classCount < 1 || classCount > 30) throw new Error("teams_assignment_class_filter_count_invalid");
