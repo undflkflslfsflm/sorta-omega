@@ -686,9 +686,8 @@ try {
           const filterOptions = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>('[role="option"], [role="listbox"], [role="checkbox"]')].slice(0, 60).map(element => ({ role: element.getAttribute("role"), labelLength: (element.textContent ?? "").trim().length, selected: element.getAttribute("aria-selected"), checked: element.getAttribute("aria-checked") })));
           console.log(JSON.stringify({ provider, tabCounts, filterControls, filterOptions }));
           if (args.get("probe-assignment-filter-coverage") === "true") {
-            const completed = assignmentsFrame.getByRole("tab", { name: /Completed/i });
-            await completed.click();
-            await probe.waitForTimeout(3_000);
+            // The filter flyout overlays the tabs; the loop above already left
+            // Completed selected before opening it.
             const allIds = new Set(await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)));
             const optionCount = await assignmentsFrame.locator('[role="option"]').count();
             if (optionCount < 1 || optionCount > 30) throw new Error("teams_assignment_filter_options_unbounded");
