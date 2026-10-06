@@ -685,6 +685,23 @@ try {
           if (await combo.count() === 1) await combo.click();
           const filterOptions = await assignmentsFrame.evaluate(() => [...document.querySelectorAll<HTMLElement>('[role="option"], [role="listbox"], [role="checkbox"]')].slice(0, 60).map(element => ({ role: element.getAttribute("role"), labelLength: (element.textContent ?? "").trim().length, selected: element.getAttribute("aria-selected"), checked: element.getAttribute("aria-checked") })));
           console.log(JSON.stringify({ provider, tabCounts, filterControls, filterOptions }));
+          if (args.get("probe-assignment-filter-coverage") === "true") {
+            const completed = assignmentsFrame.getByRole("tab", { name: /Completed/i });
+            await completed.click();
+            await probe.waitForTimeout(3_000);
+            const allIds = new Set(await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)));
+            const optionCount = await assignmentsFrame.locator('[role="option"]').count();
+            if (optionCount < 1 || optionCount > 30) throw new Error("teams_assignment_filter_options_unbounded");
+            const filterCoverage = [];
+            for (let index = 0; index < optionCount; index++) {
+              if (await assignmentsFrame.locator('[role="option"]').count() !== optionCount) await combo.click();
+              await assignmentsFrame.locator('[role="option"]').nth(index).click();
+              await probe.waitForTimeout(3_000);
+              const ids = await assignmentsFrame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id));
+              filterCoverage.push({ optionIndex: index, count: ids.length, notInUnfilteredView: ids.filter(id => !allIds.has(id)).length });
+            }
+            console.log(JSON.stringify({ provider, assignmentFilterCoverage: { unfilteredCount: allIds.size, options: filterCoverage } }));
+          }
         }
         if (args.get("probe-assignment-detail") === "true") {
           const cardIndex = Number(args.get("probe-assignment-card-index") ?? "0");
