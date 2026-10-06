@@ -710,6 +710,24 @@ try {
       }));
       console.log(JSON.stringify({ provider, structure, frames }));
     } finally { await probe.close(); }
+  } else if (args.get("teams-chat-layout-probe") === "true" && provider === "teams") {
+    const probe = await browser.contexts()[0].newPage();
+    try {
+      await probe.goto(page.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
+      if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(new URL(probe.url()).origin)) throw new Error("teams_chat_probe_left_registered_origin");
+      const chat = probe.getByRole("button", { name: /^Chat \(Ctrl\+Shift\+3\)$/ });
+      await chat.waitFor({ timeout: 20_000 });
+      if (await chat.count() !== 1) throw new Error("teams_chat_navigation_ambiguous");
+      await chat.click();
+      await probe.waitForTimeout(2_000);
+      const layout = await probe.evaluate(() => {
+        const safeClasses = (node: Element) => (node.getAttribute("class") ?? "").split(/\s+/).filter(token => /^[a-zA-Z][a-zA-Z0-9_-]{0,70}$/.test(token)).slice(0, 8);
+        const shape = (node: Element, depth: number): unknown => ({ tag: node.tagName.toLowerCase(), role: node.getAttribute("role"), classes: safeClasses(node), attributes: [...node.attributes].map(attribute => attribute.name).filter(name => name !== "class" && name !== "style").slice(0, 12), children: depth < 3 ? [...node.children].slice(0, 8).map(child => shape(child, depth + 1)) : [] });
+        const item = document.querySelector<HTMLElement>('[role="treeitem"], [role="listitem"], [data-tid*="chat" i]');
+        return { routeShape: `${location.pathname}${location.hash}`.split("/").map(segment => /\d/.test(segment) || segment.length > 40 ? "*" : segment).join("/").slice(0, 120), counts: { trees: document.querySelectorAll('[role="tree"]').length, treeItems: document.querySelectorAll('[role="treeitem"]').length, listItems: document.querySelectorAll('[role="listitem"]').length, chatDataElements: document.querySelectorAll('[data-tid*="chat" i]').length, messageElements: document.querySelectorAll('[data-tid="chat-pane-message"], [data-tid="message-pane-list-runway"] [role="listitem"]').length }, firstItem: item ? shape(item, 0) : null };
+      });
+      console.log(JSON.stringify({ provider, chatLayout: layout }));
+    } finally { await probe.close(); }
   } else if (args.get("navigation-only") === "true" && provider === "teams") {
     const navigation = await page.evaluate(() => {
       const known = /^(activity|chat|teams|assignments|calendar|files|onedrive|classes|school|aktivitet|samtale|team|oppgaver|kalender|filer|klasser|skole)$/i;
