@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Frame, Page } from "playwright-core";
-import { assignmentClassCombo, selectAssignmentClass, waitForAssignmentListSettled, type TeamsAssignmentSnapshot } from "./teams-assignments.js";
+import { assignmentClassCombo, retryAssignmentListReturn, selectAssignmentClass, waitForAssignmentListSettled, type TeamsAssignmentSnapshot } from "./teams-assignments.js";
 import { assignmentSchoolFileRelativePath, schoolFileByteLimit, validateSchoolOriginal } from "./teams-powerpoints.js";
 
 const assignmentOrigin = "https://assignments.edu.cloud.microsoft";
@@ -90,15 +90,19 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
       if (sectionRecords.some(({ record }) => !filterByAssignmentId.has(record.assignmentExternalId))) throw new Error("teams_assignment_files_class_coverage_incomplete");
       for (const { record, recordIndex } of sectionRecords) {
         stage = `detail_open_${recordIndex}`;
-        frame = assignmentFrame(probe);
-        await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-        const reopened = frame.getByRole("tab", { name: new RegExp(label, "i") });
-        await reopened.waitFor({ timeout: 25_000 });
-        await reopened.click();
-        await waitForAssignmentListSettled(frame);
-        await selectAssignmentClass(frame, filterByAssignmentId.get(record.assignmentExternalId)!);
+        try { frame = await retryAssignmentListReturn(async () => {
+          const current = assignmentFrame(probe);
+          await current.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+          const reopened = current.getByRole("tab", { name: new RegExp(label, "i") });
+          await reopened.waitFor({ timeout: 25_000 });
+          await reopened.click();
+          await waitForAssignmentListSettled(current);
+          await selectAssignmentClass(current, filterByAssignmentId.get(record.assignmentExternalId)!);
+          if (await current.locator(`[id="${record.assignmentExternalId}"]`).count() !== 1) throw new Error("teams_assignment_files_card_changed");
+          return current;
+        }, milliseconds => probe.waitForTimeout(milliseconds)); }
+        catch { throw new Error(`teams_assignment_files_list_return_${recordIndex}_failed`); }
         const card = frame.locator(`[id="${record.assignmentExternalId}"]`);
-        if (await card.count() !== 1) throw new Error("teams_assignment_files_card_changed");
         await card.click();
         stage = `detail_wait_${recordIndex}`;
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
