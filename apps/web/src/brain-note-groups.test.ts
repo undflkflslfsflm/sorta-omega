@@ -11,11 +11,12 @@ describe("Brain note grouping", () => {
     const notes = [
       { sourceId: "source-1", body: "Source: Teams class channel post\nClass: Maths", title: "post" },
       { sourceId: "source-2", body: "A captured thought", title: "thought" },
-      { sourceId: "source-3", body: "Imported from silent-4090: Downloads/README.md", title: "file" }
+      { sourceId: "source-3", body: "Imported from silent-4090: Downloads/README.md", title: "file" },
+      { sourceId: "source-4", body: "Source: Teams chat\nConversation: Maths", title: "chat" }
     ];
     const groups = groupBrainNotes(notes);
     expect(groups.personal.map(note => note.title)).toEqual(["thought"]);
-    expect(groups.imported.map(note => note.title)).toEqual(["post", "file"]);
+    expect(groups.imported.map(note => note.title)).toEqual(["post", "file", "chat"]);
   });
 });
 

@@ -4,7 +4,7 @@ type SourceNote = Pick<Note, "body" | "sourceId">;
 
 export function isAutomaticSourceNote(note: SourceNote): boolean {
   if (!note.sourceId) return false;
-  return note.body.startsWith("Source: Teams class channel post\n") || note.body.startsWith("Imported from ");
+  return note.body.startsWith("Source: Teams class channel post\n") || note.body.startsWith("Source: Teams chat\n") || note.body.startsWith("Imported from ");
 }
 
 export function groupBrainNotes<T extends SourceNote>(notes: T[]): { personal: T[]; imported: T[] } {
