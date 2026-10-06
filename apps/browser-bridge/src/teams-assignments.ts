@@ -241,7 +241,11 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         stage = `detail_read_${listSection}_${index}`;
         const detail = await frame.evaluate(String.raw`(() => {
           const text = selector => (document.querySelector(selector)?.innerText ?? "").replace(/\s+/g, " ").trim();
-          const linkedFileNames = [...document.querySelectorAll('[class*="assignment-details-files-container"] a')].map(element => (element.textContent ?? "").replace(/\s+/g, " ").trim()).filter(Boolean).slice(0, 100);
+          // Teams renders assignment resources as buttons inside a resource
+          // well, not anchors. Keep the anchor fallback for older layouts.
+          const linkedFileNames = [...new Set([...document.querySelectorAll('[class*="assignment-details-files-container"] [class*="resource-well"] button[class*="open-button"], [class*="assignment-details-files-container"] a')]
+            .map(element => (element.textContent ?? "").replace(/\s+/g, " ").trim())
+            .filter(name => name.length > 0 && name.length <= 500))].slice(0, 100);
           return { title: text('[class*="assignment-title"]'), instructions: text('[class*="assignment-details-description"]'), metadataText: text('[class*="assignment-metadata-container"]'), pointsText: text('[class*="assignment-details-right-pane"]'), linkedFileNames };
         })()`) as { title: string; instructions: string; metadataText: string; pointsText: string; linkedFileNames: string[] };
         if (!detail.title || detail.title.length > 500 || detail.instructions.length > 100_000 || detail.metadataText.length > 8_000 || detail.pointsText.length > 8_000) throw new Error("teams_assignment_detail_invalid_or_unbounded");
