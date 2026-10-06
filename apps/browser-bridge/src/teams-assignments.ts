@@ -44,16 +44,10 @@ function assignmentIdentity(urlText: string): { classExternalId: string; assignm
 async function waitForAssignmentListSettled(frame: Frame, quietSamples = 5): Promise<void> {
   let previous = "", stable = 0;
   for (let attempt = 0; attempt < 70; attempt++) {
-    const state = await frame.evaluate(() => {
-      const busy = [...document.querySelectorAll<HTMLElement>('[role="progressbar"], [aria-busy="true"], [class*="loading" i]')].some(element => {
-        const style = getComputedStyle(element);
-        return style.display !== "none" && style.visibility !== "hidden" && element.getClientRects().length > 0;
-      });
-      return { busy, ids: [...document.querySelectorAll<HTMLElement>(".aui-assignmentListCard")].map(element => element.id).join("|") };
-    });
-    stable = !state.busy && state.ids === previous ? stable + 1 : 0;
+    const ids = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id).join("|"));
+    stable = attempt >= 3 && ids === previous ? stable + 1 : 0;
     if (stable >= quietSamples) return;
-    previous = state.ids;
+    previous = ids;
     await frame.waitForTimeout(500);
   }
   throw new Error("teams_assignment_list_not_settled");
@@ -135,6 +129,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[1] ? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent : "")?.replace(/\s+/g, " ").trim() ?? "",
         courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
       })));
+      console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, capturedCardCount: cards.length }));
       if (records.length + cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) {
         console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, cardCount: cards.length, cardShape: cards.map(card => ({ idPresent: Boolean(card.id), textLength: card.text.length, titleLength: card.title.length, dueLength: card.dueSummary.length, courseLength: card.courseTitle.length })).slice(0, 30) }));
         throw new Error("teams_assignment_list_invalid_or_unbounded");
