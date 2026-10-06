@@ -66,7 +66,7 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
     const listUrl = `${assignmentOrigin}/classes/all/list`;
     const sections = [["upcoming", "Upcoming"], ["past_due", "Past due"], ["completed", "Completed"]] as const;
     for (const [section, label] of sections) {
-      const sectionRecords = snapshot.records.map((record, recordIndex) => ({ record, recordIndex })).filter(({ record }) => record.listSection === section && record.detailState === "available");
+      const sectionRecords = snapshot.records.map((record, recordIndex) => ({ record, recordIndex })).filter(({ record }) => record.listSection === section && record.detailState === "available" && record.linkedFileNames.length > 0);
       if (!sectionRecords.length) continue;
       stage = `section_${section}`;
       frame = assignmentFrame(probe);
@@ -103,6 +103,7 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
         stage = `detail_wait_${recordIndex}`;
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
         if (new URL(frame.url()).origin !== assignmentOrigin || new URL(frame.url()).pathname !== new URL(record.detailUrl).pathname) throw new Error("teams_assignment_files_detail_redirected");
+        stage = `file_container_${recordIndex}`;
         await frame.locator('[class*="assignment-details-files-container"]').first().waitFor({ timeout: 15_000 });
         stage = `resource_read_${recordIndex}`;
         const resourceButtons = frame.locator('[class*="assignment-details-files-container"] [class*="resource-well"] button[class*="open-button"]');
