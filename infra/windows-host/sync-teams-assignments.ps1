@@ -58,6 +58,14 @@ try {
     }
     $bridgeReport = $bridgeOutput[-1] | ConvertFrom-Json
     if ($bridgeReport.provider -ne 'teams-assignments' -or $bridgeReport.format -ne 'omega_teams_assignments_json_v1' -or $bridgeReport.itemCount -lt 1 -or $bridgeReport.itemCount -gt 500) { throw 'The Teams bridge returned an invalid capture report.' }
+    if (Test-Path -LiteralPath $statusLog) {
+      $previousSuccess = @(Get-Content -LiteralPath $statusLog -Encoding UTF8 | ForEach-Object {
+        try { $_ | ConvertFrom-Json } catch { $null }
+      } | Where-Object { $_ -and $_.status -eq 'succeeded' -and -not $_.dryRun -and $null -ne $_.captured } | Select-Object -Last 1)
+      if ($previousSuccess.Count -eq 1 -and [int]$bridgeReport.itemCount -lt [int]$previousSuccess[0].captured) {
+        throw 'The Teams assignment capture is smaller than the last live import; no missing assignments were reconciled. Inspect Teams source coverage before accepting a lower count.'
+      }
+    }
     $snapshot = Get-Content -LiteralPath $artifact -Raw | ConvertFrom-Json
     if ($snapshot.version -ne $bridgeReport.format -or @($snapshot.records).Count -ne [int]$bridgeReport.itemCount -or [int]$snapshot.coverage.visibleCardCount -ne [int]$bridgeReport.itemCount -or [int]$snapshot.coverage.capturedDetailCount -ne [int]$bridgeReport.itemCount) { throw 'The Teams snapshot did not account for every visible assignment card.' }
     & docker cp $artifact "${AppContainer}:$containerArtifact"
