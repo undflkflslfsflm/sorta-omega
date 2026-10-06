@@ -23,7 +23,7 @@ $currentBytes = [long]0
 $maxBatchBytes = 290MB
 foreach ($item in $items) {
   $maxFileBytes = if ($item.relativePath -match '\.pptx$') { 100MB } else { 25MB }
-  if ($item.relativePath -notmatch '^Teams/.+\.(pptx|pdf|docx)$' -or $item.stagedName -notmatch '^[0-9a-f]{64}$' -or $item.sha256 -ne $item.stagedName -or [long]$item.byteLength -lt 1 -or [long]$item.byteLength -gt $maxFileBytes) { throw 'A Teams school-file manifest item is invalid.' }
+  if ($item.relativePath -notmatch '^Teams/.+\.(pptx|pdf|docx|xlsx)$' -or $item.stagedName -notmatch '^[0-9a-f]{64}$' -or $item.sha256 -ne $item.stagedName -or [long]$item.byteLength -lt 1 -or [long]$item.byteLength -gt $maxFileBytes) { throw 'A Teams school-file manifest item is invalid.' }
   $file = Join-Path (Join-Path $source 'files') $item.stagedName
   if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item -LiteralPath $file).Length -ne [long]$item.byteLength) { throw 'A staged presentation is missing or has changed size.' }
   if ($current.Count -ge 512 -or $currentBytes + [long]$item.byteLength -gt $maxBatchBytes) {
@@ -74,4 +74,4 @@ foreach ($batchItems in $batches) {
   }
 }
 if ($accounted -ne $items.Count) { throw 'The staged scan was not fully accounted for.' }
-[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'Class-channel Shared folders and rendered PPTX/PDF/DOCX attachments only; older posts, Classwork, other file types and OCR remain uncovered.' } | ConvertTo-Json -Compress
+[ordered]@{ status = 'succeeded'; dryRun = [bool]$DryRun; captured = $items.Count; batches = $batches.Count; counts = $totals; coverageComplete = $false; coverageLimitation = 'Class-channel Shared folders and rendered PPTX/PDF/DOCX/XLSX attachments only; older posts, Classwork, other file types and OCR remain uncovered.' } | ConvertTo-Json -Compress
