@@ -85,6 +85,8 @@ async function selectAssignmentClass(frame: Frame, optionIndex: number): Promise
   await option.click();
   await frame.waitForTimeout(1_000);
   await waitForAssignmentListSettled(frame);
+  const closeFilter = frame.getByRole("button", { name: "Close filter pane" });
+  if (await closeFilter.count() === 1 && await closeFilter.isVisible()) await closeFilter.click();
 }
 
 async function clearAssignmentClass(frame: Frame): Promise<void> {
