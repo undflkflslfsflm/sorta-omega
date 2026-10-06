@@ -146,16 +146,7 @@ function sharePointFrame(page: Page): Frame {
   return frames[0];
 }
 
-async function collectPostFiles(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ presentations: number; documents: number; bytes: number }> {
-  const posts = probe.locator('[data-reply-chain-id][data-mid]');
-  await posts.first().waitFor({ timeout: 5_000 }).catch(() => undefined);
-  let previous = -1, stable = 0;
-  for (let attempt = 0; attempt < 12 && stable < 4; attempt++) {
-    await probe.waitForTimeout(500);
-    const count = await posts.count();
-    stable = count === previous ? stable + 1 : 0;
-    previous = count;
-  }
+async function collectPostFiles(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number, seen: Set<string>): Promise<{ presentations: number; documents: number; bytes: number }> {
   const cardSelector = '[data-tid="file-attachment-grid"] [role="group"][aria-label]';
   const candidates = await probe.evaluate(selector => [...document.querySelectorAll<HTMLElement>(selector)].flatMap((card, cardIndex) => {
     if (!/\.(?:pptx|pdf|docx|xlsx)$/i.test(card.getAttribute("aria-label") ?? "")) return [];
@@ -179,6 +170,7 @@ async function collectPostFiles(probe: Page, className: string, channelName: str
     const ordinal = duplicates.get(key) ?? 0;
     duplicates.set(key, ordinal + 1);
     const relativePath = postSchoolFileRelativePath(className, candidate.chainId, candidate.messageId, fileName, ordinal, channelName);
+    if (seen.has(relativePath)) continue;
     const downloaded = await retryInvalidDownload(async () => {
       const currentIndex = await probe.locator(cardSelector).evaluateAll((elements, identity) => elements.flatMap((element, index) => {
         if (element.getAttribute("aria-label") !== identity.name) return [];
@@ -214,10 +206,39 @@ async function collectPostFiles(probe: Page, className: string, channelName: str
       if (createHash("sha256").update(await readFile(stagedPath)).digest("hex") !== sha256) throw new Error("teams_powerpoint_staged_hash_mismatch");
     });
     items.push({ relativePath, stagedName: sha256, sha256, byteLength: downloaded.length, modifiedAt: new Date().toISOString() });
+    seen.add(relativePath);
     bytes += downloaded.length;
     if (/\.pptx$/i.test(fileName)) presentations++; else documents++;
   }
   return { presentations, documents, bytes };
+}
+
+async function collectPostFilesAcrossHistory(probe: Page, className: string, channelName: string, stagingRoot: string, items: ManifestItem[], bytesSoFar: number): Promise<{ presentations: number; documents: number; bytes: number }> {
+  const viewport = probe.locator('[data-tid="channel-pane-viewport"]');
+  await viewport.waitFor({ state: "attached", timeout: 10_000 });
+  if (await viewport.count() !== 1) throw new Error("teams_post_file_viewport_ambiguous");
+  const seen = new Set<string>();
+  let stableTop = 0, lastHeight = -1, lastCount = -1;
+  let presentations = 0, documents = 0, bytes = 0;
+  for (let step = 0; step < 30; step++) {
+    const startingTop = await viewport.evaluate(element => element.scrollTop);
+    const batch = await collectPostFiles(probe, className, channelName, stagingRoot, items, bytesSoFar + bytes, seen);
+    presentations += batch.presentations;
+    documents += batch.documents;
+    bytes += batch.bytes;
+    // Focusing a file card to open its menu may scroll the pane. Resume from
+    // the position we were scanning, not from the last downloaded card.
+    await viewport.evaluate((element, top) => { element.scrollTop = top; }, startingTop);
+    const snapshot = await viewport.evaluate(element => ({ top: element.scrollTop, height: element.scrollHeight, client: element.clientHeight }));
+    if (snapshot.top === 0 && snapshot.height === lastHeight && seen.size === lastCount) stableTop++;
+    else stableTop = 0;
+    if (stableTop >= 3) return { presentations, documents, bytes };
+    lastHeight = snapshot.height;
+    lastCount = seen.size;
+    await viewport.evaluate(element => { element.scrollTop = Math.max(0, element.scrollTop - Math.floor(element.clientHeight * 0.8)); });
+    await probe.waitForTimeout(snapshot.top === 0 ? 1_500 : 500);
+  }
+  throw new Error("teams_post_file_history_scroll_limit");
 }
 
 export async function collectTeamsPowerpoints(source: Page, stagingRoot: string, classIndexOnly?: number): Promise<{ manifest: { version: string; deviceKey: string; items: ManifestItem[] }; report: { classes: number; channels: number; folders: number; entries: number; folderCandidates: number; postPresentations: number; postDocuments: number; presentations: number; documents: number; bytes: number; skippedFiles: Array<{ sourcePosition: string; reason: string }>; classSummaries: { index: number; channels: number; folders: number; entries: number; postPresentations: number; postDocuments: number; presentations: number; documents: number }[]; coverageComplete: false; coverageLimitation: string } }> {
@@ -272,7 +293,7 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
         phase = "posts";
         fileContext = `class_${classIndex}_channel_${channelIndex}_posts`;
         const postChannelName = /^(General|Generelt)$/.test(channelName) ? "General" : channelName;
-        const postFiles = await collectPostFiles(probe, className, postChannelName, stagingRoot, items, totalBytes);
+        const postFiles = await collectPostFilesAcrossHistory(probe, className, postChannelName, stagingRoot, items, totalBytes);
         postPresentations += postFiles.presentations;
         postDocuments += postFiles.documents;
         presentations += postFiles.presentations;
@@ -384,5 +405,5 @@ export async function collectTeamsPowerpoints(source: Page, stagingRoot: string,
     const kind = error instanceof Error && error.name === "TimeoutError" ? "timeout" : error instanceof TypeError ? "type_error" : "unexpected";
     throw new Error(`teams_powerpoint_${phase}_${kind}_${fileContext}`);
   } finally { await probe.close(); }
-  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, skippedFiles, classSummaries, coverageComplete: false, coverageLimitation: `Visible and hidden class-channel Shared folders plus rendered PPTX/PDF/DOCX post attachments only. ${skippedFiles.length} file(s) could not be downloaded and must be retried. Older or virtualized posts, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered.` } };
+  return { manifest: { version: "omega_personal_files_v1", deviceKey: "teams-sharepoint", items }, report: { classes: processedClasses, channels: channelCount, folders: folderCount, entries: entriesObserved, folderCandidates, postPresentations, postDocuments, presentations, documents, bytes: totalBytes, skippedFiles, classSummaries, coverageComplete: false, coverageLimitation: `Visible and hidden class-channel Shared folders plus PPTX/PDF/DOCX/XLSX post attachments rendered while scrolling each channel to the top. ${skippedFiles.length} file(s) could not be downloaded and must be retried. Server-side history beyond the loaded feed, unloaded replies, Classwork, other file types, scanned PDFs, and image-only slides are not yet covered.` } };
 }
