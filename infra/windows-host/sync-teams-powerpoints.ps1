@@ -68,13 +68,24 @@ try {
   $import = $importOutput[-1] | ConvertFrom-Json
   if ($import.status -ne 'succeeded' -or [int]$import.captured -ne [int]$report.itemCount -or [int]$import.counts.created + [int]$import.counts.updated + [int]$import.counts.unchanged -ne [int]$report.itemCount) { throw 'The Teams PowerPoint import was not fully accounted for.' }
   $status = [ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o'); status = $(if ($skippedFiles.Count) { 'partial' } else { 'succeeded' }); dryRun = [bool]$DryRun; classes = [int]$report.classes; channels = [int]$report.channels; classSummaries = $report.classSummaries; postPresentations = [int]$report.postPresentations; postDocuments = [int]$report.postDocuments; presentations = [int]$report.presentations; documents = [int]$report.documents; captured = [int]$report.itemCount; skippedCount = $skippedFiles.Count; skippedFiles = $skippedFiles; bytes = [long]$report.bytes; created = [int]$import.counts.created; updated = [int]$import.counts.updated; unchanged = [int]$import.counts.unchanged; textExtracted = [int]$import.counts.textExtracted; textUnavailable = [int]$import.counts.textUnavailable; coverageComplete = $false; coverageLimitation = $report.coverageLimitation }
-  [IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
-  $status | ConvertTo-Json -Compress
 } catch {
   $message = $_.Exception.Message
   if ($message.Length -gt 240) { $message = $message.Substring(0, 240) }
   [IO.File]::AppendAllText($statusLog, (([ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o'); status = 'failed'; reason = $message } | ConvertTo-Json -Compress) + "`n"))
   throw
 } finally {
-  if (Test-Path -LiteralPath $batchRoot) { Remove-Item -LiteralPath $batchRoot -Recurse -Force }
+  if (Test-Path -LiteralPath $batchRoot) {
+    try {
+      Remove-Item -LiteralPath $batchRoot -Recurse -Force -ErrorAction Stop
+    } catch {
+      $message = $_.Exception.Message
+      if ($message.Length -gt 240) { $message = $message.Substring(0, 240) }
+      [IO.File]::AppendAllText($statusLog, (([ordered]@{ at = (Get-Date).ToUniversalTime().ToString('o'); status = 'failed'; reason = "staging_cleanup_failed: $message" } | ConvertTo-Json -Compress) + "`n"))
+      throw
+    }
+  }
 }
+
+# A successful import is not a completed run until its temporary files are gone.
+[IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
+$status | ConvertTo-Json -Compress
