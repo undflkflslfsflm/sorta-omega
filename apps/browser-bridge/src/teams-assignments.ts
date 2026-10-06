@@ -24,6 +24,7 @@ export type TeamsAssignmentSnapshot = {
 
 const assignmentOrigin = "https://assignments.edu.cloud.microsoft" as const;
 const teamsOrigins = new Set(["https://teams.microsoft.com", "https://teams.cloud.microsoft"]);
+type AssignmentCard = { id: string; text: string; title: string; dueSummary: string; courseTitle: string; classFilterIndex: number | null };
 
 function assignmentFrame(page: Page): Frame {
   const frames = page.frames().filter(frame => {
@@ -51,6 +52,33 @@ async function waitForAssignmentListSettled(frame: Frame, quietSamples = 5): Pro
     await frame.waitForTimeout(500);
   }
   throw new Error("teams_assignment_list_not_settled");
+}
+
+async function readAssignmentCards(frame: Frame, classFilterIndex: number | null): Promise<AssignmentCard[]> {
+  return frame.locator(".aui-assignmentListCard").evaluateAll((elements, filterIndex) => elements.map(element => ({
+    id: element.id,
+    text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
+    title: (element.querySelector('[class*="CardHeader__title"], h2, h3')?.textContent ?? "").replace(/\s+/g, " ").trim(),
+    dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[1] ? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent : "")?.replace(/\s+/g, " ").trim() ?? "",
+    courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
+    classFilterIndex: filterIndex,
+  })), classFilterIndex);
+}
+
+async function selectAssignmentClass(frame: Frame, optionIndex: number, filterIsOpen = false): Promise<void> {
+  if (!filterIsOpen) {
+    const openFilter = frame.getByRole("button", { name: "Open filter pane" });
+    if (await openFilter.count() !== 1) throw new Error("teams_assignment_filter_pane_ambiguous");
+    await openFilter.click();
+  }
+  const classCombo = frame.locator('[data-test="list-class-selector"]');
+  if (await classCombo.count() !== 1) throw new Error("teams_assignment_class_filter_ambiguous");
+  await classCombo.click();
+  const option = frame.locator('[role="option"]:visible').nth(optionIndex);
+  await option.waitFor({ timeout: 10_000 });
+  await option.click();
+  await frame.waitForTimeout(1_000);
+  await waitForAssignmentListSettled(frame);
 }
 
 export async function retryAssignmentListReturn<T>(attempt: () => Promise<T>, wait: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))): Promise<T> {
@@ -126,18 +154,35 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
           .some(item => new RegExp(tabName, "i").test((item.getAttribute("aria-label") ?? item.textContent ?? "").trim())), label, { timeout: 25_000 }).catch(() => { throw new Error("teams_assignment_section_transition_unverified"); });
       }
       await waitForAssignmentListSettled(frame, 24);
-      const cards = await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => ({
-        id: element.id,
-        text: (element.textContent ?? "").replace(/\s+/g, " ").trim(),
-        title: (element.querySelector('[class*="CardHeader__title"], h2, h3')?.textContent ?? "").replace(/\s+/g, " ").trim(),
-        dueSummary: (element.querySelector('[class*="CardHeader__description"]')?.children[1] ? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent : "")?.replace(/\s+/g, " ").trim() ?? "",
-        courseTitle: (element.querySelector('[class*="CardHeader__description"]')?.children[1]?.textContent ?? element.querySelector('[class*="CardHeader__description"]')?.children[0]?.textContent ?? "").replace(/\s+/g, " ").trim(),
-      })));
-      console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, capturedCardCount: cards.length }));
+      const unfiltered = await readAssignmentCards(frame, null);
+      const cardsById = new Map(unfiltered.map(card => [card.id, card]));
+      const openFilter = frame.getByRole("button", { name: "Open filter pane" });
+      if (await openFilter.count() !== 1) throw new Error("teams_assignment_filter_pane_ambiguous");
+      await openFilter.click();
+      const classCombo = frame.locator('[data-test="list-class-selector"]');
+      if (await classCombo.count() !== 1) throw new Error("teams_assignment_class_filter_ambiguous");
+      await classCombo.click();
+      const classCount = await frame.locator('[role="option"]:visible').count();
+      if (classCount < 1 || classCount > 30) throw new Error("teams_assignment_class_filter_count_invalid");
+      for (let classIndex = 0; classIndex < classCount; classIndex++) {
+        if (classIndex > 0) await classCombo.click();
+        const option = frame.locator('[role="option"]:visible').nth(classIndex);
+        await option.click();
+        await frame.waitForTimeout(1_000);
+        await waitForAssignmentListSettled(frame);
+        for (const card of await readAssignmentCards(frame, classIndex)) if (!cardsById.has(card.id)) cardsById.set(card.id, card);
+      }
+      const cards = [...cardsById.values()];
+      console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, unfilteredCardCount: unfiltered.length, classFilterCount: classCount, capturedCardCount: cards.length }));
       if (records.length + cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) {
         console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, cardCount: cards.length, cardShape: cards.map(card => ({ idPresent: Boolean(card.id), textLength: card.text.length, titleLength: card.title.length, dueLength: card.dueSummary.length, courseLength: card.courseTitle.length })).slice(0, 30) }));
         throw new Error("teams_assignment_list_invalid_or_unbounded");
       }
+      // Return to the unfiltered list before opening details. A class-only
+      // card will reselect its class after each detail navigation.
+      await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await frame.getByRole("tab", { name: new RegExp(label, "i") }).click();
+      await waitForAssignmentListSettled(frame);
       for (const [index, captured] of cards.entries()) {
         if (index > 0) {
           stage = "list_return";
@@ -155,6 +200,10 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
               await reopened.click();
               returnStage = "settle";
               await waitForAssignmentListSettled(current);
+              if (captured.classFilterIndex !== null) {
+                returnStage = "filter";
+                await selectAssignmentClass(current, captured.classFilterIndex);
+              }
               returnStage = "card";
               await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
               return current;
@@ -163,6 +212,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
             throw new Error(`teams_assignment_list_return_${returnStage}_failed`);
           }
         }
+        if (index === 0 && captured.classFilterIndex !== null) await selectAssignmentClass(frame, captured.classFilterIndex);
         const card = frame.locator(`[id="${captured.id}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
         stage = `detail_open_${listSection}_${index}`;
