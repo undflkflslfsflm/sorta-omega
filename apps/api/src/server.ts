@@ -15,6 +15,7 @@ import { ZodError } from "zod";
 import { safeFetchText } from "./safe-fetch.js";
 import { decodeNotesCursor, encodeNotesCursor } from "./notes-cursor.js";
 import { focusGroundedEvidence, isAssessmentQuestion } from "./grounded-evidence.js";
+import { validateReminderProposal } from "./assistant-reminder.js";
 import {
   activityEventSchema,
   preferencesSchema,
@@ -330,6 +331,7 @@ import {
   updateSchoolAssessmentSchema
   ,updateAttendanceRecordSchema,
   updatePerformanceGradeSchema
+  ,isDirectReminderRequest
 } from "@sorta/contracts";
 import { config } from "./config.js";
 import { pool, query, transaction } from "./db.js";
@@ -541,9 +543,9 @@ const mapTask = (row: Record<string, any>) => taskSchema.parse({
   minBlockMinutes: row.min_block_minutes, maxBlockMinutes: row.max_block_minutes, revision: row.revision,
   createdAt: iso(row.created_at), updatedAt: iso(row.updated_at)
 });
-const mapReminder=(row:Record<string,any>)=>reminderSchema.parse({id:row.id,vaultId:row.vault_id,taskId:row.task_id,sourceAnchorId:row.source_anchor_id,remindAt:iso(row.remind_at),timezone:row.timezone,channel:row.channel,status:row.status,revision:row.revision,deliveredAt:row.delivered_at?iso(row.delivered_at):null,dismissedAt:row.dismissed_at?iso(row.dismissed_at):null,createdAt:iso(row.created_at),updatedAt:iso(row.updated_at)});
+const mapReminder=(row:Record<string,any>)=>reminderSchema.parse({id:row.id,vaultId:row.vault_id,taskId:row.task_id,sourceAnchorId:row.source_anchor_id,calendarEventId:row.calendar_event_id??null,title:row.title??null,remindAt:iso(row.remind_at),timezone:row.timezone,channel:row.channel,status:row.status,revision:row.revision,deliveredAt:row.delivered_at?iso(row.delivered_at):null,dismissedAt:row.dismissed_at?iso(row.dismissed_at):null,createdAt:iso(row.created_at),updatedAt:iso(row.updated_at)});
 const mapNotification=(row:Record<string,any>)=>notificationSchema.parse({id:row.id,vaultId:row.vault_id,reminderId:row.reminder_id,taskId:row.task_id,channel:row.channel,title:row.title,body:row.body,state:row.state,revision:row.revision,deliveredAt:iso(row.delivered_at),readAt:row.read_at?iso(row.read_at):null,dismissedAt:row.dismissed_at?iso(row.dismissed_at):null,createdAt:iso(row.created_at),updatedAt:iso(row.updated_at)});
-async function materializeDueReminders(vaultId:string){return transaction(async client=>{const due=await client.query(`SELECT r.*,t.title AS task_title FROM reminders r LEFT JOIN tasks t ON t.id=r.task_id AND t.deleted_at IS NULL WHERE r.vault_id=$1 AND r.deleted_at IS NULL AND r.status IN ('scheduled','snoozed') AND r.remind_at<=now() ORDER BY r.remind_at,r.id LIMIT 100 FOR UPDATE OF r SKIP LOCKED`,[vaultId]);const now=new Date();for(const reminder of due.rows){const status=dueReminderStatus(reminder.remind_at,now);if(!status)continue;const deliveredAt=now.toISOString();await client.query("UPDATE reminders SET status=$3,delivered_at=$4,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,reminder.id,status,deliveredAt]);await client.query(`INSERT INTO notifications(vault_id,reminder_id,task_id,channel,title,body,delivered_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(reminder_id) DO NOTHING`,[vaultId,reminder.id,reminder.task_id,reminder.channel,reminder.task_title??"Reminder",status==="missed"?`Missed reminder scheduled for ${iso(reminder.remind_at)}.`:`Reminder due at ${iso(reminder.remind_at)}.`,deliveredAt]);}return due.rowCount;});}
+async function materializeDueReminders(vaultId:string){return transaction(async client=>{const due=await client.query(`SELECT r.*,t.title AS task_title FROM reminders r LEFT JOIN tasks t ON t.id=r.task_id AND t.deleted_at IS NULL WHERE r.vault_id=$1 AND r.deleted_at IS NULL AND r.status IN ('scheduled','snoozed') AND r.remind_at<=now() ORDER BY r.remind_at,r.id LIMIT 100 FOR UPDATE OF r SKIP LOCKED`,[vaultId]);const now=new Date();for(const reminder of due.rows){const status=dueReminderStatus(reminder.remind_at,now);if(!status)continue;const deliveredAt=now.toISOString();await client.query("UPDATE reminders SET status=$3,delivered_at=$4,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2",[vaultId,reminder.id,status,deliveredAt]);await client.query(`INSERT INTO notifications(vault_id,reminder_id,task_id,channel,title,body,delivered_at) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(reminder_id) DO NOTHING`,[vaultId,reminder.id,reminder.task_id,reminder.channel,reminder.title??reminder.task_title??"Reminder",status==="missed"?`Missed reminder scheduled for ${iso(reminder.remind_at)}.`:`Reminder due at ${iso(reminder.remind_at)}.`,deliveredAt]);}return due.rowCount;});}
 const mapEvent = (row: Record<string, any>) => calendarEventSchema.parse({
   id: row.id, vaultId: row.vault_id, calendarId:row.calendar_id, title: row.title,
   startsAt: iso(row.starts_at), endsAt: iso(row.ends_at),
@@ -3272,9 +3274,40 @@ app.get("/api/v1/vaults/:vaultId/reminders",async(request,reply)=>{const {vaultI
 
 app.post("/api/v1/vaults/:vaultId/reminders",async(request,reply)=>{const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);const input=createReminderSchema.parse(request.body);if(!isSupportedTimezone(input.timezone))return reply.code(400).send({error:"unsupported_timezone"});if(Date.parse(input.remindAt)<=Date.now())return reply.code(400).send({error:"reminder_time_must_be_future"});const created=await transaction(async client=>{if(input.taskId){const task=await client.query("SELECT id FROM tasks WHERE vault_id=$1 AND id=$2 AND deleted_at IS NULL",[vaultId,input.taskId]);if(!task.rowCount)return "reminder_task_not_found" as const;}if(input.sourceAnchorId){const anchor=await client.query(`SELECT c.id FROM semantic_chunks c JOIN notes n ON n.id=c.note_id AND n.revision=c.note_revision WHERE c.vault_id=$1 AND c.id=$2 AND n.trashed_at IS NULL`,[vaultId,input.sourceAnchorId]);if(!anchor.rowCount)return "reminder_source_anchor_not_current" as const;}const result=await client.query("INSERT INTO reminders(vault_id,task_id,source_anchor_id,remind_at,timezone,channel) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *",[vaultId,input.taskId??null,input.sourceAnchorId??null,input.remindAt,input.timezone,input.channel]);return result.rows[0];});if(typeof created==="string")return reply.code(400).send({error:created});return reply.code(201).send(mapReminder(created));});
 
-app.patch("/api/v1/vaults/:vaultId/reminders/:reminderId",async(request,reply)=>{const {vaultId,reminderId}=request.params as {vaultId:string;reminderId:string};idSchema.parse(vaultId);idSchema.parse(reminderId);const input=updateReminderSchema.parse(request.body);const updated=await transaction(async client=>{const current=await client.query("SELECT * FROM reminders WHERE vault_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",[vaultId,reminderId]);const item=current.rows[0];if(!item)return null;if(item.revision!==input.expectedRevision)return "stale_revision" as const;const decision=reminderUpdateDecision({currentStatus:item.status,currentRemindAt:iso(item.remind_at),requestedStatus:input.status,requestedRemindAt:input.remindAt});if(!decision.ok)return decision.error;const result=await client.query("UPDATE reminders SET remind_at=$3,status=$4,delivered_at=CASE WHEN $4 IN ('scheduled','snoozed') THEN NULL ELSE delivered_at END,dismissed_at=CASE WHEN $4='dismissed' THEN COALESCE(dismissed_at,now()) ELSE dismissed_at END,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 RETURNING *",[vaultId,reminderId,decision.remindAt,decision.status]);return result.rows[0];});if(!updated)return reply.code(404).send({error:"reminder_not_found"});if(typeof updated==="string")return reply.code(updated==="stale_revision"?409:400).send({error:updated});return mapReminder(updated);});
+app.patch("/api/v1/vaults/:vaultId/reminders/:reminderId",async(request,reply)=>{
+  const {vaultId,reminderId}=request.params as {vaultId:string;reminderId:string};idSchema.parse(vaultId);idSchema.parse(reminderId);
+  const input=updateReminderSchema.parse(request.body);
+  const updated=await transaction(async client=>{
+    const current=await client.query("SELECT * FROM reminders WHERE vault_id=$1 AND id=$2 AND deleted_at IS NULL FOR UPDATE",[vaultId,reminderId]);
+    const item=current.rows[0];if(!item)return null;if(item.revision!==input.expectedRevision)return "stale_revision" as const;
+    const decision=reminderUpdateDecision({currentStatus:item.status,currentRemindAt:iso(item.remind_at),requestedStatus:input.status,requestedRemindAt:input.remindAt});if(!decision.ok)return decision.error;
+    if(item.calendar_event_id&&decision.remindAt!==iso(item.remind_at)){
+      const end=new Date(Date.parse(decision.remindAt)+60_000).toISOString();
+      const moved=await client.query("UPDATE calendar_events SET starts_at=$3,ends_at=$4,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND trashed_at IS NULL RETURNING *",[vaultId,item.calendar_event_id,decision.remindAt,end]);
+      if(!moved.rows[0])return "linked_calendar_event_missing" as const;
+      const event=moved.rows[0];
+      await client.query("INSERT INTO calendar_event_revisions(event_id,revision,title,starts_at,ends_at,timezone,actor_kind,changed_fields) VALUES ($1,$2,$3,$4,$5,$6,'system',ARRAY['reminder_rescheduled'])",[event.id,event.revision,event.title,event.starts_at,event.ends_at,event.timezone]);
+    }
+    const result=await client.query("UPDATE reminders SET remind_at=$3,status=$4,delivered_at=CASE WHEN $4 IN ('scheduled','snoozed') THEN NULL ELSE delivered_at END,dismissed_at=CASE WHEN $4='dismissed' THEN COALESCE(dismissed_at,now()) ELSE dismissed_at END,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 RETURNING *",[vaultId,reminderId,decision.remindAt,decision.status]);
+    return result.rows[0];
+  });
+  if(!updated)return reply.code(404).send({error:"reminder_not_found"});if(typeof updated==="string")return reply.code(updated==="stale_revision"?409:400).send({error:updated});return mapReminder(updated);
+});
 
-app.delete("/api/v1/vaults/:vaultId/reminders/:reminderId",async(request,reply)=>{const {vaultId,reminderId}=request.params as {vaultId:string;reminderId:string};idSchema.parse(vaultId);idSchema.parse(reminderId);const input=expectedNoteRevisionSchema.parse(request.body);const result=await query("UPDATE reminders SET status='cancelled',deleted_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND revision=$3 AND deleted_at IS NULL RETURNING id",[vaultId,reminderId,input.expectedRevision]);if(!result.rowCount)return reply.code(409).send({error:"reminder_not_found_stale_or_cancelled"});return reply.code(204).send();});
+app.delete("/api/v1/vaults/:vaultId/reminders/:reminderId",async(request,reply)=>{
+  const {vaultId,reminderId}=request.params as {vaultId:string;reminderId:string};idSchema.parse(vaultId);idSchema.parse(reminderId);
+  const input=expectedNoteRevisionSchema.parse(request.body);
+  const removed=await transaction(async client=>{
+    const reminder=await client.query("UPDATE reminders SET status='cancelled',deleted_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND revision=$3 AND deleted_at IS NULL RETURNING calendar_event_id",[vaultId,reminderId,input.expectedRevision]);
+    if(!reminder.rows[0])return false;
+    if(reminder.rows[0].calendar_event_id){
+      const event=await client.query("UPDATE calendar_events SET trashed_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND id=$2 AND trashed_at IS NULL RETURNING *",[vaultId,reminder.rows[0].calendar_event_id]);
+      if(event.rows[0])await client.query("INSERT INTO calendar_event_revisions(event_id,revision,title,starts_at,ends_at,timezone,actor_kind,changed_fields) VALUES ($1,$2,$3,$4,$5,$6,'system',ARRAY['reminder_cancelled'])",[event.rows[0].id,event.rows[0].revision,event.rows[0].title,event.rows[0].starts_at,event.rows[0].ends_at,event.rows[0].timezone]);
+    }
+    return true;
+  });
+  if(!removed)return reply.code(409).send({error:"reminder_not_found_stale_or_cancelled"});return reply.code(204).send();
+});
 
 app.get("/api/v1/vaults/:vaultId/notifications",async(request,reply)=>{const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);const {unreadOnly="false",limit:rawLimit}=request.query as {unreadOnly?:string;limit?:string};const limit=rawLimit===undefined?100:Number(rawLimit);if(!Number.isInteger(limit)||limit<1||limit>200||!["true","false"].includes(unreadOnly))return reply.code(400).send({error:"invalid_notification_filter"});await materializeDueReminders(vaultId);const result=await query("SELECT * FROM notifications WHERE vault_id=$1 AND ($2::boolean=false OR state='unread') ORDER BY delivered_at DESC,id DESC LIMIT $3",[vaultId,unreadOnly==="true",limit]);return {items:result.rows.map(mapNotification),nextCursor:null};});
 
@@ -3906,6 +3939,8 @@ app.patch("/api/v1/vaults/:vaultId/calendar-events/:eventId", async (request, re
     const event = current.rows[0];
     if (!event) return null;
     if (event.revision !== input.expectedRevision) return "stale_revision" as const;
+    const linkedReminder=await client.query("SELECT 1 FROM reminders WHERE vault_id=$1 AND calendar_event_id=$2 AND deleted_at IS NULL LIMIT 1",[vaultId,eventId]);
+    if(linkedReminder.rowCount)return "assistant_reminder_event_managed_from_reminders" as const;
     const startsAt = input.startsAt ?? iso(event.starts_at); const endsAt = input.endsAt ?? iso(event.ends_at);
     const timezone = input.timezone ?? event.timezone; const recurrence = input.recurrence === undefined ? event.recurrence : input.recurrence;
     if (Date.parse(endsAt) <= Date.parse(startsAt)) return "invalid_event_range" as const;
@@ -3938,6 +3973,7 @@ app.delete("/api/v1/vaults/:vaultId/calendar-events/:eventId", async (request, r
     const row = changed.rows[0];
     await client.query(`INSERT INTO calendar_event_revisions(event_id, revision, title, starts_at, ends_at, timezone, recurrence, changed_fields)
       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,ARRAY['trashed_at'])`, [row.id, row.revision, row.title, row.starts_at, row.ends_at, row.timezone, row.recurrence ? JSON.stringify(row.recurrence) : null]);
+    await client.query("UPDATE reminders SET status='cancelled',deleted_at=now(),revision=revision+1,updated_at=now() WHERE vault_id=$1 AND calendar_event_id=$2 AND deleted_at IS NULL",[vaultId,eventId]);
     return row;
   });
   if (!result) return reply.code(409).send({ error: "event_not_found_or_stale" });
@@ -3950,13 +3986,20 @@ app.post("/api/v1/vaults/:vaultId/calendar-events/:eventId/restore", async (requ
   const expectedRevision = (request.body as { expectedRevision?: unknown })?.expectedRevision;
   if (!Number.isInteger(expectedRevision)) return reply.code(400).send({ error: "expected_revision_required" });
   const result = await transaction(async (client) => {
+    const linkedReminder=await client.query("SELECT r.id,r.status,r.deleted_at,n.id AS notification_id FROM reminders r LEFT JOIN notifications n ON n.reminder_id=r.id WHERE r.vault_id=$1 AND r.calendar_event_id=$2 FOR UPDATE OF r",[vaultId,eventId]);
+    if(linkedReminder.rows.some(row=>row.notification_id||row.status!=="cancelled"||!row.deleted_at))return "assistant_reminder_not_restorable" as const;
+    const before=await client.query("SELECT starts_at FROM calendar_events WHERE vault_id=$1 AND id=$2 AND revision=$3 AND trashed_at IS NOT NULL FOR UPDATE",[vaultId,eventId,expectedRevision]);
+    if(!before.rows[0])return null;
+    if(linkedReminder.rowCount&&new Date(before.rows[0].starts_at).getTime()<=Date.now())return "assistant_reminder_event_expired" as const;
     const changed = await client.query("UPDATE calendar_events e SET trashed_at = NULL, revision = e.revision + 1, updated_at = now() FROM calendars c WHERE e.calendar_id=c.id AND e.vault_id = $1 AND e.id = $2 AND e.revision = $3 AND e.trashed_at IS NOT NULL AND c.archived_at IS NULL AND c.can_write=true RETURNING e.*", [vaultId, eventId, expectedRevision]);
     if (!changed.rows[0]) return null;
     const row = changed.rows[0];
     await client.query(`INSERT INTO calendar_event_revisions(event_id, revision, title, starts_at, ends_at, timezone, recurrence, changed_fields)
       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,ARRAY['restored'])`, [row.id, row.revision, row.title, row.starts_at, row.ends_at, row.timezone, row.recurrence ? JSON.stringify(row.recurrence) : null]);
+    if(linkedReminder.rowCount)await client.query("UPDATE reminders SET status='scheduled',deleted_at=NULL,remind_at=$3,revision=revision+1,updated_at=now() WHERE vault_id=$1 AND calendar_event_id=$2",[vaultId,eventId,row.starts_at]);
     return row;
   });
+  if(typeof result==="string")return reply.code(409).send({error:result});
   if (!result) return reply.code(409).send({ error: "event_not_found_or_stale" });
   return mapEvent(result);
 });
@@ -4303,7 +4346,8 @@ app.post("/api/v1/vaults/:vaultId/chats/:chatId/messages", async (request, reply
        VALUES ($1, $2, 'user', $3, $4, 'persisted') RETURNING *`, [chatId, input.clientMessageId, input.text, input.mode]
     );
     const assistantId = randomUUID();
-    const jobInput = { type: "answer_generation", chatId, userMessageId: user.rows[0].id, assistantMessageId: assistantId, question: input.text, mode: input.mode, scope };
+    const vaultSettings = await client.query("SELECT timezone FROM vaults WHERE id=$1", [vaultId]);
+    const jobInput = { type: "answer_generation", chatId, userMessageId: user.rows[0].id, assistantMessageId: assistantId, question: input.text, mode: input.mode, scope, requestedAt: new Date().toISOString(), timezone: vaultSettings.rows[0]?.timezone ?? "Europe/Oslo", actionType: isDirectReminderRequest(input.text) ? "reminder" : null };
     const serialized = JSON.stringify(jobInput);
     const job = await client.query(
       `INSERT INTO jobs(vault_id, kind, status, stage, input, input_hash)
@@ -4834,8 +4878,8 @@ app.post("/api/v1/worker/jobs/claim", async (request, reply) => {
          AND t.input->>'workerId' = $1::text AND (t.result->>'embeddings')::boolean = true
        ))
        AND (j.kind <> 'answer_generation' OR (
-         EXISTS (SELECT 1 FROM jobs t WHERE t.vault_id = j.vault_id AND t.kind = 'ai_setup_test' AND t.status = 'succeeded'
-                 AND t.input->>'workerId' = $1::text AND (t.result->>'embeddings')::boolean = true)
+         (j.input->>'actionType' = 'reminder' OR EXISTS (SELECT 1 FROM jobs t WHERE t.vault_id = j.vault_id AND t.kind = 'ai_setup_test' AND t.status = 'succeeded'
+                 AND t.input->>'workerId' = $1::text AND (t.result->>'embeddings')::boolean = true))
          AND EXISTS (SELECT 1 FROM jobs t WHERE t.vault_id = j.vault_id AND t.kind = 'ai_setup_test' AND t.status = 'succeeded'
                      AND t.input->>'workerId' = $1::text AND (t.result->>'completion')::boolean = true AND (t.result->>'structuredOutput')::boolean = true)
        ))
@@ -5276,12 +5320,41 @@ app.post("/api/v1/worker/jobs/:jobId/complete", async (request, reply) => {
       const sourceManifest = evidence.rows.map((row) => row.assessment_id
         ? { citationId:`${jobId.replaceAll("-","")}.${row.citation_id}`, kind:"school_assessment", assessmentId:row.assessment_id, revision:row.note_revision }
         : { citationId:`${jobId.replaceAll("-","")}.${row.citation_id}`, kind:"note", noteId: row.note_id, sourceId: row.source_id, revision: row.note_revision, chunkId: row.chunk_id });
+      let answerText = input.result.answer;
+      let actionReceipt: { calendarEventId: string; reminderId: string; remindAt: string } | null = null;
+      if (job.input.actionType === "reminder" && isDirectReminderRequest(job.input.question)) {
+        const requested = input.result.proposedReminder;
+        const timezone = job.input.timezone;
+        const validated = requested?.kind === "reminder" && typeof timezone === "string" && isSupportedTimezone(timezone) ? validateReminderProposal(job.input.question, requested, new Date(), timezone) : null;
+        if (validated && typeof timezone === "string") {
+          const calendarId = await writableCalendarId(client, job.vault_id, undefined, timezone);
+          if (calendarId) {
+            const end = new Date(Date.parse(validated.remindAt) + 60_000).toISOString();
+            const event = await client.query(
+              "INSERT INTO calendar_events(vault_id,calendar_id,title,starts_at,ends_at,private_context,timezone) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+              [job.vault_id, calendarId, `Reminder: ${validated.title}`, validated.remindAt, end, `Created from Brain message ${job.input.userMessageId}; local only.`, timezone]
+            );
+            await client.query(
+              "INSERT INTO calendar_event_revisions(event_id,revision,title,starts_at,ends_at,timezone,actor_kind,changed_fields) VALUES ($1,1,$2,$3,$4,$5,'system',ARRAY['created','assistant_reminder'])",
+              [event.rows[0].id, `Reminder: ${validated.title}`, validated.remindAt, end, timezone]
+            );
+            const reminder = await client.query(
+              "INSERT INTO reminders(vault_id,calendar_event_id,title,remind_at,timezone,channel) VALUES ($1,$2,$3,$4,$5,'in_app') RETURNING id",
+              [job.vault_id, event.rows[0].id, validated.title, validated.remindAt, timezone]
+            );
+            actionReceipt = { calendarEventId: event.rows[0].id, reminderId: reminder.rows[0].id, remindAt: validated.remindAt };
+            const when = new Intl.DateTimeFormat("nb-NO", { timeZone: timezone, dateStyle: "short", timeStyle: "short" }).format(new Date(validated.remindAt));
+            answerText = `Scheduled “${validated.title}” in your Sorta calendar for ${when} (${timezone}). An in-app reminder is set. Nothing was written to an external calendar.`;
+          }
+        }
+        if (!actionReceipt) answerText = "I couldn't schedule that reminder. Please give me a specific date and time; no reminder or calendar event was created.";
+      }
       const updatedMessage = await client.query(
         `UPDATE chat_messages SET text = $2, status = 'succeeded', citations = $3::jsonb, source_manifest = $4::jsonb, updated_at = now()
-         WHERE id = $1 RETURNING *`, [job.input.assistantMessageId, input.result.answer, JSON.stringify(citations), JSON.stringify(sourceManifest)]
+         WHERE id = $1 RETURNING *`, [job.input.assistantMessageId, answerText, JSON.stringify(job.input.actionType === "reminder" ? [] : citations), JSON.stringify(job.input.actionType === "reminder" ? [] : sourceManifest)]
       );
       await client.query("UPDATE chats SET updated_at = now() WHERE id = $1", [job.input.chatId]);
-      persistedResult = { type: "answer", chatId: job.input.chatId, messageId: job.input.assistantMessageId, answer: input.result.answer, citations: updatedMessage.rows[0].citations };
+      persistedResult = { type: "answer", chatId: job.input.chatId, messageId: job.input.assistantMessageId, answer: answerText, citations: updatedMessage.rows[0].citations, actionReceipt };
     }
     if (input.result.type === "worker_study_plan") {
       if (input.result.studyPlanId !== job.input.studyPlanId) return "study_plan_target_mismatch" as const;

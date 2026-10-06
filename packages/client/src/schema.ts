@@ -5374,6 +5374,7 @@ export interface components {
             organizationRevision: number;
             /** Format: uuid */
             sourceId: string | null;
+            originalSha256?: string | null;
             revision: number;
             /** Format: date-time */
             createdAt: string;
@@ -5398,6 +5399,7 @@ export interface components {
                 organizationRevision: number;
                 /** Format: uuid */
                 sourceId: string | null;
+                originalSha256?: string | null;
                 revision: number;
                 /** Format: date-time */
                 createdAt: string;
@@ -6067,6 +6069,7 @@ export interface components {
                 organizationRevision: number;
                 /** Format: uuid */
                 sourceId: string | null;
+                originalSha256?: string | null;
                 revision: number;
                 /** Format: date-time */
                 createdAt: string;
@@ -8148,6 +8151,13 @@ export interface components {
             taskId: string | null;
             /** Format: uuid */
             sourceAnchorId: string | null;
+            /**
+             * Format: uuid
+             * @default null
+             */
+            calendarEventId: string | null;
+            /** @default null */
+            title: string | null;
             /** Format: date-time */
             remindAt: string;
             timezone: string;
@@ -8175,6 +8185,13 @@ export interface components {
                 taskId: string | null;
                 /** Format: uuid */
                 sourceAnchorId: string | null;
+                /**
+                 * Format: uuid
+                 * @default null
+                 */
+                calendarEventId: string | null;
+                /** @default null */
+                title: string | null;
                 /** Format: date-time */
                 remindAt: string;
                 timezone: string;
@@ -10348,6 +10365,14 @@ export interface components {
                     title: string;
                     quote: string;
                 })[];
+                actionReceipt?: {
+                    /** Format: uuid */
+                    calendarEventId: string;
+                    /** Format: uuid */
+                    reminderId: string;
+                    /** Format: date-time */
+                    remindAt: string;
+                } | null;
             } | {
                 /** @enum {string} */
                 type: "schedule_preview";
@@ -11018,6 +11043,14 @@ export interface components {
                         title: string;
                         quote: string;
                     })[];
+                    actionReceipt?: {
+                        /** Format: uuid */
+                        calendarEventId: string;
+                        /** Format: uuid */
+                        reminderId: string;
+                        /** Format: date-time */
+                        remindAt: string;
+                    } | null;
                 } | {
                     /** @enum {string} */
                     type: "schedule_preview";
@@ -12495,6 +12528,7 @@ export interface components {
                 providerListSection?: "upcoming" | "past_due" | "completed" | null;
                 /** @enum {string|null} */
                 providerDetailState?: "available" | "not_assigned" | null;
+                providerSeenInLatestSnapshot?: boolean | null;
                 /** Format: uuid */
                 sourceObjectId?: string | null;
                 /** Format: date-time */
@@ -13147,6 +13181,7 @@ export interface components {
             providerListSection?: "upcoming" | "past_due" | "completed" | null;
             /** @enum {string|null} */
             providerDetailState?: "available" | "not_assigned" | null;
+            providerSeenInLatestSnapshot?: boolean | null;
             /** Format: uuid */
             sourceObjectId?: string | null;
             /** Format: date-time */
@@ -13192,6 +13227,7 @@ export interface components {
                 providerListSection?: "upcoming" | "past_due" | "completed" | null;
                 /** @enum {string|null} */
                 providerDetailState?: "available" | "not_assigned" | null;
+                providerSeenInLatestSnapshot?: boolean | null;
                 /** Format: uuid */
                 sourceObjectId?: string | null;
                 /** Format: date-time */
@@ -17551,6 +17587,11 @@ export interface components {
                      */
                     kinds: ("note" | "task" | "calendar_event" | "school_assessment")[];
                 };
+                /** Format: date-time */
+                requestedAt?: string;
+                timezone?: string;
+                /** @enum {string|null} */
+                actionType?: "reminder" | null;
             } | {
                 /** @enum {string} */
                 type: "study_plan_generation";
@@ -17834,6 +17875,14 @@ export interface components {
                     title: string;
                     quote: string;
                 })[];
+                actionReceipt?: {
+                    /** Format: uuid */
+                    calendarEventId: string;
+                    /** Format: uuid */
+                    reminderId: string;
+                    /** Format: date-time */
+                    remindAt: string;
+                } | null;
             } | {
                 /** @enum {string} */
                 type: "schedule_preview";
@@ -18398,6 +18447,13 @@ export interface components {
                 answer: string;
                 citationIds: string[];
                 insufficientEvidence: boolean;
+                proposedReminder?: {
+                    /** @enum {string} */
+                    kind: "reminder";
+                    title: string;
+                    remindAt: string;
+                    requestQuote: string;
+                } | null;
             } | {
                 /** @enum {string} */
                 type: "worker_study_plan";

@@ -24581,6 +24581,11 @@
             "format": "uuid",
             "nullable": true
           },
+          "originalSha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "nullable": true
+          },
           "revision": {
             "type": "integer",
             "exclusiveMinimum": true,
@@ -24679,6 +24684,11 @@
                 "sourceId": {
                   "type": "string",
                   "format": "uuid",
+                  "nullable": true
+                },
+                "originalSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$",
                   "nullable": true
                 },
                 "revision": {
@@ -28687,6 +28697,11 @@
                 "sourceId": {
                   "type": "string",
                   "format": "uuid",
+                  "nullable": true
+                },
+                "originalSha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$",
                   "nullable": true
                 },
                 "revision": {
@@ -37879,6 +37894,17 @@
             "format": "uuid",
             "nullable": true
           },
+          "calendarEventId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "default": null
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
           "remindAt": {
             "type": "string",
             "format": "date-time"
@@ -37972,6 +37998,17 @@
                   "type": "string",
                   "format": "uuid",
                   "nullable": true
+                },
+                "calendarEventId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "nullable": true,
+                  "default": null
+                },
+                "title": {
+                  "type": "string",
+                  "nullable": true,
+                  "default": null
                 },
                 "remindAt": {
                   "type": "string",
@@ -46420,6 +46457,30 @@
                         }
                       ]
                     }
+                  },
+                  "actionReceipt": {
+                    "type": "object",
+                    "properties": {
+                      "calendarEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "reminderId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "remindAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
+                    },
+                    "required": [
+                      "calendarEventId",
+                      "reminderId",
+                      "remindAt"
+                    ],
+                    "additionalProperties": false,
+                    "nullable": true
                   }
                 },
                 "required": [
@@ -49417,6 +49478,30 @@
                               }
                             ]
                           }
+                        },
+                        "actionReceipt": {
+                          "type": "object",
+                          "properties": {
+                            "calendarEventId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "reminderId": {
+                              "type": "string",
+                              "format": "uuid"
+                            },
+                            "remindAt": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          },
+                          "required": [
+                            "calendarEventId",
+                            "reminderId",
+                            "remindAt"
+                          ],
+                          "additionalProperties": false,
+                          "nullable": true
                         }
                       },
                       "required": [
@@ -55652,6 +55737,10 @@
                   ],
                   "nullable": true
                 },
+                "providerSeenInLatestSnapshot": {
+                  "type": "boolean",
+                  "nullable": true
+                },
                 "sourceObjectId": {
                   "type": "string",
                   "format": "uuid",
@@ -58367,6 +58456,10 @@
             ],
             "nullable": true
           },
+          "providerSeenInLatestSnapshot": {
+            "type": "boolean",
+            "nullable": true
+          },
           "sourceObjectId": {
             "type": "string",
             "format": "uuid",
@@ -58554,6 +58647,10 @@
                     "available",
                     "not_assigned"
                   ],
+                  "nullable": true
+                },
+                "providerSeenInLatestSnapshot": {
+                  "type": "boolean",
                   "nullable": true
                 },
                 "sourceObjectId": {
@@ -77048,6 +77145,22 @@
                       }
                     },
                     "additionalProperties": false
+                  },
+                  "requestedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "timezone": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "actionType": {
+                    "type": "string",
+                    "enum": [
+                      "reminder"
+                    ],
+                    "nullable": true
                   }
                 },
                 "required": [
@@ -78403,6 +78516,30 @@
                             }
                           ]
                         }
+                      },
+                      "actionReceipt": {
+                        "type": "object",
+                        "properties": {
+                          "calendarEventId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "reminderId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "remindAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          }
+                        },
+                        "required": [
+                          "calendarEventId",
+                          "reminderId",
+                          "remindAt"
+                        ],
+                        "additionalProperties": false,
+                        "nullable": true
                       }
                     },
                     "required": [
@@ -80875,6 +81012,40 @@
                   },
                   "insufficientEvidence": {
                     "type": "boolean"
+                  },
+                  "proposedReminder": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "reminder"
+                        ]
+                      },
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      "remindAt": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "requestQuote": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "title",
+                      "remindAt",
+                      "requestQuote"
+                    ],
+                    "additionalProperties": false,
+                    "nullable": true
                   }
                 },
                 "required": [

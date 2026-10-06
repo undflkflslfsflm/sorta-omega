@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { workerEvidencePacketSchema, workerJobInputSchema, workerLeaseSchema, workerSourceInputSchema, type JobHandle } from "@sorta/contracts";
+import { isDirectReminderRequest, workerEvidencePacketSchema, workerJobInputSchema, workerLeaseSchema, workerSourceInputSchema, type JobHandle } from "@sorta/contracts";
 import { workerConfig, validatedHubUrl, validatedOllamaUrl, validatedOpenAiCompatibleUrl } from "./config.js";
 import { OllamaProvider, OpenAiCompatibleProvider } from "./provider.js";
 import { chunkText } from "./chunker.js";
 import { answerSchema, answerValidator, assertCitationSelection, buildAnswerPrompt } from "./answer.js";
+import { buildReminderIntentPrompt, reminderIntentSchema, reminderIntentValidator } from "./reminder-action.js";
 import { assertStudyPlanSources, buildStudyPlanPrompt, studyPlanOutputSchema, studyPlanOutputValidator } from "./study-plan.js";
 import { assertAuthorizedStudySources, buildStudyExercisePrompt, buildStudyFeedbackPrompt, studyExerciseOutputSchema, studyExerciseOutputValidator, studyFeedbackOutputSchema, studyFeedbackOutputValidator } from "./study-exercise.js";
 import {assertTranscriptAnalysisSources,buildTranscriptAnalysisPrompt,transcriptAnalysisOutputSchema,transcriptAnalysisOutputValidator} from "./transcript-analysis.js";
@@ -120,21 +121,28 @@ async function processJob(lease: z.infer<typeof workerLeaseSchema>) {
       const embeddings = await embeddingProvider.embed(input.payload.query, 1024);
       result = { type: "search_embedding", query: input.payload.query, mode: input.payload.mode, modelProfileId: embeddingProfile.id, embedding: embeddings[0] };
     } else if (input.payload.type === "answer_generation") {
-      let evidence: z.infer<typeof workerEvidencePacketSchema> = { items: [] };
-      if (input.payload.mode === "grounded") {
-        stage = "retrieving_evidence";
-        const embeddings = await embeddingProvider.embed(input.payload.question, 1024);
-        const evidenceResponse = await hubRequest(`api/v1/worker/jobs/${lease.jobId}/evidence`, {
-          method: "POST",
-          body: JSON.stringify({ leaseToken: lease.leaseToken, modelProfileId: embeddingProfile.id, embedding: embeddings[0] })
-        });
-        evidence = workerEvidencePacketSchema.parse(await evidenceResponse.json());
+      if(input.payload.actionType === "reminder"){
+        if(!isDirectReminderRequest(input.payload.question)||!input.payload.requestedAt||!input.payload.timezone)throw new Error("reminder_context_missing");
+        stage = "interpreting_reminder";
+        const generated = await generationProvider.extract(buildReminderIntentPrompt(input.payload.question,input.payload.requestedAt,input.payload.timezone),reminderIntentSchema,value=>reminderIntentValidator.parse(value));
+        result = {type:"worker_answer",chatId:input.payload.chatId,messageId:input.payload.assistantMessageId,answer:"Reminder request interpreted.",citationIds:[],insufficientEvidence:input.payload.mode==="grounded",proposedReminder:generated.proposedReminder};
+      }else{
+        let evidence: z.infer<typeof workerEvidencePacketSchema> = { items: [] };
+        if (input.payload.mode === "grounded") {
+          stage = "retrieving_evidence";
+          const embeddings = await embeddingProvider.embed(input.payload.question, 1024);
+          const evidenceResponse = await hubRequest(`api/v1/worker/jobs/${lease.jobId}/evidence`, {
+            method: "POST",
+            body: JSON.stringify({ leaseToken: lease.leaseToken, modelProfileId: embeddingProfile.id, embedding: embeddings[0] })
+          });
+          evidence = workerEvidencePacketSchema.parse(await evidenceResponse.json());
+        }
+        stage = "generating_answer";
+        const prompt = buildAnswerPrompt(input.payload.question, input.payload.mode, evidence.items);
+        const generated = await generationProvider.extract(prompt, answerSchema, (value) => answerValidator.parse(value));
+        assertCitationSelection(input.payload.mode, evidence.items, generated.citationIds, generated.insufficientEvidence);
+        result = { type: "worker_answer", chatId: input.payload.chatId, messageId: input.payload.assistantMessageId, answer: generated.answer, citationIds: generated.citationIds, insufficientEvidence: generated.insufficientEvidence };
       }
-      stage = "generating_answer";
-      const prompt = buildAnswerPrompt(input.payload.question, input.payload.mode, evidence.items);
-      const generated = await generationProvider.extract(prompt, answerSchema, (value) => answerValidator.parse(value));
-      assertCitationSelection(input.payload.mode, evidence.items, generated.citationIds, generated.insufficientEvidence);
-      result = { type: "worker_answer", chatId: input.payload.chatId, messageId: input.payload.assistantMessageId, answer: generated.answer, citationIds: generated.citationIds, insufficientEvidence: generated.insufficientEvidence };
     } else if (input.payload.type === "study_plan_generation") {
       stage = "generating_study_plan";
       const prompt = buildStudyPlanPrompt(input.payload);
