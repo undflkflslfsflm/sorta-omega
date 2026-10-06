@@ -577,6 +577,35 @@ try {
           loadingIndicators: document.querySelectorAll('[role="progressbar"], [aria-busy="true"], [class*="loading" i]').length,
         }));
         console.log(JSON.stringify({ provider, assignmentListShape: listShape }));
+        if (args.get("probe-assignment-return") === "true") {
+          const listUrl = assignmentsFrame.url();
+          const upcoming = assignmentsFrame.getByRole("tab", { name: /Upcoming/i });
+          if (await upcoming.count() !== 1) throw new Error("teams_assignment_upcoming_tab_ambiguous");
+          await upcoming.click();
+          const cards = assignmentsFrame.locator(".aui-assignmentListCard");
+          await cards.first().waitFor({ timeout: 15_000 });
+          const firstId = await cards.first().getAttribute("id");
+          if (!firstId) throw new Error("teams_assignment_first_card_identity_missing");
+          await cards.first().click();
+          await probe.waitForTimeout(2_000);
+          const before = { routeShape: new URL(assignmentsFrame.url()).pathname, frameCount: probe.frames().filter(frame => { try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; } }).length };
+          let errorName: string | null = null;
+          let stage = "navigate";
+          try {
+            await assignmentsFrame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+            stage = "tab";
+            const reopened = assignmentsFrame.getByRole("tab", { name: /Upcoming/i });
+            await reopened.waitFor({ timeout: 15_000 });
+            await reopened.click();
+            stage = "card";
+            await assignmentsFrame.locator(`[id="${firstId}"]`).waitFor({ timeout: 15_000 });
+            stage = "done";
+          } catch (error) {
+            errorName = error instanceof Error ? error.name : "unknown";
+          }
+          const after = { routeShape: (() => { try { return new URL(assignmentsFrame.url()).pathname; } catch { return "unavailable"; } })(), frameCount: probe.frames().filter(frame => { try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; } }).length, tabCount: await assignmentsFrame.getByRole("tab", { name: /Upcoming/i }).count().catch(() => -1), cardCount: await assignmentsFrame.locator(".aui-assignmentListCard").count().catch(() => -1), matchingCardCount: await assignmentsFrame.locator(`[id="${firstId}"]`).count().catch(() => -1) };
+          console.log(JSON.stringify({ provider, assignmentReturnShape: { before, stage, errorName, after } }));
+        }
         if (args.get("probe-assignment-paging") === "true") {
           const sections = [];
           for (const label of ["Upcoming", "Past due", "Completed"]) {

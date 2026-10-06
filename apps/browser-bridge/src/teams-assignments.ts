@@ -41,6 +41,17 @@ function assignmentIdentity(urlText: string): { classExternalId: string; assignm
   return { classExternalId: decodeURIComponent(match[1]), assignmentExternalId: decodeURIComponent(match[2]) };
 }
 
+export async function retryAssignmentListReturn<T>(attempt: () => Promise<T>, wait: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))): Promise<T> {
+  for (let retry = 0; retry < 3; retry++) {
+    try { return await attempt(); }
+    catch (error) {
+      if (retry === 2) throw new Error("teams_assignment_list_return_failed", { cause: error });
+      await wait(500 * (retry + 1));
+    }
+  }
+  throw new Error("teams_assignment_list_return_failed");
+}
+
 export async function collectTeamsAssignments(signedInPage: Page): Promise<TeamsAssignmentSnapshot> {
   const start = new URL(signedInPage.url());
   if (!teamsOrigins.has(start.origin) || start.username || start.password) throw new Error("teams_signed_in_tab_origin_invalid");
@@ -114,11 +125,16 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       for (const [index, captured] of cards.entries()) {
         if (index > 0) {
           stage = "list_return";
-          await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-          const reopened = frame.getByRole("tab", { name: new RegExp(label, "i") });
-          await reopened.waitFor({ timeout: 25_000 });
-          await reopened.click();
-          await frame.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
+          frame = await retryAssignmentListReturn(async () => {
+            const current = assignmentFrame(probe);
+            await current.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+            const reopened = current.getByRole("tab", { name: new RegExp(label, "i") });
+            await reopened.waitFor({ timeout: 25_000 });
+            if (await reopened.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
+            await reopened.click();
+            await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
+            return current;
+          }, milliseconds => probe.waitForTimeout(milliseconds));
         }
         const card = frame.locator(`[id="${captured.id}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
