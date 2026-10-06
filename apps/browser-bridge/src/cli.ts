@@ -103,8 +103,10 @@ try{
     if(path.basename(artifactPath)!=="manifest.json"||!/^personal-[0-9a-f]{32}$/.test(path.basename(path.dirname(artifactPath))))throw new Error("teams_assignment_files_output_directory_invalid");
     const basePath=args.get("base-snapshot");
     if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("teams_assignment_files_base_snapshot_required");
+    const requestedRecord=args.get("assignment-record-index");
+    if(requestedRecord!==undefined&&!/^\d{1,3}$/.test(requestedRecord))throw new Error("teams_assignment_files_record_index_invalid");
     const snapshot=JSON.parse(await readFile(basePath,"utf8")) as TeamsAssignmentSnapshot;
-    const {manifest,report}=await collectTeamsAssignmentFiles(page,snapshot,path.dirname(artifactPath));
+    const {manifest,report}=await collectTeamsAssignmentFiles(page,snapshot,path.dirname(artifactPath),requestedRecord===undefined?undefined:Number(requestedRecord));
     await writeNewArtifact(manifest);
     console.log(JSON.stringify({provider,format:manifest.version,itemCount:manifest.items.length,output:artifactPath,...report,sessionRetainedInProfile:true,credentialsExported:false}));
   }else if(provider==="teams-chats"){

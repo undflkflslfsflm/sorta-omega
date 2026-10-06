@@ -33,8 +33,9 @@ export function validateAssignmentFileSnapshot(snapshot: TeamsAssignmentSnapshot
   }
 }
 
-export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsAssignmentSnapshot, stagingRoot: string): Promise<{ manifest: { version: "omega_personal_files_v1"; deviceKey: "teams-sharepoint"; items: ManifestItem[] }; report: { assignments: number; resources: number; eligible: number; downloaded: number; unsupported: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
+export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsAssignmentSnapshot, stagingRoot: string, recordIndexOnly?: number): Promise<{ manifest: { version: "omega_personal_files_v1"; deviceKey: "teams-sharepoint"; items: ManifestItem[] }; report: { assignments: number; resources: number; eligible: number; downloaded: number; unsupported: number; bytes: number; coverageComplete: false; coverageLimitation: string } }> {
   validateAssignmentFileSnapshot(snapshot);
+  if (recordIndexOnly !== undefined && (!Number.isInteger(recordIndexOnly) || recordIndexOnly < 0 || recordIndexOnly >= snapshot.records.length)) throw new Error("teams_assignment_files_record_index_invalid");
   const sourceUrl = new URL(source.url());
   if (!["https://teams.microsoft.com", "https://teams.cloud.microsoft"].includes(sourceUrl.origin) || sourceUrl.username || sourceUrl.password) throw new Error("teams_assignment_files_source_invalid");
   const probe = await source.context().newPage();
@@ -66,7 +67,7 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
     const listUrl = `${assignmentOrigin}/classes/all/list`;
     const sections = [["upcoming", "Upcoming"], ["past_due", "Past due"], ["completed", "Completed"]] as const;
     for (const [section, label] of sections) {
-      const sectionRecords = snapshot.records.map((record, recordIndex) => ({ record, recordIndex })).filter(({ record }) => record.listSection === section && record.detailState === "available" && record.linkedFileNames.length > 0);
+      const sectionRecords = snapshot.records.map((record, recordIndex) => ({ record, recordIndex })).filter(({ record, recordIndex }) => record.listSection === section && record.detailState === "available" && record.linkedFileNames.length > 0 && (recordIndexOnly === undefined || recordIndexOnly === recordIndex));
       if (!sectionRecords.length) continue;
       stage = `section_${section}`;
       frame = assignmentFrame(probe);
@@ -134,12 +135,16 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
           const relativePath = assignmentSchoolFileRelativePath(record.courseTitle, record.classExternalId, record.assignmentExternalId, name, ordinal);
           const more = resourceButtons.nth(index).locator('xpath=..').locator('button[class*="more-options-button"]');
           if (await more.count() !== 1) throw new Error("teams_assignment_files_menu_ambiguous");
+          stage = `menu_click_${recordIndex}_${index}`;
           await more.click();
           const action = frame.getByRole("menuitem", { name: "Download", exact: true });
           if (await action.count() !== 1) throw new Error("teams_assignment_files_download_action_missing");
+          stage = `download_event_${recordIndex}_${index}`;
           const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item);
           let timer: ReturnType<typeof setTimeout> | undefined;
+          stage = `download_path_${recordIndex}_${index}`;
           const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("teams_assignment_files_download_timeout")), 60_000); })]).finally(() => { if (timer) clearTimeout(timer); });
+          stage = `download_validate_${recordIndex}_${index}`;
           const metadata = await stat(filePath);
           if (!metadata.isFile() || metadata.size < 1 || metadata.size > schoolFileByteLimit(name) || bytes + metadata.size > maxBatchBytes) throw new Error("teams_assignment_files_download_size_invalid");
           if (!download.suggestedFilename().toLowerCase().endsWith(name.slice(name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_assignment_files_download_type_changed");

@@ -3,12 +3,14 @@ param(
   [Parameter(Mandatory = $true)][string]$AppContainer,
   [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
   [string]$ProfilePath = (Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\EdgeUserData'),
+  [int]$RecordIndex = -1,
   [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 if ($VaultId -notmatch '^[0-9a-fA-F]{8}(-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$') { throw 'A vault UUID is required.' }
 if ($AppContainer -notmatch '^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$') { throw 'A literal Docker app container name is required.' }
+if ($RecordIndex -lt -1 -or $RecordIndex -gt 499) { throw 'RecordIndex must be -1 or an index from 0 to 499.' }
 $statusDirectory = Split-Path -Parent $ProfilePath
 New-Item -ItemType Directory -Path $statusDirectory -Force | Out-Null
 $statusLog = Join-Path $statusDirectory 'teams-assignment-files-sync-status.jsonl'
@@ -53,7 +55,9 @@ WHERE vault_id='00000000-0000-4000-8000-000000000001' AND source_origin='https:/
 
   New-Item -ItemType Directory -Path $batchRoot | Out-Null
   $manifestPath = Join-Path $batchRoot 'manifest.json'
-  $bridgeOutput = @(& node $bridge --provider teams-assignment-files --cdp-profile $ProfilePath --noninteractive true --base-snapshot $snapshotPath --output $manifestPath)
+  $bridgeArgs = @('--provider','teams-assignment-files','--cdp-profile',$ProfilePath,'--noninteractive','true','--base-snapshot',$snapshotPath,'--output',$manifestPath)
+  if ($RecordIndex -ge 0) { $bridgeArgs += @('--assignment-record-index',[string]$RecordIndex) }
+  $bridgeOutput = @(& node $bridge @bridgeArgs)
   if ($LASTEXITCODE -ne 0) {
     $errorCode = 'browser_bridge_failed'
     if ($bridgeOutput.Count) { try { $errorCode = ($bridgeOutput[-1] | ConvertFrom-Json).errorCode } catch { } }
@@ -69,7 +73,7 @@ WHERE vault_id='00000000-0000-4000-8000-000000000001' AND source_origin='https:/
     $import = $importOutput[-1] | ConvertFrom-Json
     if ($import.status -ne 'succeeded' -or [int]$import.captured -ne [int]$report.itemCount) { throw 'The Teams assignment-file import was not fully accounted for.' }
   }
-  $status = [ordered]@{ at=(Get-Date).ToUniversalTime().ToString('o'); status='succeeded'; dryRun=[bool]$DryRun; assignments=[int]$report.assignments; resources=[int]$report.resources; eligible=[int]$report.eligible; downloaded=[int]$report.downloaded; unsupported=[int]$report.unsupported; bytes=[long]$report.bytes; created=$(if($import){[int]$import.counts.created}else{0}); updated=$(if($import){[int]$import.counts.updated}else{0}); unchanged=$(if($import){[int]$import.counts.unchanged}else{0}); textExtracted=$(if($import){[int]$import.counts.textExtracted}else{0}); textUnavailable=$(if($import){[int]$import.counts.textUnavailable}else{0}); coverageComplete=$false; coverageLimitation=$report.coverageLimitation }
+  $status = [ordered]@{ at=(Get-Date).ToUniversalTime().ToString('o'); status='succeeded'; dryRun=[bool]$DryRun; recordIndex=$RecordIndex; assignments=[int]$report.assignments; resources=[int]$report.resources; eligible=[int]$report.eligible; downloaded=[int]$report.downloaded; unsupported=[int]$report.unsupported; bytes=[long]$report.bytes; created=$(if($import){[int]$import.counts.created}else{0}); updated=$(if($import){[int]$import.counts.updated}else{0}); unchanged=$(if($import){[int]$import.counts.unchanged}else{0}); textExtracted=$(if($import){[int]$import.counts.textExtracted}else{0}); textUnavailable=$(if($import){[int]$import.counts.textUnavailable}else{0}); coverageComplete=$false; coverageLimitation=$report.coverageLimitation }
   [IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
   $status | ConvertTo-Json -Compress
 } catch {
