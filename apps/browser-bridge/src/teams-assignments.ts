@@ -81,6 +81,17 @@ async function selectAssignmentClass(frame: Frame, optionIndex: number, filterIs
   await waitForAssignmentListSettled(frame);
 }
 
+async function clearAssignmentClass(frame: Frame): Promise<void> {
+  const clear = frame.getByRole("button", { name: /^Clear class .+ filter$/ });
+  const count = await clear.count();
+  if (count > 1) throw new Error("teams_assignment_class_filter_clear_ambiguous");
+  if (count === 1) {
+    await clear.click();
+    await frame.waitForTimeout(1_000);
+    await waitForAssignmentListSettled(frame);
+  }
+}
+
 export async function retryAssignmentListReturn<T>(attempt: () => Promise<T>, wait: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))): Promise<T> {
   for (let retry = 0; retry < 3; retry++) {
     try { return await attempt(); }
@@ -144,6 +155,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
         await probe.waitForTimeout(3_000);
       }
+      await clearAssignmentClass(frame);
       const tab = frame.getByRole("tab", { name: new RegExp(label, "i") });
       await tab.waitFor({ timeout: 25_000 });
       if (await tab.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
@@ -182,7 +194,10 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       // card will reselect its class after each detail navigation.
       await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await frame.getByRole("tab", { name: new RegExp(label, "i") }).click();
+      await clearAssignmentClass(frame);
       await waitForAssignmentListSettled(frame);
+      const restoredIds = new Set(await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)));
+      if (unfiltered.some(card => !restoredIds.has(card.id))) throw new Error("teams_assignment_unfiltered_restore_failed");
       for (const [index, captured] of cards.entries()) {
         if (index > 0) {
           stage = "list_return";
@@ -203,6 +218,9 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
               if (captured.classFilterIndex !== null) {
                 returnStage = "filter";
                 await selectAssignmentClass(current, captured.classFilterIndex);
+              } else {
+                returnStage = "clear";
+                await clearAssignmentClass(current);
               }
               returnStage = "card";
               await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
