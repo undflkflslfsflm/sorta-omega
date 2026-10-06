@@ -48,13 +48,13 @@ async function collectConversationKeys(probe: Page): Promise<string[]> {
   throw new Error("teams_chat_list_scroll_limit");
 }
 
-async function collectConversationMessages(probe: Page): Promise<RenderedMessage[]> {
+async function collectConversationMessages(probe: Page): Promise<{ messages: RenderedMessage[]; reachedLoadedTop: boolean }> {
   const viewport = probe.locator('[data-tid="message-pane-list-viewport"]');
   await viewport.waitFor({ state: "attached", timeout: 15_000 });
   if (await viewport.count() !== 1) throw new Error("teams_chat_message_scroller_ambiguous");
   const messages = new Map<string, RenderedMessage>();
   let stableTop = 0, lastHeight = -1, lastCount = -1;
-  for (let step = 0; step < 100; step++) {
+  for (let step = 0; step < 25; step++) {
     const snapshot = await viewport.evaluate(element => ({
       top: element.scrollTop, height: element.scrollHeight, client: element.clientHeight,
       messages: [...element.querySelectorAll<HTMLElement>('[data-tid="chat-pane-message"][data-mid]')].map(message => ({
@@ -66,19 +66,20 @@ async function collectConversationMessages(probe: Page): Promise<RenderedMessage
     if (messages.size > 5_000) throw new Error("teams_chat_message_count_exceeds_bound");
     if (snapshot.top === 0 && snapshot.height === lastHeight && messages.size === lastCount) stableTop++;
     else stableTop = 0;
-    if (stableTop >= 3) return [...messages.values()];
+    if (stableTop >= 3) return { messages: [...messages.values()], reachedLoadedTop: true };
     lastHeight = snapshot.height;
     lastCount = messages.size;
     await viewport.evaluate(element => { element.scrollTop = Math.max(0, element.scrollTop - Math.floor(element.clientHeight * 0.8)); });
     await probe.waitForTimeout(snapshot.top === 0 ? 1_000 : 350);
   }
-  throw new Error("teams_chat_history_scroll_limit");
+  if (!messages.size) throw new Error("teams_chat_messages_not_found");
+  return { messages: [...messages.values()], reachedLoadedTop: false };
 }
 
-export async function collectTeamsChats(source: Page): Promise<{ notes: Note[]; coverage: { conversations: number; textMessages: number; emptyMessages: number; complete: false; limitation: string } }> {
+export async function collectTeamsChats(source: Page): Promise<{ notes: Note[]; coverage: { conversations: number; textMessages: number; emptyMessages: number; boundedHistories: number; complete: false; limitation: string } }> {
   const probe = await source.context().newPage();
   const notes: Note[] = [];
-  let textMessages = 0, emptyMessages = 0;
+  let textMessages = 0, emptyMessages = 0, boundedHistories = 0;
   try {
     await probe.goto(source.url(), { waitUntil: "domcontentloaded", timeout: 30_000 });
     if (!["teams.microsoft.com", "teams.cloud.microsoft"].includes(new URL(probe.url()).hostname)) throw new Error("teams_chat_left_registered_origin");
@@ -97,12 +98,14 @@ export async function collectTeamsChats(source: Page): Promise<{ notes: Note[]; 
       if (!name) throw new Error("teams_chat_name_missing");
       await target.click();
       await probe.waitForTimeout(750);
-      const messages = await collectConversationMessages(probe);
+      const history = await collectConversationMessages(probe);
+      const messages = history.messages;
+      if (!history.reachedLoadedTop) boundedHistories++;
       emptyMessages += messages.filter(message => !message.text.trim()).length;
       textMessages += messages.filter(message => message.text.trim()).length;
       if (messages.some(message => message.text.trim())) notes.push(teamsChatNote(key, name, messages));
     }
     if (!notes.length) throw new Error("teams_chat_text_not_found_layout_review_required");
-    return { notes, coverage: { conversations: keys.length, textMessages, emptyMessages, complete: false, limitation: "Rendered chat conversations and text messages were captured while scrolling to the loaded top of each conversation. Teams may withhold older server history, hidden chats, collapsed content, and attachment contents; those are not claimed imported." } };
+    return { notes, coverage: { conversations: keys.length, textMessages, emptyMessages, boundedHistories, complete: false, limitation: "Rendered chat text was captured with a bounded scroll per conversation. Some conversations may have more history than this run reached; Teams may also withhold older server history, hidden chats, collapsed content, and attachment contents." } };
   } finally { await probe.close(); }
 }
