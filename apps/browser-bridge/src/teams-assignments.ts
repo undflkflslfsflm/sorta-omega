@@ -89,17 +89,6 @@ async function selectAssignmentClass(frame: Frame, optionIndex: number): Promise
   if (await closeFilter.count() === 1 && await closeFilter.isVisible()) await closeFilter.click();
 }
 
-async function clearAssignmentClass(frame: Frame): Promise<void> {
-  const clear = frame.getByRole("button", { name: /^Clear class .+ filter$/ });
-  const count = await clear.count();
-  if (count > 1) throw new Error("teams_assignment_class_filter_clear_ambiguous");
-  if (count === 1) {
-    await clear.click();
-    await frame.waitForTimeout(1_000);
-    await waitForAssignmentListSettled(frame);
-  }
-}
-
 export async function retryAssignmentListReturn<T>(attempt: () => Promise<T>, wait: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds))): Promise<T> {
   for (let retry = 0; retry < 3; retry++) {
     try { return await attempt(); }
@@ -163,7 +152,6 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
         await probe.waitForTimeout(3_000);
       }
-      await clearAssignmentClass(frame);
       const tab = frame.getByRole("tab", { name: new RegExp(label, "i") });
       await tab.waitFor({ timeout: 25_000 });
       if (await tab.count() !== 1) throw new Error("teams_assignment_section_ambiguous");
@@ -175,7 +163,7 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
       }
       await waitForAssignmentListSettled(frame, 24);
       const unfiltered = await readAssignmentCards(frame, null);
-      const cardsById = new Map(unfiltered.map(card => [card.id, card]));
+      const cardsById = new Map<string, AssignmentCard>();
       const classCombo = await assignmentClassCombo(frame);
       await classCombo.click();
       const classCount = await frame.locator('[role="option"]:visible').count();
@@ -189,19 +177,18 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
         for (const card of await readAssignmentCards(frame, classIndex)) if (!cardsById.has(card.id)) cardsById.set(card.id, card);
       }
       const cards = [...cardsById.values()];
+      if (unfiltered.some(card => !cardsById.has(card.id))) throw new Error("teams_assignment_class_filter_coverage_incomplete");
       console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, unfilteredCardCount: unfiltered.length, classFilterCount: classCount, capturedCardCount: cards.length }));
       if (records.length + cards.length > 500 || cards.some(card => !card.id || !card.text || !card.courseTitle || card.text.length > 8_000 || card.courseTitle.length > 500 || card.dueSummary.length > 500)) {
         console.log(JSON.stringify({ provider: "teams-assignments", section: listSection, cardCount: cards.length, cardShape: cards.map(card => ({ idPresent: Boolean(card.id), textLength: card.text.length, titleLength: card.title.length, dueLength: card.dueSummary.length, courseLength: card.courseTitle.length })).slice(0, 30) }));
         throw new Error("teams_assignment_list_invalid_or_unbounded");
       }
-      // Return to the unfiltered list before opening details. A class-only
-      // card will reselect its class after each detail navigation.
+      // Each detail is reopened through its class filter. Teams can omit
+      // class-only records from the nominally unfiltered list, and a filter
+      // clear does not consistently restore that list in the same session.
       await frame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await frame.getByRole("tab", { name: new RegExp(label, "i") }).click();
-      await clearAssignmentClass(frame);
       await waitForAssignmentListSettled(frame);
-      const restoredIds = new Set(await frame.locator(".aui-assignmentListCard").evaluateAll(elements => elements.map(element => element.id)));
-      if (unfiltered.some(card => !restoredIds.has(card.id))) throw new Error("teams_assignment_unfiltered_restore_failed");
       for (const [index, captured] of cards.entries()) {
         if (index > 0) {
           stage = "list_return";
@@ -219,13 +206,9 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
               await reopened.click();
               returnStage = "settle";
               await waitForAssignmentListSettled(current);
-              if (captured.classFilterIndex !== null) {
-                returnStage = "filter";
-                await selectAssignmentClass(current, captured.classFilterIndex);
-              } else {
-                returnStage = "clear";
-                await clearAssignmentClass(current);
-              }
+              returnStage = "filter";
+              if (captured.classFilterIndex === null) throw new Error("teams_assignment_class_filter_missing");
+              await selectAssignmentClass(current, captured.classFilterIndex);
               returnStage = "card";
               await current.locator(`[id="${captured.id}"]`).waitFor({ timeout: 25_000 });
               return current;
@@ -234,7 +217,10 @@ export async function collectTeamsAssignments(signedInPage: Page): Promise<Teams
             throw new Error(`teams_assignment_list_return_${returnStage}_failed`);
           }
         }
-        if (index === 0 && captured.classFilterIndex !== null) await selectAssignmentClass(frame, captured.classFilterIndex);
+        if (index === 0) {
+          if (captured.classFilterIndex === null) throw new Error("teams_assignment_class_filter_missing");
+          await selectAssignmentClass(frame, captured.classFilterIndex);
+        }
         const card = frame.locator(`[id="${captured.id}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_card_changed_during_capture");
         stage = `detail_open_${listSection}_${index}`;
