@@ -100,9 +100,9 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
         const card = frame.locator(`[id="${record.assignmentExternalId}"]`);
         if (await card.count() !== 1) throw new Error("teams_assignment_files_card_changed");
         await card.click();
-        if (new URL(frame.url()).origin !== assignmentOrigin || new URL(frame.url()).pathname !== new URL(record.detailUrl).pathname) throw new Error("teams_assignment_files_detail_redirected");
         stage = `detail_wait_${recordIndex}`;
         await frame.locator('[class*="assignment-details-container"]').waitFor({ timeout: 25_000 });
+        if (new URL(frame.url()).origin !== assignmentOrigin || new URL(frame.url()).pathname !== new URL(record.detailUrl).pathname) throw new Error("teams_assignment_files_detail_redirected");
         await frame.locator('[class*="assignment-details-files-container"]').first().waitFor({ timeout: 15_000 });
         stage = `resource_read_${recordIndex}`;
         const resourceButtons = frame.locator('[class*="assignment-details-files-container"] [class*="resource-well"] button[class*="open-button"]');
