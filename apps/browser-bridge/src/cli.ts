@@ -10,13 +10,15 @@ import { collectInSchoolAssessments } from "./inschool-assessments.js";
 import { collectTeamsClassPosts } from "./teams-channels.js";
 import { collectTeamsChats } from "./teams-chats.js";
 import { collectTeamsPowerpoints } from "./teams-powerpoints.js";
+import { collectTeamsAssignmentFiles } from "./teams-assignment-files.js";
+import type { TeamsAssignmentSnapshot } from "./teams-assignments.js";
 
 const args=new Map<string,string>();for(let index=2;index<process.argv.length;index+=2){const key=process.argv[index],value=process.argv[index+1];if(!key?.startsWith("--")||!value)throw new Error("usage: browser-bridge --provider teams|inschool --output <absolute-json-file> [--origin https://county.inschool.visma.no] (--profile <absolute-directory> OR --cdp http://127.0.0.1:9222 OR --cdp-profile <absolute-directory> --noninteractive true)");args.set(key.slice(2),value);}
 const provider=args.get("provider"),profile=args.get("profile"),cdpProfile=args.get("cdp-profile"),destination=args.get("output"),noninteractive=args.get("noninteractive")==="true";
 function boundedWeeks(name:string,defaultValue:number,max:number){const raw=args.get(name);if(raw===undefined)return defaultValue;if(!/^\d{1,2}$/.test(raw))throw new Error(`${name}_must_be_bounded_integer`);const value=Number(raw);if(value>max)throw new Error(`${name}_must_be_bounded_integer`);return value;}
 const weeksPast=boundedWeeks("weeks-past",2,52),weeksFuture=boundedWeeks("weeks-future",16,24),startOffsetWeeks=boundedWeeks("start-offset-weeks",0,52);
 let cdp=args.get("cdp");
-if(!["teams","teams-assignments","teams-channels","teams-chats","teams-powerpoints","inschool","inschool-attendance","inschool-assessments"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
+if(!["teams","teams-assignments","teams-assignment-files","teams-channels","teams-chats","teams-powerpoints","inschool","inschool-attendance","inschool-assessments"].includes(provider??"")||!destination||!path.isAbsolute(destination)||(!profile&&!cdp&&!cdpProfile)||profile&&!path.isAbsolute(profile)||cdpProfile&&!path.isAbsolute(cdpProfile)||cdp&&cdpProfile)throw new Error("browser_bridge_requires_provider_and_absolute_output_plus_profile_or_cdp");
 if(cdpProfile){const [portText,socketPath]=(await readFile(path.join(cdpProfile,"DevToolsActivePort"),"utf8")).trim().split(/\r?\n/),port=Number(portText);if(!Number.isInteger(port)||port<1024||port>65535||!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(socketPath??""))throw new Error("browser_bridge_cdp_profile_port_invalid");cdp=`ws://127.0.0.1:${port}${socketPath}`;}
 if(cdp){const url=new URL(cdp);if(!["http:","ws:"].includes(url.protocol)||!["127.0.0.1","localhost"].includes(url.hostname)||url.username||url.password||url.search||url.hash||url.protocol==="http:"&&url.pathname!=="/"||url.protocol==="ws:"&&!/^\/devtools\/browser\/[a-zA-Z0-9-]+$/.test(url.pathname))throw new Error("browser_bridge_cdp_must_be_local_loopback");}
 if(noninteractive&&!cdp)throw new Error("browser_bridge_noninteractive_requires_attached_browser");
@@ -94,6 +96,15 @@ try{
     const requestedClass=args.get("class-index");
     if(requestedClass!==undefined&&!/^\d{1,2}$/.test(requestedClass))throw new Error("teams_class_index_invalid");
     const {manifest,report}=await collectTeamsPowerpoints(page,path.dirname(artifactPath),requestedClass===undefined?undefined:Number(requestedClass));
+    await writeNewArtifact(manifest);
+    console.log(JSON.stringify({provider,format:manifest.version,itemCount:manifest.items.length,output:artifactPath,...report,sessionRetainedInProfile:true,credentialsExported:false}));
+  }else if(provider==="teams-assignment-files"){
+    assertAllowed(page);
+    if(path.basename(artifactPath)!=="manifest.json"||!/^personal-[0-9a-f]{32}$/.test(path.basename(path.dirname(artifactPath))))throw new Error("teams_assignment_files_output_directory_invalid");
+    const basePath=args.get("base-snapshot");
+    if(!basePath||!path.isAbsolute(basePath)||path.resolve(basePath)===artifactPath)throw new Error("teams_assignment_files_base_snapshot_required");
+    const snapshot=JSON.parse(await readFile(basePath,"utf8")) as TeamsAssignmentSnapshot;
+    const {manifest,report}=await collectTeamsAssignmentFiles(page,snapshot,path.dirname(artifactPath));
     await writeNewArtifact(manifest);
     console.log(JSON.stringify({provider,format:manifest.version,itemCount:manifest.items.length,output:artifactPath,...report,sessionRetainedInProfile:true,credentialsExported:false}));
   }else if(provider==="teams-chats"){

@@ -44,6 +44,14 @@ export function postSchoolFileRelativePath(className: string, chainId: string, m
   return ["Teams", safeSegment(className), safeSegment(channelName), "Posts", postId, ordinal ? `${ordinal + 1}-${name}` : name].join("/");
 }
 
+export function assignmentSchoolFileRelativePath(courseTitle: string, classId: string, assignmentId: string, fileName: string, ordinal = 0): string {
+  if (!classId || !assignmentId || classId.length > 200 || assignmentId.length > 200 || !Number.isInteger(ordinal) || ordinal < 0) throw new Error("teams_assignment_file_identity_invalid");
+  const name = safeSegment(fileName);
+  if (!supportedSchoolFile.test(name)) throw new Error("teams_assignment_school_file_name_invalid");
+  const stableId = createHash("sha256").update(`${classId}:${assignmentId}`).digest("hex").slice(0, 24);
+  return ["Teams", safeSegment(courseTitle), "Assignments", stableId, ordinal ? `${ordinal + 1}-${name}` : name].join("/");
+}
+
 const retryableDownloadErrors = new Set([
   "teams_powerpoint_download_invalid",
   "teams_powerpoint_download_event_timeout",

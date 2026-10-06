@@ -4,6 +4,7 @@ param(
   [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
   [string]$ProfilePath = (Join-Path $env:LOCALAPPDATA 'SortaOmega\BrowserBridge\EdgeUserData'),
   [string]$InSchoolOrigin = 'https://mailand.inschool.visma.no',
+  [switch]$CaptureFiles,
   [switch]$DryRun
 )
 
@@ -48,6 +49,7 @@ try {
   $artifact = Join-Path $spool $name
   $containerArtifact = '/tmp/' + $name
   $copied = $false
+  $fileReport = $null
   try {
     $bridgeOutput = @(& node $bridge --provider teams-assignments --cdp-profile $ProfilePath --noninteractive true --output $artifact)
     if ($LASTEXITCODE -ne 0) {
@@ -80,11 +82,38 @@ try {
     if ($null -eq $actions -or [bool]$importReport.dryRun -ne [bool]$DryRun) { throw 'The Teams import returned an invalid report.' }
     $accounted = [int]$actions.created + [int]$actions.updated + [int]$actions.unchanged + [int]$actions.stale + [int]$actions.skipped
     if ($accounted -ne [int]$bridgeReport.itemCount) { throw 'The Teams import did not account for every captured assignment.' }
+    if ($CaptureFiles) {
+      $spoolFull = [IO.Path]::GetFullPath($spool).TrimEnd('\')
+      $batchName = 'personal-' + [Guid]::NewGuid().ToString('N')
+      $batchRoot = [IO.Path]::GetFullPath((Join-Path $spoolFull $batchName)).TrimEnd('\')
+      if ([IO.Path]::GetDirectoryName($batchRoot) -ne $spoolFull -or $batchName -notmatch '^personal-[0-9a-f]{32}$') { throw 'Unsafe Teams assignment-file staging path.' }
+      try {
+        New-Item -ItemType Directory -Path $batchRoot | Out-Null
+        $manifestPath = Join-Path $batchRoot 'manifest.json'
+        $fileOutput = @(& node $bridge --provider teams-assignment-files --cdp-profile $ProfilePath --noninteractive true --base-snapshot $artifact --output $manifestPath)
+        if ($LASTEXITCODE -ne 0) {
+          $errorCode = 'browser_bridge_failed'
+          if ($fileOutput.Count) { try { $errorCode = ($fileOutput[-1] | ConvertFrom-Json).errorCode } catch { } }
+          if ($errorCode -notmatch '^[a-z0-9_]{1,100}$') { $errorCode = 'browser_bridge_failed' }
+          throw "The Teams assignment-file capture failed: $errorCode"
+        }
+        $fileReport = $fileOutput[-1] | ConvertFrom-Json
+        $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($fileReport.provider -ne 'teams-assignment-files' -or $fileReport.format -ne 'omega_personal_files_v1' -or $manifest.deviceKey -ne 'teams-sharepoint' -or [int]$fileReport.assignments -ne [int]$bridgeReport.itemCount -or [int]$fileReport.downloaded -ne [int]$fileReport.itemCount -or @($manifest.items).Count -ne [int]$fileReport.itemCount) { throw 'The Teams assignment-file capture report is inconsistent.' }
+        if ([int]$fileReport.itemCount -gt 0) {
+          $fileImportOutput = @(& (Join-Path $PSScriptRoot 'import-teams-powerpoints.ps1') -StagingRoot $batchRoot -VaultId $VaultId -AppContainer $AppContainer -DryRun:$DryRun)
+          $fileImport = $fileImportOutput[-1] | ConvertFrom-Json
+          if ($fileImport.status -ne 'succeeded' -or [int]$fileImport.captured -ne [int]$fileReport.itemCount) { throw 'The Teams assignment-file import was not fully accounted for.' }
+        }
+      } finally {
+        if (Test-Path -LiteralPath $batchRoot) { Remove-Item -LiteralPath $batchRoot -Recurse -Force }
+      }
+    }
   } finally {
     if ($copied) { & docker exec -u 0 $AppContainer rm $containerArtifact | Out-Null }
     if (Test-Path -LiteralPath $artifact) { Remove-Item -LiteralPath $artifact -Force }
   }
-  $status = [ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';dryRun=[bool]$DryRun;captured=[int]$bridgeReport.itemCount;created=[int]$actions.created;updated=[int]$actions.updated;unchanged=[int]$actions.unchanged;stale=[int]$actions.stale;skipped=[int]$actions.skipped;coverageComplete=[bool]$bridgeReport.coverageComplete;coverageLimitation=$bridgeReport.coverageLimitation}
+  $status = [ordered]@{at=(Get-Date).ToUniversalTime().ToString('o');status='succeeded';dryRun=[bool]$DryRun;captured=[int]$bridgeReport.itemCount;created=[int]$actions.created;updated=[int]$actions.updated;unchanged=[int]$actions.unchanged;stale=[int]$actions.stale;skipped=[int]$actions.skipped;attachmentCapture=[bool]$CaptureFiles;attachmentsDownloaded=$(if ($fileReport) { [int]$fileReport.downloaded } else { $null });attachmentsUnsupported=$(if ($fileReport) { [int]$fileReport.unsupported } else { $null });coverageComplete=[bool]$bridgeReport.coverageComplete;coverageLimitation=$bridgeReport.coverageLimitation}
   [IO.File]::AppendAllText($statusLog, (($status | ConvertTo-Json -Compress) + "`n"))
   Write-Output ($status | ConvertTo-Json -Compress)
 } catch {

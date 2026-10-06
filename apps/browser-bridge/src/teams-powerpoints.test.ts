@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { postSchoolFileRelativePath, retryInvalidDownload, safeSegment, schoolFileByteLimit, skippableSchoolFileError, validateSchoolOriginal } from "./teams-powerpoints.js";
+import { assignmentSchoolFileRelativePath, postSchoolFileRelativePath, retryInvalidDownload, safeSegment, schoolFileByteLimit, skippableSchoolFileError, validateSchoolOriginal } from "./teams-powerpoints.js";
 
 describe("Teams PowerPoint path segments", () => {
   it("removes path separators without losing Norwegian names", () => {
@@ -66,6 +66,20 @@ describe("Teams post school-file identity", () => {
   it("rejects missing identities and other file types", () => {
     expect(() => postSchoolFileRelativePath("Class", "", "message", "Slides.pptx")).toThrow("teams_post_powerpoint_identity_invalid");
     expect(() => postSchoolFileRelativePath("Class", "chain", "message", "File.exe")).toThrow("teams_post_school_file_name_invalid");
+  });
+});
+
+describe("Teams assignment school-file identity", () => {
+  it("uses a stable assignment identity and preserves the original extension", () => {
+    const file = assignmentSchoolFileRelativePath("Matematikk 2P", "class-id", "assignment-id", "Øving.pptx");
+    expect(file).toMatch(/^Teams\/Matematikk 2P\/Assignments\/[0-9a-f]{24}\/Øving\.pptx$/);
+    expect(assignmentSchoolFileRelativePath("Matematikk 2P", "class-id", "assignment-id", "Øving.pptx", 1)).toMatch(/\/2-Øving\.pptx$/);
+    expect(assignmentSchoolFileRelativePath("Matematikk 2P", "class-id", "assignment-id", "Øving.pptx")).toBe(file);
+  });
+
+  it("rejects missing identities and unsupported file types", () => {
+    expect(() => assignmentSchoolFileRelativePath("Class", "", "assignment", "slides.pptx")).toThrow("teams_assignment_file_identity_invalid");
+    expect(() => assignmentSchoolFileRelativePath("Class", "class", "assignment", "program.exe")).toThrow("teams_assignment_school_file_name_invalid");
   });
 });
 
