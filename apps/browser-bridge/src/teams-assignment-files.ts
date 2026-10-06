@@ -135,33 +135,41 @@ export async function collectTeamsAssignmentFiles(source: Page, snapshot: TeamsA
           const relativePath = assignmentSchoolFileRelativePath(record.courseTitle, record.classExternalId, record.assignmentExternalId, name, ordinal);
           const more = resourceButtons.nth(index).locator('xpath=..').locator('button[class*="more-options-button"]');
           if (await more.count() !== 1) throw new Error("teams_assignment_files_menu_ambiguous");
-          stage = `menu_click_${recordIndex}_${index}`;
-          await more.click();
           const action = frame.getByRole("menuitem", { name: "Download", exact: true });
-          if (await action.count() !== 1) throw new Error("teams_assignment_files_download_action_missing");
-          stage = `download_event_${recordIndex}_${index}`;
-          const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item);
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          stage = `download_path_${recordIndex}_${index}`;
-          const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("teams_assignment_files_download_timeout")), 60_000); })]).finally(() => { if (timer) clearTimeout(timer); });
-          stage = `download_stat_${recordIndex}_${index}`;
-          const metadata = await stat(filePath);
-          stage = `download_validate_${recordIndex}_${index}`;
-          if (!metadata.isFile() || metadata.size < 1 || metadata.size > schoolFileByteLimit(name) || bytes + metadata.size > maxBatchBytes) throw new Error("teams_assignment_files_download_size_invalid");
-          if (!download.suggestedFilename().toLowerCase().endsWith(name.slice(name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_assignment_files_download_type_changed");
-          stage = `download_read_${recordIndex}_${index}`;
-          const contents = await readFile(filePath);
-          stage = `download_signature_${recordIndex}_${index}`;
-          validateSchoolOriginal(name, contents);
-          stage = `download_stage_${recordIndex}_${index}`;
-          const sha256 = createHash("sha256").update(contents).digest("hex");
-          const stagedPath = path.join(stagingRoot, "files", sha256);
-          await writeFile(stagedPath, contents, { flag: "wx" }).catch(async error => {
-            if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-            if (createHash("sha256").update(await readFile(stagedPath)).digest("hex") !== sha256) throw new Error("teams_assignment_files_staged_hash_mismatch");
-          });
-          items.push({ relativePath, stagedName: sha256, sha256, byteLength: contents.length, modifiedAt: new Date().toISOString() });
-          bytes += contents.length;
+          for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+              stage = `menu_click_${recordIndex}_${index}`;
+              if (!await action.isVisible()) await more.click();
+              if (await action.count() !== 1) throw new Error("teams_assignment_files_download_action_missing");
+              stage = `download_event_${recordIndex}_${index}`;
+              const download = await Promise.all([probe.waitForEvent("download", { timeout: 30_000 }), action.click({ timeout: 10_000, noWaitAfter: true })]).then(([item]) => item);
+              let timer: ReturnType<typeof setTimeout> | undefined;
+              stage = `download_path_${recordIndex}_${index}`;
+              const filePath = await Promise.race([download.path(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("teams_assignment_files_download_timeout")), 60_000); })]).finally(() => { if (timer) clearTimeout(timer); });
+              stage = `download_stat_${recordIndex}_${index}`;
+              const metadata = await stat(filePath);
+              stage = `download_validate_${recordIndex}_${index}`;
+              if (!metadata.isFile() || metadata.size < 1 || metadata.size > schoolFileByteLimit(name) || bytes + metadata.size > maxBatchBytes) throw new Error("teams_assignment_files_download_size_invalid");
+              if (!download.suggestedFilename().toLowerCase().endsWith(name.slice(name.lastIndexOf(".")).toLowerCase())) throw new Error("teams_assignment_files_download_type_changed");
+              stage = `download_read_${recordIndex}_${index}`;
+              const contents = await readFile(filePath);
+              stage = `download_signature_${recordIndex}_${index}`;
+              validateSchoolOriginal(name, contents);
+              stage = `download_stage_${recordIndex}_${index}`;
+              const sha256 = createHash("sha256").update(contents).digest("hex");
+              const stagedPath = path.join(stagingRoot, "files", sha256);
+              await writeFile(stagedPath, contents, { flag: "wx" }).catch(async error => {
+                if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+                if (createHash("sha256").update(await readFile(stagedPath)).digest("hex") !== sha256) throw new Error("teams_assignment_files_staged_hash_mismatch");
+              });
+              items.push({ relativePath, stagedName: sha256, sha256, byteLength: contents.length, modifiedAt: new Date().toISOString() });
+              bytes += contents.length;
+              break;
+            } catch (caught) {
+              if (attempt === 2 || (caught instanceof Error && /^(?:teams_assignment_files_(?:count_limit_exceeded|download_size_invalid|download_type_changed|staged_hash_mismatch)|teams_school_file_size_invalid)$/.test(caught.message))) throw caught;
+              await frame.waitForTimeout(500 * (attempt + 1));
+            }
+          }
         }
       }
     }
