@@ -579,32 +579,43 @@ try {
         console.log(JSON.stringify({ provider, assignmentListShape: listShape }));
         if (args.get("probe-assignment-return") === "true") {
           const listUrl = assignmentsFrame.url();
-          const upcoming = assignmentsFrame.getByRole("tab", { name: /Upcoming/i });
-          if (await upcoming.count() !== 1) throw new Error("teams_assignment_upcoming_tab_ambiguous");
-          await upcoming.click();
-          const cards = assignmentsFrame.locator(".aui-assignmentListCard");
-          await cards.first().waitFor({ timeout: 15_000 });
-          const firstId = await cards.first().getAttribute("id");
-          if (!firstId) throw new Error("teams_assignment_first_card_identity_missing");
-          await cards.first().click();
-          await probe.waitForTimeout(2_000);
-          const before = { routeShape: new URL(assignmentsFrame.url()).pathname, frameCount: probe.frames().filter(frame => { try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; } }).length };
-          let errorName: string | null = null;
-          let stage = "navigate";
-          try {
-            await assignmentsFrame.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
-            stage = "tab";
-            const reopened = assignmentsFrame.getByRole("tab", { name: /Upcoming/i });
-            await reopened.waitFor({ timeout: 15_000 });
-            await reopened.click();
-            stage = "card";
-            await assignmentsFrame.locator(`[id="${firstId}"]`).waitFor({ timeout: 15_000 });
-            stage = "done";
-          } catch (error) {
-            errorName = error instanceof Error ? error.name : "unknown";
+          const section = args.get("probe-assignment-return-section") ?? "Upcoming";
+          const limit = Number(args.get("probe-assignment-return-limit") ?? "3");
+          if (!["Upcoming", "Past due", "Completed"].includes(section) || !Number.isInteger(limit) || limit < 1 || limit > 20) throw new Error("teams_assignment_return_probe_options_invalid");
+          const results = [];
+          for (let index = 0; index < limit; index++) {
+            const current = probe.frames().find(frame => { try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; } });
+            if (!current) throw new Error("teams_assignments_frame_missing");
+            const tab = current.getByRole("tab", { name: new RegExp(section, "i") });
+            await tab.waitFor({ timeout: 15_000 });
+            await tab.click();
+            const cards = current.locator(".aui-assignmentListCard");
+            const cardCount = await cards.count();
+            if (index >= cardCount) break;
+            const id = await cards.nth(index).getAttribute("id");
+            if (!id) throw new Error("teams_assignment_card_identity_missing");
+            await cards.nth(index).click();
+            await probe.waitForTimeout(1_000);
+            const beforeRoute = new URL(current.url()).pathname;
+            let errorName: string | null = null;
+            let stage = "navigate";
+            try {
+              await current.goto(listUrl, { waitUntil: "domcontentloaded", timeout: 15_000 });
+              stage = "tab";
+              const reopened = current.getByRole("tab", { name: new RegExp(section, "i") });
+              await reopened.waitFor({ timeout: 15_000 });
+              await reopened.click();
+              stage = "card";
+              await current.locator(`[id="${id}"]`).waitFor({ timeout: 15_000 });
+              stage = "done";
+            } catch (error) {
+              errorName = error instanceof Error ? error.name : "unknown";
+            }
+            const afterRoute = (() => { try { return new URL(current.url()).pathname; } catch { return "unavailable"; } })();
+            results.push({ section, index, cardCount, beforeRoute, stage, errorName, afterRoute, tabCount: await current.getByRole("tab", { name: new RegExp(section, "i") }).count().catch(() => -1), afterCards: await current.locator(".aui-assignmentListCard").count().catch(() => -1), matchingCardCount: await current.locator(`[id="${id}"]`).count().catch(() => -1) });
+            if (stage !== "done") break;
           }
-          const after = { routeShape: (() => { try { return new URL(assignmentsFrame.url()).pathname; } catch { return "unavailable"; } })(), frameCount: probe.frames().filter(frame => { try { return new URL(frame.url()).origin === "https://assignments.edu.cloud.microsoft"; } catch { return false; } }).length, tabCount: await assignmentsFrame.getByRole("tab", { name: /Upcoming/i }).count().catch(() => -1), cardCount: await assignmentsFrame.locator(".aui-assignmentListCard").count().catch(() => -1), matchingCardCount: await assignmentsFrame.locator(`[id="${firstId}"]`).count().catch(() => -1) };
-          console.log(JSON.stringify({ provider, assignmentReturnShape: { before, stage, errorName, after } }));
+          console.log(JSON.stringify({ provider, assignmentReturnShape: results }));
         }
         if (args.get("probe-assignment-paging") === "true") {
           const sections = [];
