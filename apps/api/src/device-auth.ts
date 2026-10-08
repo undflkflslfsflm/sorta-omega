@@ -10,6 +10,7 @@ export const deviceScopes = [
   "tasks:write",
   "calendar:write",
   "school:write",
+  "transcript:import",
   "study:write",
   "profile:write",
   "integrations:write",
@@ -59,6 +60,7 @@ export function requiredDeviceScope(method: string, url: string): DeviceScope | 
   if (/\/transcripts\/[^/?]+\/analysis(?:[/?]|$)/.test(url)) return "ai:run";
   if (/\/generations(?:[/?]|$)/.test(url)) return "ai:run";
   if (/\/transcripts\/[^/?]+\/lesson-association(?:[/?]|$)/.test(url)) return "school:write";
+  if (method === "POST" && /\/transcripts\/meetily-import(?:[/?]|$)/.test(url)) return "transcript:import";
   if (/\/transcripts(?:[/?]|$)/.test(url)) return "notes:write";
   if (/\/ideas\/[^/?]+\/promotion-preview(?:[/?]|$)/.test(url)) return "notes:write";
   if (/\/performance\/recommendations(?:[/?]|$)/.test(url)) return "ai:run";

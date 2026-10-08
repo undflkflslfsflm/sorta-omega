@@ -1,6 +1,6 @@
 {
   "generatedFrom": "packages/contracts/src/http-operations.ts",
-  "operationCount": 427,
+  "operationCount": 428,
   "operations": [
     {
       "operationId": "listIntegrationProviders",
@@ -1370,6 +1370,16 @@
       "success": 200,
       "requestSchema": null,
       "responseSchema": "TranscriptList"
+    },
+    {
+      "operationId": "importMeetilyTranscript",
+      "method": "POST",
+      "path": "/api/v1/vaults/{vaultId}/transcripts/meetily-import",
+      "tag": "Transcripts",
+      "authentication": "required",
+      "success": 201,
+      "requestSchema": "MeetilyImport",
+      "responseSchema": "MeetilyImportResult"
     },
     {
       "operationId": "getTranscript",

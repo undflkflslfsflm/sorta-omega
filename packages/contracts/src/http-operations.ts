@@ -148,6 +148,7 @@ export const httpOperations: HttpOperation[] = [
   { method:"post",path:"/api/v1/vaults/{vaultId}/source-objects/{sourceId}/refresh",operationId:"refreshSourceObject",tag:"Integrations",success:202,requestSchema:"RefreshSourceObject",responseSchema:"JobHandle" },
   { method:"post",path:"/api/v1/vaults/{vaultId}/source-objects/{sourceId}/exclusion",operationId:"excludeSourceObject",tag:"Integrations",success:200,requestSchema:"SourceExclusionInput",responseSchema:"SourceExclusion" },
   { method:"get",path:"/api/v1/vaults/{vaultId}/transcripts",operationId:"listTranscripts",tag:"Transcripts",success:200,responseSchema:"TranscriptList" },
+  { method:"post",path:"/api/v1/vaults/{vaultId}/transcripts/meetily-import",operationId:"importMeetilyTranscript",tag:"Transcripts",success:201,requestSchema:"MeetilyImport",responseSchema:"MeetilyImportResult" },
   { method:"get",path:"/api/v1/vaults/{vaultId}/transcripts/{transcriptId}",operationId:"getTranscript",tag:"Transcripts",success:200,responseSchema:"Transcript" },
   { method:"patch",path:"/api/v1/vaults/{vaultId}/transcripts/{transcriptId}",operationId:"correctTranscript",tag:"Transcripts",success:200,requestSchema:"CorrectTranscript",responseSchema:"Transcript" },
   { method:"post",path:"/api/v1/vaults/{vaultId}/transcripts/{transcriptId}/lesson-association",operationId:"associateTranscriptWithLesson",tag:"Transcripts",success:201,requestSchema:"AssociateTranscript",responseSchema:"TranscriptAssociation" },

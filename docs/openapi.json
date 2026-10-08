@@ -6893,6 +6893,64 @@
         }
       }
     },
+    "/api/v1/vaults/{vaultId}/transcripts/meetily-import": {
+      "post": {
+        "operationId": "importMeetilyTranscript",
+        "tags": [
+          "Transcripts"
+        ],
+        "parameters": [
+          {
+            "name": "vaultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetilyImport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetilyImportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
     "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}": {
       "get": {
         "operationId": "getTranscript",
@@ -54743,6 +54801,471 @@
         ],
         "additionalProperties": false
       },
+      "MeetilyImport": {
+        "type": "object",
+        "properties": {
+          "meetingId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "startMs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "endMs": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0
+                },
+                "text": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 20000
+                },
+                "speaker": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "maxLength": 120,
+                      "nullable": true
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "unknown",
+                        "machine_suggested",
+                        "owner_confirmed"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "label",
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "id",
+                "startMs",
+                "endMs",
+                "text",
+                "speaker"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 5000
+          },
+          "ownerConfirmedRecordingApproval": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "lessonId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "default": null
+          }
+        },
+        "required": [
+          "meetingId",
+          "title",
+          "startedAt",
+          "completedAt",
+          "segments",
+          "ownerConfirmedRecordingApproval"
+        ],
+        "additionalProperties": false
+      },
+      "MeetilyImportResult": {
+        "type": "object",
+        "properties": {
+          "transcript": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "vaultId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "sourceObject": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "vaultId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "connectionId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "providerObjectId": {
+                    "type": "string"
+                  },
+                  "containerId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "accessState": {
+                    "type": "string",
+                    "enum": [
+                      "available",
+                      "denied",
+                      "unavailable",
+                      "excluded",
+                      "deleted"
+                    ]
+                  },
+                  "freshness": {
+                    "type": "string",
+                    "enum": [
+                      "current",
+                      "stale",
+                      "unverified",
+                      "tombstoned"
+                    ]
+                  },
+                  "currentRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "deepLink": {
+                    "type": "string",
+                    "format": "uri",
+                    "nullable": true
+                  },
+                  "excluded": {
+                    "type": "boolean"
+                  },
+                  "exclusionReason": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "lastAttemptAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "lastSuccessAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "id",
+                  "vaultId",
+                  "connectionId",
+                  "providerObjectId",
+                  "containerId",
+                  "kind",
+                  "title",
+                  "accessState",
+                  "freshness",
+                  "currentRevision",
+                  "deepLink",
+                  "excluded",
+                  "exclusionReason",
+                  "lastAttemptAt",
+                  "lastSuccessAt",
+                  "revision",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false
+              },
+              "sourceRevisionId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "revision": {
+                "type": "integer",
+                "exclusiveMinimum": true,
+                "minimum": 0
+              },
+              "originalBlobIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "startMs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "endMs": {
+                      "type": "integer",
+                      "exclusiveMinimum": true,
+                      "minimum": 0
+                    },
+                    "text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 20000
+                    },
+                    "speaker": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "nullable": true
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "unknown",
+                            "machine_suggested",
+                            "owner_confirmed"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "label",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "startMs",
+                    "endMs",
+                    "text",
+                    "speaker"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 5000
+              },
+              "exactText": {
+                "type": "string"
+              },
+              "association": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "transcriptId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "lessonId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "transcriptRevision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "evidenceRefs": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  },
+                  "origin": {
+                    "type": "string",
+                    "enum": [
+                      "owner"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "exclusiveMinimum": true,
+                    "minimum": 0
+                  },
+                  "createdAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "updatedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "id",
+                  "transcriptId",
+                  "lessonId",
+                  "transcriptRevision",
+                  "evidenceRefs",
+                  "origin",
+                  "revision",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "additionalProperties": false,
+                "nullable": true
+              },
+              "correctionOfRevision": {
+                "type": "integer",
+                "exclusiveMinimum": true,
+                "minimum": 0,
+                "nullable": true
+              },
+              "analysisArtifacts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "concept_summary",
+                        "instructions",
+                        "homework",
+                        "dates",
+                        "questions",
+                        "all"
+                      ]
+                    },
+                    "sourceRevision": {
+                      "type": "integer",
+                      "exclusiveMinimum": true,
+                      "minimum": 0
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "scope",
+                    "sourceRevision",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": [
+              "id",
+              "vaultId",
+              "sourceObject",
+              "sourceRevisionId",
+              "revision",
+              "originalBlobIds",
+              "segments",
+              "exactText",
+              "association",
+              "correctionOfRevision",
+              "analysisArtifacts",
+              "createdAt"
+            ],
+            "additionalProperties": false
+          },
+          "imported": {
+            "type": "boolean"
+          },
+          "lessonMatch": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "selected",
+              "ambiguous",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "transcript",
+          "imported",
+          "lessonMatch"
+        ],
+        "additionalProperties": false
+      },
       "TranscriptList": {
         "type": "object",
         "properties": {
@@ -74620,6 +75143,7 @@
                 "tasks:write",
                 "calendar:write",
                 "school:write",
+                "transcript:import",
                 "study:write",
                 "profile:write",
                 "integrations:write",
@@ -74737,6 +75261,7 @@
                 "tasks:write",
                 "calendar:write",
                 "school:write",
+                "transcript:import",
                 "study:write",
                 "profile:write",
                 "integrations:write",
@@ -74803,6 +75328,7 @@
                     "tasks:write",
                     "calendar:write",
                     "school:write",
+                    "transcript:import",
                     "study:write",
                     "profile:write",
                     "integrations:write",
@@ -74889,6 +75415,7 @@
                       "tasks:write",
                       "calendar:write",
                       "school:write",
+                      "transcript:import",
                       "study:write",
                       "profile:write",
                       "integrations:write",
@@ -75257,6 +75784,7 @@
                 "tasks:write",
                 "calendar:write",
                 "school:write",
+                "transcript:import",
                 "study:write",
                 "profile:write",
                 "integrations:write",
@@ -75311,6 +75839,7 @@
                 "tasks:write",
                 "calendar:write",
                 "school:write",
+                "transcript:import",
                 "study:write",
                 "profile:write",
                 "integrations:write",
@@ -75375,6 +75904,7 @@
                 "tasks:write",
                 "calendar:write",
                 "school:write",
+                "transcript:import",
                 "study:write",
                 "profile:write",
                 "integrations:write",
@@ -75449,6 +75979,7 @@
                       "tasks:write",
                       "calendar:write",
                       "school:write",
+                      "transcript:import",
                       "study:write",
                       "profile:write",
                       "integrations:write",

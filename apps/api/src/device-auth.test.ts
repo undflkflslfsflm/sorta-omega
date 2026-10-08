@@ -39,6 +39,7 @@ describe("device access policy", () => {
     expect(requiredDeviceScope("POST", "/api/v1/vaults/id/ideas/idea/promotion-preview")).toBe("notes:write");
     expect(requiredDeviceScope("POST", "/api/v1/vaults/id/ideas/idea/project-proposal")).toBe("profile:write");
     expect(requiredDeviceScope("POST", "/api/v1/vaults/id/generations")).toBe("ai:run");
+    expect(requiredDeviceScope("POST", "/api/v1/vaults/id/transcripts/meetily-import")).toBe("transcript:import");
     expect(requiredDeviceScope("POST", "/api/v1/vaults/id/performance/recommendations")).toBe("ai:run");
     expect(requiredDeviceScope("POST", "/api/v1/vaults/id/exports")).toBe("export:read");
     expect(requiredDeviceScope("GET", "/api/v1/vaults/id/exports/id/download")).toBe("export:read");

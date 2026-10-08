@@ -895,7 +895,7 @@ export const sessionSummarySchema = z.object({
 });
 
 export const deviceRoleSchema = z.enum(["client", "worker"]);
-export const deviceScopeSchema = z.enum(["vault:read", "export:read", "sync:read", "sync:write", "capture:write", "notes:write", "tasks:write", "calendar:write", "school:write", "study:write", "profile:write", "integrations:write", "ai:run", "jobs:write"]);
+export const deviceScopeSchema = z.enum(["vault:read", "export:read", "sync:read", "sync:write", "capture:write", "notes:write", "tasks:write", "calendar:write", "school:write", "transcript:import", "study:write", "profile:write", "integrations:write", "ai:run", "jobs:write"]);
 export const createDevicePairingSchema = z.object({ device_name: z.string().trim().min(1).max(120), requested_role: deviceRoleSchema.default("client"), client_public_key: z.string().trim().min(20).max(10_000).nullable().default(null) }).strict();
 export const devicePairingChallengeSchema = z.object({ pairing_id: idSchema, device_code_once: z.string().min(40), user_code: z.string().regex(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/), expires_at: z.string().datetime() });
 export const approveDevicePairingSchema = z.object({ user_code: z.string().trim().min(8).max(20), vault_ids: z.array(idSchema).min(1).max(100), scopes: z.array(deviceScopeSchema).min(1).max(20), approved_role: deviceRoleSchema }).strict();

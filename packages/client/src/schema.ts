@@ -1840,6 +1840,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vaults/{vaultId}/transcripts/meetily-import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importMeetilyTranscript"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vaults/{vaultId}/transcripts/{transcriptId}": {
         parameters: {
             query?: never;
@@ -12283,6 +12299,120 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        MeetilyImport: {
+            meetingId: string;
+            title: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            completedAt: string;
+            segments: {
+                id: string;
+                startMs: number;
+                endMs: number;
+                text: string;
+                speaker: {
+                    id: string | null;
+                    label: string;
+                    /** @enum {string} */
+                    status: "unknown" | "machine_suggested" | "owner_confirmed";
+                };
+            }[];
+            /** @enum {boolean} */
+            ownerConfirmedRecordingApproval: true;
+            /**
+             * Format: uuid
+             * @default null
+             */
+            lessonId: string | null;
+        };
+        MeetilyImportResult: {
+            transcript: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                vaultId: string;
+                sourceObject: {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    vaultId: string;
+                    /** Format: uuid */
+                    connectionId: string;
+                    providerObjectId: string;
+                    containerId: string | null;
+                    kind: string;
+                    title: string;
+                    /** @enum {string} */
+                    accessState: "available" | "denied" | "unavailable" | "excluded" | "deleted";
+                    /** @enum {string} */
+                    freshness: "current" | "stale" | "unverified" | "tombstoned";
+                    currentRevision: number;
+                    /** Format: uri */
+                    deepLink: string | null;
+                    excluded: boolean;
+                    exclusionReason: string | null;
+                    /** Format: date-time */
+                    lastAttemptAt: string | null;
+                    /** Format: date-time */
+                    lastSuccessAt: string | null;
+                    revision: number;
+                    /** Format: date-time */
+                    createdAt: string;
+                    /** Format: date-time */
+                    updatedAt: string;
+                };
+                /** Format: uuid */
+                sourceRevisionId: string;
+                revision: number;
+                originalBlobIds: string[];
+                segments: {
+                    id: string;
+                    startMs: number;
+                    endMs: number;
+                    text: string;
+                    speaker: {
+                        id: string | null;
+                        label: string;
+                        /** @enum {string} */
+                        status: "unknown" | "machine_suggested" | "owner_confirmed";
+                    };
+                }[];
+                exactText: string;
+                association: {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    transcriptId: string;
+                    /** Format: uuid */
+                    lessonId: string;
+                    transcriptRevision: number;
+                    evidenceRefs: string[];
+                    /** @enum {string} */
+                    origin: "owner";
+                    revision: number;
+                    /** Format: date-time */
+                    createdAt: string;
+                    /** Format: date-time */
+                    updatedAt: string;
+                } | null;
+                correctionOfRevision: number | null;
+                analysisArtifacts: {
+                    /** Format: uuid */
+                    id: string;
+                    /** @enum {string} */
+                    scope: "concept_summary" | "instructions" | "homework" | "dates" | "questions" | "all";
+                    sourceRevision: number;
+                    /** Format: date-time */
+                    createdAt: string;
+                }[];
+                /** Format: date-time */
+                createdAt: string;
+            };
+            imported: boolean;
+            /** @enum {string} */
+            lessonMatch: "matched" | "selected" | "ambiguous" | "none";
+        };
         TranscriptList: {
             items: {
                 /** Format: uuid */
@@ -17049,7 +17179,7 @@ export interface components {
         ApproveDevicePairing: {
             user_code: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
             /** @enum {string} */
             approved_role: "client" | "worker";
         };
@@ -17075,7 +17205,7 @@ export interface components {
             /** Format: date-time */
             refresh_expires_at: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
         };
         PairingExchangeResult: {
             /** Format: uuid */
@@ -17087,7 +17217,7 @@ export interface components {
             /** Format: date-time */
             refresh_expires_at: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
         } | {
             /** @enum {string} */
             status: "pending";
@@ -17101,7 +17231,7 @@ export interface components {
                 /** @enum {string} */
                 role: "client" | "worker";
                 vault_ids: string[];
-                scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+                scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
                 /** Format: date-time */
                 last_seen_at: string | null;
                 /** Format: date-time */
@@ -17181,7 +17311,7 @@ export interface components {
         CreateApiToken: {
             label: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
             /** Format: date-time */
             expires_at: string;
         };
@@ -17190,7 +17320,7 @@ export interface components {
             id: string;
             label: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
             /** Format: date-time */
             expires_at: string;
             /** Format: date-time */
@@ -17203,7 +17333,7 @@ export interface components {
             id: string;
             label: string;
             vault_ids: string[];
-            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+            scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
             /** Format: date-time */
             expires_at: string;
             /** Format: date-time */
@@ -17218,7 +17348,7 @@ export interface components {
                 id: string;
                 label: string;
                 vault_ids: string[];
-                scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
+                scopes: ("vault:read" | "export:read" | "sync:read" | "sync:write" | "capture:write" | "notes:write" | "tasks:write" | "calendar:write" | "school:write" | "transcript:import" | "study:write" | "profile:write" | "integrations:write" | "ai:run" | "jobs:write")[];
                 /** Format: date-time */
                 expires_at: string;
                 /** Format: date-time */
@@ -22257,6 +22387,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    importMeetilyTranscript: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                vaultId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeetilyImport"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetilyImportResult"];
                 };
             };
             400: components["responses"]["BadRequest"];

@@ -31,7 +31,7 @@ export function MeetilyWorkspace() {
   const [approved, setApproved] = useState(() => localStorage.getItem("sorta-meetily-recording-approved") === "yes");
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState(canWatchFolder ? "Select Meetily’s recordings folder once on this laptop. Sorta will check it while this page is open." : "For automatic checks, open this page in Edge or Chrome on the recording laptop. This browser can import a folder once.");
+  const [message, setMessage] = useState("Completed transcripts appear here after the laptop companion imports them. Manual recovery is available below.");
   const [items, setItems] = useState<Transcript[]>([]);
 
   async function refresh() {
@@ -99,15 +99,18 @@ export function MeetilyWorkspace() {
 
   return <section className="settings-panel school-assignments" aria-label="Class recordings">
     <div className="card-label">Class recordings · Meetily</div>
-    <p className="panel-copy">Record on this laptop in Meetily. When you stop, Sorta imports the completed transcript and matches it to the timetable when there is exactly one clear lesson. Audio stays on this laptop. Nothing records automatically.</p>
-    <label className="meetily-consent"><input type="checkbox" checked={approved} onChange={event => { setApproved(event.target.checked); if (event.target.checked) localStorage.setItem("sorta-meetily-recording-approved", "yes"); else localStorage.removeItem("sorta-meetily-recording-approved"); }}/> I have permission to record these classes and voices.</label>
-    <div className="session-actions">
-      {canWatchFolder && <button type="button" className="primary" disabled={!approved || busy} onClick={() => void chooseFolder()}>{connected ? "Change recordings folder" : "Connect recordings folder"}</button>}
-      {connected && <button type="button" className="text-button" disabled={busy} onClick={() => { if (folder.current) void filesInRecordingFolder(folder.current).then(importFiles); }}>Check now</button>}
-      <label className="text-button file-button">Import a folder once<input type="file" multiple disabled={!approved || busy} {...{ webkitdirectory: "" }} onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; void importFiles(files); }}/></label>
-    </div>
+    <p className="panel-copy">The laptop companion imports completed Meetily transcripts without keeping this page open. Sorta links one to a lesson only when the timetable match is clear. Audio stays on the laptop. Recording itself does not start automatically yet.</p>
     <p className="panel-copy" role="status">{busy ? "Checking completed recordings…" : message}</p>
-    <details><summary>Where is the folder?</summary><p>Meetily’s default Windows folder is Music → meetily-recordings. Select that folder, not an individual audio file. Keep this Sorta page open to check automatically each minute. Only completed recordings with transcribed words are imported.</p><p><a href="https://github.com/Zackriya-Solutions/meetily/releases" target="_blank" rel="noreferrer">Get Meetily for Windows from its official releases</a>.</p></details>
+    <details><summary>Manual recovery options</summary>
+      <label className="meetily-consent"><input type="checkbox" checked={approved} onChange={event => { setApproved(event.target.checked); if (event.target.checked) localStorage.setItem("sorta-meetily-recording-approved", "yes"); else localStorage.removeItem("sorta-meetily-recording-approved"); }}/> I have permission to record these classes and voices.</label>
+      <div className="session-actions">
+        {canWatchFolder && <button type="button" className="primary" disabled={!approved || busy} onClick={() => void chooseFolder()}>{connected ? "Change recordings folder" : "Connect recordings folder"}</button>}
+        {connected && <button type="button" className="text-button" disabled={busy} onClick={() => { if (folder.current) void filesInRecordingFolder(folder.current).then(importFiles); }}>Check now</button>}
+        <label className="text-button file-button">Import a folder once<input type="file" multiple disabled={!approved || busy} {...{ webkitdirectory: "" }} onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; void importFiles(files); }}/></label>
+      </div>
+      <p>Meetily’s default Windows folder is Music → meetily-recordings. Only completed recordings with transcribed words are imported. If the companion is not installed, connecting that folder lets this page check it while open.</p>
+      <p><a href="https://github.com/Zackriya-Solutions/meetily/releases" target="_blank" rel="noreferrer">Get Meetily for Windows from its official releases</a>.</p>
+    </details>
     {items.length > 0 && <div className="settings-list">{items.map(item => <article key={item.id}><div><strong>{item.sourceObject.title}</strong><small>{new Date(item.createdAt).toLocaleString("nb-NO")} · {item.segments.length} transcript segments · {item.association ? "linked to a lesson" : "lesson not verified"}</small><details><summary>Read transcript</summary><p className="meetily-transcript">{item.exactText}</p></details></div></article>)}</div>}
   </section>;
 }
