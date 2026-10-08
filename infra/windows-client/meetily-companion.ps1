@@ -90,9 +90,10 @@ foreach ($folder in (Get-ChildItem -LiteralPath $recordingsPath -Directory -Erro
     $recording.Remove('fingerprint')
     try {
         $body = ConvertTo-Json -InputObject $recording -Depth 12 -Compress
-        $null = Invoke-RestMethod -Uri ($origin.AbsoluteUri.TrimEnd('/') + '/api/v1/vaults/' + $vaultId + '/transcripts/meetily-import') -Method Post -ContentType 'application/json; charset=utf-8' -Headers @{ Authorization = 'Bearer ' + $token } -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 30
+        $result = Invoke-RestMethod -Uri ($origin.AbsoluteUri.TrimEnd('/') + '/api/v1/vaults/' + $vaultId + '/transcripts/meetily-import') -Method Post -ContentType 'application/json; charset=utf-8' -Headers @{ Authorization = 'Bearer ' + $token } -Body ([Text.Encoding]::UTF8.GetBytes($body)) -TimeoutSec 30
+        if ($null -eq $result -or $null -eq $result.imported -or [string]::IsNullOrWhiteSpace([string]$result.transcript.id)) { throw 'Unexpected import response.' }
         $state[$meetingId] = $fingerprint
-        $imported++
+        if ($result.imported) { $imported++ } else { $unchanged++ }
     } catch {
         $failed++
     }
