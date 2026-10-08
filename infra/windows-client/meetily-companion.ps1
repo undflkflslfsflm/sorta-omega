@@ -79,7 +79,7 @@ if (!$DryRun) {
     if ($token -notmatch '^sat_[A-Za-z0-9_-]{40,64}$') { throw 'Meetily companion credential is invalid.' }
 }
 $eligible = 0; $imported = 0; $unchanged = 0; $failed = 0
-foreach ($folder in (Get-ChildItem -LiteralPath $recordingsPath -Directory -ErrorAction Stop | Select-Object -First 500)) {
+foreach ($folder in (Get-ChildItem -LiteralPath $recordingsPath -Directory -ErrorAction Stop)) {
     $recording = Read-Recording $folder
     if (!$recording) { continue }
     $eligible++
