@@ -300,6 +300,8 @@ import {
   sourceExclusionSchema,
   transcriptSchema,
   transcriptAssociationSchema,
+  meetilyImportSchema,
+  meetilyImportResultSchema,
   correctTranscriptSchema,
   associateTranscriptSchema,
   analyzeTranscriptSchema,
@@ -5803,6 +5805,63 @@ app.get("/api/v1/vaults/:vaultId/scheduler/recommendations",async(request,reply)
   const headers:Record<string,string>={};for(const name of ["cookie","authorization"]){const value=request.headers[name];if(typeof value==="string")headers[name]=value;}
   const response=await app.inject({method:"GET",url:request.url.replace("/scheduler/recommendations","/next-actions"),headers});
   const contentType=response.headers["content-type"];if(contentType)reply.type(contentType);return reply.code(response.statusCode).send(response.body?JSON.parse(response.body):undefined);
+});
+
+app.post("/api/v1/vaults/:vaultId/transcripts/meetily-import",async(request,reply)=>{
+  const {vaultId}=request.params as {vaultId:string};idSchema.parse(vaultId);
+  const input=meetilyImportSchema.parse(request.body);
+  const exactText=input.segments.map(segment=>`[${Math.floor(segment.startMs/60000).toString().padStart(2,"0")}:${Math.floor(segment.startMs%60000/1000).toString().padStart(2,"0")}] ${segment.speaker.label}: ${segment.text}`).join("\n");
+  const metadata={segments:input.segments,meetily:{meetingId:input.meetingId,startedAt:input.startedAt,completedAt:input.completedAt,audioLocation:"on_recording_device",recordingApprovalConfirmed:true}};
+  const contentHash=createHash("sha256").update(exactText).update(JSON.stringify(metadata)).digest("hex");
+  const result=await transaction(async client=>{
+    let connection=(await client.query<{id:string}>(`SELECT id FROM integration_connections WHERE vault_id=$1 AND provider='meetily' AND disconnected_at IS NULL ORDER BY created_at,id LIMIT 1`,[vaultId])).rows[0];
+    if(!connection){
+      const initial=initialIntegration("meetily");
+      await client.query(`INSERT INTO integration_connections(vault_id,provider,label,state,capabilities) VALUES ($1,'meetily','Meetily on this PC',$2,$3::jsonb) ON CONFLICT DO NOTHING`,[vaultId,initial.state,JSON.stringify(initial.capabilities)]);
+      connection=(await client.query<{id:string}>(`SELECT id FROM integration_connections WHERE vault_id=$1 AND provider='meetily' AND disconnected_at IS NULL ORDER BY created_at,id LIMIT 1`,[vaultId])).rows[0];
+    }
+    if(!connection)throw new Error("meetily_connection_unavailable");
+    const providerObjectId=`meeting:${input.meetingId}`;
+    const prior=(await client.query<Record<string,any>>(`SELECT * FROM source_objects WHERE connection_id=$1 AND provider_object_id=$2 FOR UPDATE`,[connection.id,providerObjectId])).rows[0];
+    if(prior?.excluded)return {error:"meetily_recording_excluded" as const};
+    let sourceId:string,revision=1,imported=true;
+    if(prior){
+      sourceId=prior.id;revision=prior.current_revision;
+      const current=(await client.query<{content_hash:string;metadata:Record<string,unknown>}>(`SELECT content_hash,metadata FROM source_object_revisions WHERE source_object_id=$1 AND revision=$2`,[sourceId,revision])).rows[0];
+      // A later folder scan must never overwrite words or speakers the owner corrected in Sorta.
+      if(current?.metadata?.correctionOfRevision){
+        imported=false;
+      }else if(current?.content_hash!==contentHash){
+        revision++;
+        await client.query(`INSERT INTO source_object_revisions(source_object_id,revision,content_hash,content_text,exact_content,metadata) VALUES ($1,$2,$3,$4,$4,$5::jsonb)`,[sourceId,revision,contentHash,exactText,JSON.stringify(metadata)]);
+        await client.query(`UPDATE source_objects SET title=$2,current_revision=$3,freshness='current',access_state='available',last_attempt_at=now(),last_success_at=now(),revision=revision+1,updated_at=now() WHERE id=$1`,[sourceId,input.title,revision]);
+      }else{
+        imported=false;
+        await client.query(`UPDATE source_objects SET freshness='current',last_success_at=now(),updated_at=now() WHERE id=$1`,[sourceId]);
+      }
+    }else{
+      sourceId=(await client.query<{id:string}>(`INSERT INTO source_objects(vault_id,connection_id,provider_object_id,kind,title,freshness,last_attempt_at,last_success_at,metadata) VALUES ($1,$2,$3,'transcript',$4,'current',now(),now(),$5::jsonb) RETURNING id`,[vaultId,connection.id,providerObjectId,input.title,JSON.stringify({startedAt:input.startedAt,completedAt:input.completedAt})])).rows[0].id;
+      await client.query(`INSERT INTO source_object_revisions(source_object_id,revision,content_hash,content_text,exact_content,metadata) VALUES ($1,1,$2,$3,$3,$4::jsonb)`,[sourceId,contentHash,exactText,JSON.stringify(metadata)]);
+    }
+    let lessonMatch:"matched"|"selected"|"ambiguous"|"none"="none",lessonId:string|null=null;
+    if(input.lessonId){
+      const chosen=await client.query(`SELECT id FROM school_lessons WHERE vault_id=$1 AND id=$2 AND archived_at IS NULL`,[vaultId,input.lessonId]);
+      if(!chosen.rowCount)return {error:"school_lesson_not_found" as const};
+      lessonId=input.lessonId;lessonMatch="selected";
+    }else{
+      const candidates=await client.query<{id:string}>(`SELECT id FROM school_lessons WHERE vault_id=$1 AND archived_at IS NULL AND time_spec->>'kind'='exact' AND abs(extract(epoch FROM ((time_spec->>'startsAt')::timestamptz - $2::timestamptz)))<=1200 ORDER BY id LIMIT 2`,[vaultId,input.startedAt]);
+      if(candidates.rows.length===1){lessonId=candidates.rows[0].id;lessonMatch="matched";}
+      else if(candidates.rows.length>1)lessonMatch="ambiguous";
+    }
+    const priorAssociation=(await client.query<{lesson_id:string}>(`SELECT lesson_id FROM transcript_lesson_associations WHERE source_object_id=$1`,[sourceId])).rows[0];
+    if(priorAssociation){lessonId=priorAssociation.lesson_id;lessonMatch="selected";if(imported)await client.query(`UPDATE transcript_lesson_associations SET transcript_revision=$2,revision=revision+1,updated_at=now() WHERE source_object_id=$1`,[sourceId,revision]);}
+    else if(lessonId)await client.query(`INSERT INTO transcript_lesson_associations(vault_id,source_object_id,lesson_id,transcript_revision,evidence_refs) VALUES ($1,$2,$3,$4,'{}'::uuid[])`,[vaultId,sourceId,lessonId,revision]);
+    await client.query(`UPDATE integration_connections SET imported_count=(SELECT count(*) FROM source_objects WHERE connection_id=$1),last_success_at=now(),coverage=jsonb_build_object('source','local_meetily_recordings','audio','remains_on_recording_device'),updated_at=now() WHERE id=$1`,[connection.id]);
+    return {sourceId,revision,imported,lessonMatch};
+  });
+  if("error" in result)return reply.code(result.error==="school_lesson_not_found"?404:409).send({error:result.error});
+  const [source,revision]=await Promise.all([query(`SELECT * FROM source_objects WHERE id=$1 AND vault_id=$2`,[result.sourceId,vaultId]),query(`SELECT * FROM source_object_revisions WHERE source_object_id=$1 AND revision=$2`,[result.sourceId,result.revision])]);
+  return reply.code(result.imported?201:200).send(meetilyImportResultSchema.parse({transcript:await mapTranscript(source.rows[0],revision.rows[0]),imported:result.imported,lessonMatch:result.lessonMatch}));
 });
 
 app.setErrorHandler((error, _request, reply) => {

@@ -19,6 +19,7 @@ import { desktopBridge } from "./desktop-bridge";
 import { orderSchoolAssessments, partitionSchoolAssessments } from "./school-assessment-order";
 import { openSchoolAssignmentsForToday } from "./today-school-assignments";
 import { CalendarTimeline } from "./CalendarTimeline";
+import { MeetilyWorkspace } from "./MeetilyWorkspace";
 import { isoWeekForDate } from "./calendar-week";
 import { calendarRangeLabel } from "./calendar-range-label";
 import { captureBatchTitle, captureFileSelection, MAX_CAPTURE_FILES, uploadCaptureBatch } from "./capture-batch";
@@ -441,7 +442,7 @@ function OmegaApp({ onLogout,onAuthenticationRequired }: { onLogout: () => Promi
         {view === "collection" && activeCollection && <><PageTitle eyebrow={activeCollection.collection.system ? "System collection" : "Saved collection"} title={activeCollection.collection.name} copy={`${activeCollection.items.length} matching note${activeCollection.items.length === 1 ? "" : "s"} · ${activeCollection.collection.sort.replace("_", " ")}`}/><NoteList notes={activeCollection.items} onOpen={note => { setSelectedNote(note); setView("brain"); }}/></>}
         {view === "search" && <SearchWorkspace onOpen={item=>void openSearchResult(item)} onOpenAssessment={assessmentId=>{setFocusAssessmentId(assessmentId);setView("school");}}/>}
         {view === "settings" && <><OfflineSettingsWorkspace pendingCount={pendingCount} onPendingCount={setPendingCount}/><OwnerPreferencesWorkspace/><DeviceAccessWorkspace/><VaultExportWorkspace/><IntegrationSettingsWorkspace/><CalendarAutomationPolicyWorkspace/><SchedulerPreferencesWorkspace/><SettingsWorkspace/></>}
-        {view === "school" && <><PageTitle eyebrow="School" title="What is coming up" copy="Tests, lessons, and source-backed preparation in one place."/><SchoolAssessmentsWorkspace focusId={focusAssessmentId}/><details className="advanced-workspace"><summary>Other school records and study tools</summary><SchoolImportWorkspace/><SchoolWorkspace/><SchoolLessonsWorkspace/><SchoolAssignmentsWorkspace/><AttendanceWorkspace/><PerformanceWorkspace/><StudyPlansWorkspace/><StudyPracticeWorkspace/><StudySessionsWorkspace/><KnowledgeGapsWorkspace/><FlashcardsWorkspace/></details></>}
+        {view === "school" && <><PageTitle eyebrow="School" title="What is coming up" copy="Tests, lessons, and source-backed preparation in one place."/><SchoolAssessmentsWorkspace focusId={focusAssessmentId}/><MeetilyWorkspace/><details className="advanced-workspace"><summary>Other school records and study tools</summary><SchoolImportWorkspace/><SchoolWorkspace/><SchoolLessonsWorkspace/><SchoolAssignmentsWorkspace/><AttendanceWorkspace/><PerformanceWorkspace/><StudyPlansWorkspace/><StudyPracticeWorkspace/><StudySessionsWorkspace/><KnowledgeGapsWorkspace/><FlashcardsWorkspace/></details></>}
         {view === "life" && <><LifeWorkspace/><PersonalDataWorkspace/><InterestsWorkspace/><InsightsWorkspace/></>}
       </section>
     </main>

@@ -1,0 +1,9 @@
+# Meetily class recordings in Sorta Omega
+
+Meetily is an independent Windows recorder; Sorta does not start or stop a microphone. The owner records a permitted class in Meetily on the laptop, stops it, and Meetily saves `metadata.json` plus `transcripts.json` in its recordings folder. Sorta's School page reads only completed recordings with transcribed text. It does not upload `audio.mp4`, credentials, or a browser profile.
+
+On the recording laptop, install Meetily from its [official releases](https://github.com/Zackriya-Solutions/meetily/releases). In Sorta's School page, confirm recording approval and connect the default `Music\meetily-recordings` folder. The browser remembers this folder capability locally and reuses it if read permission remains granted. While the page is open and visible, it checks every minute; “Check now” is available too. “Import a folder once” is a fallback for browsers without directory-handle access. If a browser revokes permission, select the folder again. This is **not** an unattended background service when the browser is closed.
+
+Sorta stores an idempotent, versioned Meetily transcript source. A unique exact timetable match within 20 minutes of recording start links the class lesson; zero or multiple matches stay unlinked. Existing owner transcript corrections are not overwritten by later folder scans. The source has no remote audio link; the original recording remains in Meetily on the laptop. Transcript analysis is a separate local-worker operation and remains unavailable while the AI worker is disabled for 4090 crash safety.
+
+Recording permission and handling of classmates' personal data remain the owner's responsibility. The integration does not infer permission from a timetable entry, start recording automatically, or send audio to a cloud transcription provider.
