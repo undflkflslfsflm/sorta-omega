@@ -24,13 +24,14 @@ async function filesInRecordingFolder(root: RecordingFolder): Promise<File[]> {
 }
 
 export function MeetilyWorkspace() {
+  const canWatchFolder = typeof (window as Window & { showDirectoryPicker?: unknown }).showDirectoryPicker === "function";
   const folder = useRef<RecordingFolder | null>(null);
   const running = useRef(false);
   const importedSignatures = useRef(new Map<string, string>());
   const [approved, setApproved] = useState(() => localStorage.getItem("sorta-meetily-recording-approved") === "yes");
   const [connected, setConnected] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("Select Meetily’s recordings folder once on this laptop. Sorta will check it while this page is open.");
+  const [message, setMessage] = useState(canWatchFolder ? "Select Meetily’s recordings folder once on this laptop. Sorta will check it while this page is open." : "For automatic checks, open this page in Edge or Chrome on the recording laptop. This browser can import a folder once.");
   const [items, setItems] = useState<Transcript[]>([]);
 
   async function refresh() {
@@ -77,7 +78,7 @@ export function MeetilyWorkspace() {
   async function chooseFolder() {
     if (!approved) { setMessage("Confirm recording approval first."); return; }
     const picker = (window as Window & { showDirectoryPicker?: (options?: { mode: "read" }) => Promise<RecordingFolder> }).showDirectoryPicker;
-    if (!picker) { setMessage("This browser cannot watch a local folder. Use the folder upload below in Chrome or Edge on the recording laptop."); return; }
+    if (!picker) { setMessage("This browser cannot watch a local folder. Open Sorta in Edge or Chrome on the recording laptop, or import a folder once below."); return; }
     try {
       const handle = await picker.call(window, { mode: "read" });
       folder.current = handle;
@@ -101,7 +102,7 @@ export function MeetilyWorkspace() {
     <p className="panel-copy">Record on this laptop in Meetily. When you stop, Sorta imports the completed transcript and matches it to the timetable when there is exactly one clear lesson. Audio stays on this laptop. Nothing records automatically.</p>
     <label className="meetily-consent"><input type="checkbox" checked={approved} onChange={event => { setApproved(event.target.checked); if (event.target.checked) localStorage.setItem("sorta-meetily-recording-approved", "yes"); else localStorage.removeItem("sorta-meetily-recording-approved"); }}/> I have permission to record these classes and voices.</label>
     <div className="session-actions">
-      <button type="button" className="primary" disabled={!approved || busy} onClick={() => void chooseFolder()}>{connected ? "Change recordings folder" : "Connect recordings folder"}</button>
+      {canWatchFolder && <button type="button" className="primary" disabled={!approved || busy} onClick={() => void chooseFolder()}>{connected ? "Change recordings folder" : "Connect recordings folder"}</button>}
       {connected && <button type="button" className="text-button" disabled={busy} onClick={() => { if (folder.current) void filesInRecordingFolder(folder.current).then(importFiles); }}>Check now</button>}
       <label className="text-button file-button">Import a folder once<input type="file" multiple disabled={!approved || busy} {...{ webkitdirectory: "" }} onChange={event => { const files = Array.from(event.target.files ?? []); event.target.value = ""; void importFiles(files); }}/></label>
     </div>
